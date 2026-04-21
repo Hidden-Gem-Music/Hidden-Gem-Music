@@ -8,7 +8,7 @@ export default function Mobile() {
     <View style={{ flex: 1, justifyContent: "space-between", alignItems: "center", backgroundColor: "#24293e", paddingVertical: 50 }}>
       <Text style={{ color: "#afcbff", fontSize: 24, textAlign: "center", padding: 50 }}>Welcome to Hidden Gem Music</Text>
 
-      <Text style={{ color: "#afcbff", fontSize: 16, textAlign: "center", paddingHorizontal: 20 }}>description</Text>
+      <Text style={{ color: "#afcbff", fontSize: 16, textAlign: "center", paddingHorizontal: 20 }}>insert somewhat long text that describes a problem and solution</Text>
 
       <View style={{ flex: 1 }} />
 
