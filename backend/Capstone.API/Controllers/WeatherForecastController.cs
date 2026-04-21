@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-
+Hi there!!!
 namespace Capstone.API.Controllers;
-
 [ApiController]
 [Route("[controller]")]
 public class WeatherForecastController : ControllerBase
