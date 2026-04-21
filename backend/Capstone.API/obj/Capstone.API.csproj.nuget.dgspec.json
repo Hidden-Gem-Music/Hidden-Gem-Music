@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\lkome\\OneDrive\\School\\Music_Capstone\\backend\\Capstone.API\\Capstone.API.csproj": {}
+    "C:\\Users\\4022s\\Projects\\Music_Capstone\\backend\\Capstone.API\\Capstone.API.csproj": {}
   },
   "projects": {
-    "C:\\Users\\lkome\\OneDrive\\School\\Music_Capstone\\backend\\Capstone.API\\Capstone.API.csproj": {
+    "C:\\Users\\4022s\\Projects\\Music_Capstone\\backend\\Capstone.API\\Capstone.API.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\lkome\\OneDrive\\School\\Music_Capstone\\backend\\Capstone.API\\Capstone.API.csproj",
+        "projectUniqueName": "C:\\Users\\4022s\\Projects\\Music_Capstone\\backend\\Capstone.API\\Capstone.API.csproj",
         "projectName": "Capstone.API",
-        "projectPath": "C:\\Users\\lkome\\OneDrive\\School\\Music_Capstone\\backend\\Capstone.API\\Capstone.API.csproj",
-        "packagesPath": "C:\\Users\\lkome\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\lkome\\OneDrive\\School\\Music_Capstone\\backend\\Capstone.API\\obj\\",
+        "projectPath": "C:\\Users\\4022s\\Projects\\Music_Capstone\\backend\\Capstone.API\\Capstone.API.csproj",
+        "packagesPath": "C:\\Users\\4022s\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\4022s\\Projects\\Music_Capstone\\backend\\Capstone.API\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\lkome\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\4022s\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
