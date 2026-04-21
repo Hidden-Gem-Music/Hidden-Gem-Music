@@ -1,10 +1,10 @@
 namespace Capstone.API.Models.Shared
 {
     /// <summary>
-    /// Represents a minimal song entry used in listings such as top shared songs
-    /// and top unique songs on the country profile and comparison pages.
+    /// Represents a song that charts in both countries on a comparison page,
+    /// with each country's chart rank shown side by side.
     /// </summary>
-    public class Song
+    public class SharedSong
     {
         /// <summary>
         /// Gets or sets the title of the song.
@@ -21,5 +21,15 @@ namespace Capstone.API.Models.Shared
         /// Nullable — no album data exists in Dataset 1.
         /// </summary>
         public string? AlbumName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the chart rank of this song in Country A.
+        /// </summary>
+        public int RankInCountryA { get; set; }
+
+        /// <summary>
+        /// Gets or sets the chart rank of this song in Country B.
+        /// </summary>
+        public int RankInCountryB { get; set; }
     }
 }
