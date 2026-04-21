@@ -1,15 +1,40 @@
 import { Tabs } from 'expo-router';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function TabLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: false,
-        tabBarActiveTintColor: "3a4161",
-        tabBarInactiveTintColor: "#2e344f",
-        tabBarStyle: { backgroundColor: "#2e344f", borderTopWidth: 0 },
-     }}>
-      <Tabs.Screen name="index" options={{ title: "Home" }} />
-      <Tabs.Screen name="globe" options={{ title: "Globe View" }} />
-      <Tabs.Screen name="filters" options={{ title: "Filters" }} />
+    <Tabs
+      initialRouteName="globe"
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: "#afcbff",
+        tabBarInactiveTintColor: "#afcbff",
+        tabBarStyle: {
+          backgroundColor: "#24293e",
+        }
+
+      }}
+    >
+
+      <Tabs.Screen
+        name="globe"
+        options={{
+          title: "Globe View",
+          tabBarIcon: ({ color, size }) => (
+            <IconSymbol name="globe" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="filters"
+        options={{
+          title: "Filters",
+          tabBarIcon: ({ color, size }) => (
+            <IconSymbol name="line.3.horizontal.decrease.circle.fill" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

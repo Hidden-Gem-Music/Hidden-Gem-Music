@@ -24,16 +24,6 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={24} name="house.fill" color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
         name="globe"
         options={{
           title: "Globe View",
