@@ -1,6 +1,19 @@
 mp3li's Feature Implementation Timeline for Hidden Gem Music
 
-Updated: April 21, 2026
+Updated: April 22, 2026
+
+Issue 5 Completion and Issue 6 Shell Clarification (April 22, 2026)
+- Issue #5 work was finalized and organized into the project documentation area:
+  - Frontend architecture document completed
+  - Feature implementation timeline updated
+  - Tracked backend `.NET` `obj` files removed so the existing ignore rules work correctly going forward
+- That issue-5 work was committed and pushed on its own issue branch for pull request review.
+- Issue #6 branch setup was completed from the current frontend workbase so the next shell-focused changes could be tracked separately.
+- Targeted code comments were added in the issue-6 branch to mark where the current shell work and follow-up work belong:
+  - Discovery Globe shell ownership and follow-up filter/modal area
+  - Dashboard shell area where chart placeholders and overlap-specific visuals will be added
+  - Hidden Songs detail area where the planned transparent CD case component will be implemented
+- The issue-6 comments also clarify that the CD case asset itself will only contain album art, while supporting metadata will remain in the app UI and later be filled from the dataset and external API sources as needed.
 
 Architecture Documentation and Repo Tracking Cleanup (April 21, 2026)
 - A frontend architecture document was added to record the scaffold deliverables for issue #5:
