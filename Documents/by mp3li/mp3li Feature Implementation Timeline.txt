@@ -1,6 +1,19 @@
-Feature Implementation Timeline for Hidden Gem Music
+mp3li's Feature Implementation Timeline for Hidden Gem Music
 
-Updated: April 20, 2026
+Updated: April 21, 2026
+
+Architecture Documentation and Repo Tracking Cleanup (April 21, 2026)
+- A frontend architecture document was added to record the scaffold deliverables for issue #5:
+  - Navigation structure
+  - Folder architecture
+  - Dark mode base stylesheet
+  - Component architecture
+- The documentation reflects the current React Native scaffold already present in the codebase rather than proposing a separate future structure.
+- The document was organized into the project-level `Documents/by mp3li/` area so additional frontend planning and architecture notes can be grouped together as more issue work is completed.
+- Repository cleanup work was also prepared for tracked backend `.NET` `obj` files:
+  - The existing `.gitignore` already covered `obj/`
+  - The tracked generated files were removed from Git tracking so the ignore rules can work as intended going forward
+- This cleanup is being treated as an additional repo-maintenance improvement attached to the same general setup work, since it removes machine-specific generated files from future frontend/backend collaboration noise.
 
 Project Foundation and Screen Architecture (April 17, 2026)
 - React Native project structure was created in `hidden-gem-music-app`.
