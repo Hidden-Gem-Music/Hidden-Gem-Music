@@ -80,6 +80,9 @@ export function HiddenGemsScreen({
         </Panel>
 
         <Panel style={styles.detailPanel}>
+          {/* Issue #6 follow-up area: this is the planned location for the transparent CD case component.
+              The asset itself will only contain album art; the surrounding metadata will stay in the
+              app UI and be filled from the dataset and later API-backed sources as needed. */}
           <View style={styles.coverWrap}>
             <View style={styles.coverArt}>
               <Text style={styles.coverBrand}>MONSTEREO</Text>

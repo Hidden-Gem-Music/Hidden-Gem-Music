@@ -15,6 +15,8 @@ type Props = {
 export function DashboardScreen({ year, metrics, countries }: Props) {
   return (
     <ScreenScaffold>
+      {/* Issue #6 shell: dashboard scaffold with KPI summary areas is in place.
+          Chart placeholders and expanded overlap-specific visuals will attach here next. */}
       <Text style={styles.title}>Dashboard</Text>
       <Text style={styles.subtitle}>Current yearly slice: {year}</Text>
       <View style={styles.metricRow}>
