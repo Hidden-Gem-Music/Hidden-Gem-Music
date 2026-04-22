@@ -30,6 +30,8 @@ export function DiscoveryScreen({
   selectedYear,
   onChangeYear,
 }: Props) {
+  // Issue #6 shell: this screen owns the core Discovery Globe layout,
+  // including globe rendering, country selection, panel structure, and dummy-data wiring.
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
   const [listScrollSignal, setListScrollSignal] = useState(0);
@@ -96,6 +98,8 @@ export function DiscoveryScreen({
         {isStacked ? listColumn : globeColumn}
       </View>
 
+      {/* Issue #6 follow-up area: this modal shell is in place now and will take the
+          chart/filter-related UI refinements discussed after the April 21 meeting. */}
       {allFiltersOpen ? (
         <View style={styles.overlay}>
           <View style={styles.overlayGradientWrap}>
