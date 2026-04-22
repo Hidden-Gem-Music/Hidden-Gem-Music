@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Hidden Gem Music",
+    "slug": "hidden-gem-music",
+    "scheme": "hiddengemmusic",
+    "orientation": "default",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

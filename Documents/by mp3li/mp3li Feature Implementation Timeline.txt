@@ -1,0 +1,118 @@
+mp3li's Feature Implementation Timeline for Hidden Gem Music
+
+Updated: April 21, 2026
+
+Architecture Documentation and Repo Tracking Cleanup (April 21, 2026)
+- A frontend architecture document was added to record the scaffold deliverables for issue #5:
+  - Navigation structure
+  - Folder architecture
+  - Dark mode base stylesheet
+  - Component architecture
+- The documentation reflects the current React Native scaffold already present in the codebase rather than proposing a separate future structure.
+- The document was organized into the project-level `Documents/by mp3li/` area so additional frontend planning and architecture notes can be grouped together as more issue work is completed.
+- Repository cleanup work was also prepared for tracked backend `.NET` `obj` files:
+  - The existing `.gitignore` already covered `obj/`
+  - The tracked generated files were removed from Git tracking so the ignore rules can work as intended going forward
+- This cleanup is being treated as an additional repo-maintenance improvement attached to the same general setup work, since it removes machine-specific generated files from future frontend/backend collaboration noise.
+
+Project Foundation and Screen Architecture (April 17, 2026)
+- React Native project structure was created in `hidden-gem-music-app`.
+- Shared theme primitives were established:
+  - Color tokens
+  - Typography setup
+  - Shared spacing
+  - Reusable panel / button styling
+- Uploaded Nyght Serif and Tanklager font files were wired into the app.
+- Initial route structure was built for:
+  - Welcome
+  - Discovery Globe
+  - Country
+  - Hidden Songs / Hidden Gems
+  - Comparison Select
+  - Comparison Results
+  - Dashboard
+  - Credits
+- Mock data and yearly data helpers were set up so major screens could respond to selected-year changes.
+- A loading overlay pattern was added for year-switching interactions.
+
+Core Discovery Flow and Shared UI Systems (April 18, 2026)
+- The discovery experience was split into globe and list-view panels so the app background remains visually stable while secondary content scrolls independently.
+- Search was moved into the main navigation flow instead of remaining the primary planned standalone screen.
+- Shared screen scaffolding and gradient background treatments were added to support a more polished mockup-driven layout direction.
+- The placeholder globe was separated behind platform-specific components so the app can transition to real Mapbox integration later without rewriting the higher-level discovery layout.
+- Country and comparison data views were connected to the existing year-aware mock-data structure.
+
+Visual Theme Revision and Navigation Restyling (April 19, 2026)
+- The full app palette was reworked to match the mockup art more accurately:
+  - Header gradient and nav colors
+  - Main vertical background gradient
+  - Secondary panel surfaces for globe and list views
+  - Timeline colors
+  - Scrollbar colors
+  - Globe-card top / bottom color split
+- Dark text usage was standardized away from pure black, and light text usage was standardized away from pure white.
+- Country listing outlines, list-view cards, button fills, and globe-card surfaces were updated to match the new palette.
+- The display-face usage was updated so the project now uses `NyghtSerif-MediumItalic` for the intended serif styling.
+- The top navigation was restyled with wider desktop spacing and a more responsive condensed behavior for narrower web widths.
+
+Responsive Header, Routing, and Interaction Polish (April 20, 2026)
+- The header wordmark was customized so the `i` in `Hidden` uses the gem asset as its dot, with the glyph itself adjusted to support that styling.
+- `Hidden Songs` was added to the main navigation between `Comparison Mode` and `Dashboard`.
+- Desktop navigation hover behavior was refined so inactive items show a hover underline without replacing the active-page underline state.
+- The mobile / narrow-width header now switches to a `Menu` button pattern instead of compressing the full nav row indefinitely.
+- A smaller nav-attached country search popup was implemented beneath the header:
+  - It filters countries as the user types.
+  - It returns a direct "not included" message when the typed country does not exist in the current app dataset.
+- URL hash-based route handling was added so the main screens map to browser hash state on web.
+- A breadcrumb trail was added near the bottom of the viewport so the current route hierarchy remains visible.
+- Discovery, comparison, and welcome preview layouts were all adjusted for smaller browser widths so globe-over-list stacking behaves more intentionally.
+
+Discovery Screen and Globe / List Behavior (April 20, 2026)
+- The discovery filter controls were moved out of the globe panel and into a dedicated second-row header treatment so they behave more like a floating secondary navigation row.
+- Preset filter buttons now support active and hover states, and an `All Filters` entry opens a modal shell.
+- The discovery layout supports two linked interaction modes:
+  - Hovering or selecting a globe marker focuses the related country
+  - Globe-driven focus changes can auto-scroll the list to the active country
+- List-view scrolling behavior was refined:
+  - The list no longer auto-scrolls during normal list hovering
+  - Auto-jump behavior is limited to globe-driven focus changes
+  - A persistent custom scrollbar treatment was added for the list panel
+- Globe interaction behavior was refined so hover cards, gem markers, connector styling, and hit areas better support the intended exploration flow.
+- The globe remains a styled placeholder illustration on web and native, not a real map rendering yet.
+
+Secondary Screen Implementation State (April 20, 2026)
+- Welcome screen:
+  - Includes a centered intro modal overlay with entry-point buttons for Discovery, filters, Dashboard, and Credits
+  - Reuses the same preview globe / list layout behind the intro overlay
+- Country screen:
+  - Shows year-aware headline metrics, country snapshot text, album / artist details, and quick navigation actions
+- Hidden Songs screen:
+  - Shows a year selector, a selectable song list, a selected-song detail panel, and previous / next controls
+- Comparison Mode:
+  - Allows selecting up to 3 countries
+  - Reuses the globe + list layout pattern for country selection
+  - Includes a simple results screen that compares selected-country metadata side by side
+- Dashboard:
+  - Displays derived yearly summary metrics from the mock dataset
+  - Lists the countries present in the current year slice
+- Credits screen exists in the route flow
+
+Current Data and Integration Status (April 20, 2026)
+- The app currently runs on generated mock data rather than backend-connected data.
+- Country data changes by year across the `1975-2021` range.
+- Only the Discovery Globe screen is close to being finished, style wise, plus welcome screen. All other screens are placeholders.
+- Norway has a custom hidden-song template set, while other countries use generated song variants.
+- A Mapbox config helper exists and reads `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN`, but the live globe is not yet wired to Mapbox.
+- The backend in `backend/Capstone.API` has not been integrated into the frontend flow yet.
+
+Known Placeholders and Incomplete Areas
+- Preset discovery filters currently change UI state only; they are not yet wired to actual filtering logic.
+- The `All Filters` modal is currently just a shell with a title and close action.
+- The welcome-screen project summary text is still placeholder copy.
+- The globe is still a visual placeholder instead of the planned Mapbox-backed implementation.
+
+Current Follow-up Work
+- Wire the preset filter buttons and `All Filters` buttons to real discovery filtering behavior.
+- Replace the placeholder welcome-screen summary copy with final project language.
+- Continue screen-by-screen visual alignment against the finalized mockups, especially for secondary screens.
+- Recheck narrow-width web behavior after the remaining feature screens fully adopt the updated header and filter-row patterns.
