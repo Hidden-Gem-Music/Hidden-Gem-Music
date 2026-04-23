@@ -1,5 +1,10 @@
 This is the start of the onboarding
 
+added 3 files to /screens
+"WelcomeScreen.native.tsx"
+"FiltersScreen.native.tsx"
+"GlobeScreen.native.tsx"
+
 did "npm install @expo/vector-icons"
 
 did "npm install react-native-vector-icons"
