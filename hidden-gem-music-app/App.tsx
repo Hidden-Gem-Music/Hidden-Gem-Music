@@ -37,7 +37,7 @@ const validRoutes: ScreenRoute[] = [
 ];
 
 function getRouteFromHash(): ScreenRoute {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || !window.location || !window.location.hash) {
     return "welcome";
   }
 
@@ -148,7 +148,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !window.addEventListener) {
       return;
     }
 
@@ -161,7 +161,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !window.location || !window.history) {
       return;
     }
 
