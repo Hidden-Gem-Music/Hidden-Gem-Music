@@ -172,7 +172,7 @@ Microsoft.Data.SqlClient
 
 **Rationale:**
 - Dataset 1 ends December 2021. Dataset 2 starts October 2023. Silently connecting these two periods on a chart would imply continuous data and misrepresent the historical record.
-- The gap must also be disclosed on the Welcome Screen as a data disclaimer.
+- The gap must also be disclosed as a data disclaimer.
 
 **Enforcement:**
 - KPIs must never average values across both dataset periods without labeling them as distinct timeframes.
