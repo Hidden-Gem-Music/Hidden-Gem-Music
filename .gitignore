@@ -6,6 +6,16 @@
 # dotenv files
 .env
 
+# JavaScript / Expo
+node_modules/
+.expo/
+
+# macOS metadata
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
 # User-specific files
 *.rsuser
 *.suo
