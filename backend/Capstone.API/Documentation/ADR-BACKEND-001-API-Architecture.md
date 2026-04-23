@@ -9,14 +9,14 @@
 
 ## Context
 
-The capstone project requires a backend API that serves a React Native / React Native Web frontend with music discovery data sourced from two Kaggle datasets (~30M rows combined). The API must respond fast enough for interactive use despite the volume of underlying data. The backend must also be maintainable by a three-person team over a 10-week timeline.
+The capstone project requires a backend API that serves a React Native / React Native Web frontend with music discovery data sourced from two Kaggle datasets (~28M rows combined). The API must respond fast enough for interactive use despite the volume of underlying data. The backend must also be maintainable by a three-person team over a 10-week timeline.
 
 Key constraints that shaped every decision below:
 
 - The two datasets have a **22-month gap** (December 2021 – October 2023) that must be surfaced to the user on all time-series views.
 - The largest fact table (`ChartEntry`) holds an estimated 13–16 million rows and must **never** be queried directly at API request time.
 - The team is most familiar with the .NET / C# stack from coursework.
-- The frontend is built in React Native with a web target (Expo), running locally on port 8081.
+- The frontend is built in React Native, running locally on port 8081.
 
 ---
 
@@ -39,7 +39,7 @@ Key constraints that shaped every decision below:
 
 ### 2. Database — Microsoft SQL Server (MSSQL)
 
-**Decision:** Use MSSQL as the sole data store. All schema, indexes, stored procedures, and pre-computed summary tables live in a single database named `MusicCapstone`.
+**Decision:** Use MSSQL as the sole data store. All schema, indexes, stored procedures, and pre-computed summary tables live in a single database named `HiddenGemMusic`.
 
 **Rationale:**
 - Required for Stored Procedures with the complexity needed for pre-aggregation (see Decision 4).
@@ -72,7 +72,7 @@ Controllers  →  IRepository interface  →  Repository class  →  Dapper  →
 **Packages required:**
 ```
 Microsoft.Data.SqlClient
-Dapper
+
 ```
 
 **Repository areas:**
