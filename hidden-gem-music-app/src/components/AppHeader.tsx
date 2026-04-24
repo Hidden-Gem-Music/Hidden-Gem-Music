@@ -32,9 +32,9 @@ function HiddenWord({ compact }: { compact: boolean }) {
   return (
     <View style={styles.brandWord}>
       <Text style={[styles.brandText, compact ? styles.brandTextCompact : null]}>H</Text>
-      <View style={[styles.hiddenIWrap, compact ? styles.hiddenIWrapCompact : null]}>
-        <GemIcon size={compact ? 12 : 14} style={[styles.hiddenIGem, compact ? styles.hiddenIGemCompact : null]} />
-        <Text style={[styles.brandText, compact ? styles.brandTextCompact : null, styles.hiddenIText]}>ı</Text>
+      <View style={styles.hiddenIWrap}>
+        <GemIcon size={14} style={styles.hiddenIGem} />
+        <Text style={[styles.brandText, styles.hiddenIText]}>ı</Text>
       </View>
       <Text style={[styles.brandText, compact ? styles.brandTextCompact : null]}>dden</Text>
     </View>
@@ -224,18 +224,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 1,
   },
-  hiddenIWrapCompact: {
-    width: 12,
-    height: 38,
-  },
   hiddenIGem: {
     position: "absolute",
     top: -3,
     right: -7,
-  },
-  hiddenIGemCompact: {
-    top: -4,
-    right: -8,
   },
   hiddenIText: {
     lineHeight: 42,
