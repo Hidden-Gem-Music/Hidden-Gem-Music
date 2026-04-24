@@ -3,13 +3,15 @@ import { Entypo } from "@expo/vector-icons";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
 
 type RootStackParamList = {
-  Home: undefined;
+  Welcome: undefined;
   Globe: undefined;
   Filters: undefined;
 };
 
-export default function HomeScreen() {
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+type WelcomeScreenNavigationProp = NavigationProp<RootStackParamList, "Welcome">;
+
+export default function WelcomeScreen() {
+  const navigation = useNavigation<WelcomeScreenNavigationProp>();
 
   return (
     <View style={{ flex: 1, justifyContent: "space-between", alignItems: "center", backgroundColor: "#24293e", paddingVertical: 50 }}>

@@ -1,8 +1,9 @@
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, Platform } from "react-native";
 
+import MobileNavigator from "./src/navigation/MobileNavigator.native";
 import { AppHeader } from "./src/components/AppHeader";
 import { LoadingOverlay } from "./src/components/LoadingOverlay";
 import { CreditsScreen } from "./src/screens/CreditsScreen";
@@ -240,6 +241,11 @@ export default function App() {
 
   if (!fontsLoaded) {
     return <View style={styles.appShell} />;
+  }
+
+  // Render mobile navigator for native platforms
+  if (Platform.OS !== "web") {
+    return <MobileNavigator />;
   }
 
   return (
