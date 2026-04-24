@@ -6,4 +6,4 @@ changed the file
 "index.native.tsx" to "WelcomeScreen.native.tsx"
 
 added navigation in "App.tsx"
-and "MobileNavigator.tsx"S
+and "MobileNavigator.tsx"
