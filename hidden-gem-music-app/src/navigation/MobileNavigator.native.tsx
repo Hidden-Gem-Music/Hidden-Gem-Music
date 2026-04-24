@@ -18,8 +18,7 @@ export default function MobileNavigator() {
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{
-          headerShown: false,
-          animationEnabled: true,
+          headerShown: false
         }}
       >
         <Stack.Screen
