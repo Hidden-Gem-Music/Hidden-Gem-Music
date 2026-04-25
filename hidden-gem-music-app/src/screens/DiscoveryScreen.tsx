@@ -3,10 +3,9 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { Country } from "../types/content";
-import { CountryCard } from "../components/CountryCard";
-import { FilterBar, presetFilters } from "../components/FilterBar";
+import { DiscoveryBlurb } from "../components/DiscoveryBlurb";
+import { DiscoverySidebarPanels } from "../components/DiscoverySidebarPanels";
 import { GlobePanel } from "../components/globe/GlobePanel";
-import { ListViewPanel } from "../components/ListViewPanel";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { YearSlider } from "../components/YearSlider";
@@ -34,38 +33,23 @@ export function DiscoveryScreen({
   // including globe rendering, country selection, panel structure, and dummy-data wiring.
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
-  const [listScrollSignal, setListScrollSignal] = useState(0);
-  const [activeFilter, setActiveFilter] = useState<(typeof presetFilters)[number] | null>(null);
   const [allFiltersOpen, setAllFiltersOpen] = useState(false);
+  const [listAutoScrollSignal, setListAutoScrollSignal] = useState(0);
 
   const handleGlobeFocus = (countryId: string) => {
     onSelectCountry(countryId);
-    setListScrollSignal((current) => current + 1);
+    setListAutoScrollSignal((current) => current + 1);
   };
 
   const listColumn = (
     <View style={[styles.leftColumn, isStacked ? styles.columnStacked : null]}>
-      <ListViewPanel
-        subtitle={"Select a country, use Comparison Mode,\nor the Dashboard to discover more."}
-        itemIds={countries.map((country) => country.id)}
-        selectedItemId={selectedCountryId}
-        subtitleRight
-        autoScrollSignal={listScrollSignal}
-      >
-        {countries.map((country) => (
-          <CountryCard
-            key={country.id}
-            country={country}
-            selected={country.id === selectedCountryId}
-            onHover={() => onSelectCountry(country.id)}
-            onTitlePress={() => onOpenCountry(country.id)}
-            onPress={() => {
-              onSelectCountry(country.id);
-              onOpenCountry(country.id);
-            }}
-          />
-        ))}
-      </ListViewPanel>
+      <DiscoverySidebarPanels
+        countries={countries}
+        selectedCountryId={selectedCountryId}
+        onSelectCountry={onSelectCountry}
+        onOpenCountry={onOpenCountry}
+        autoScrollSignal={listAutoScrollSignal}
+      />
     </View>
   );
 
@@ -77,7 +61,8 @@ export function DiscoveryScreen({
         onSelectCountry={handleGlobeFocus}
         onOpenCountry={onOpenCountry}
         title="Globe View"
-        subtitle={"Hover over gems to view that country,\nor click to view the country page."}
+        onRightAction={() => setAllFiltersOpen(true)}
+        showHeader={false}
       />
       <YearSlider year={selectedYear} onChangeYear={onChangeYear} />
     </View>
@@ -85,17 +70,22 @@ export function DiscoveryScreen({
 
   return (
     <ScreenScaffold>
-      <FilterBar
-        activeFilter={activeFilter}
-        onSelectFilter={(filter) => {
-          setAllFiltersOpen(false);
-          setActiveFilter((current) => (current === filter ? null : filter));
-        }}
-        onOpenAllFilters={() => setAllFiltersOpen(true)}
-      />
-      <View style={[styles.layout, isStacked ? styles.layoutStacked : null]}>
-        {isStacked ? globeColumn : listColumn}
-        {isStacked ? listColumn : globeColumn}
+      <View style={styles.discoveryStack}>
+        {/*
+        <FilterBar
+          activeFilter={activeFilter}
+          onSelectFilter={(filter) => {
+            setAllFiltersOpen(false);
+            setActiveFilter((current) => (current === filter ? null : filter));
+          }}
+          onOpenAllFilters={() => setAllFiltersOpen(true)}
+        />
+        */}
+        <DiscoveryBlurb />
+        <View style={[styles.layout, isStacked ? styles.layoutStacked : null]}>
+          {isStacked ? globeColumn : listColumn}
+          {isStacked ? listColumn : globeColumn}
+        </View>
       </View>
 
       {/* Issue #6 follow-up area: this modal shell is in place now and will take the
@@ -137,6 +127,9 @@ export function DiscoveryScreen({
 }
 
 const styles = StyleSheet.create({
+  discoveryStack: {
+    gap: 24,
+  },
   layout: {
     flexDirection: "row",
     gap: 24,

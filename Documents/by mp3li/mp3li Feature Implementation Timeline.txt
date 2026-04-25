@@ -1,6 +1,59 @@
 mp3li's Feature Implementation Timeline for Hidden Gem Music
 
-Updated: April 22, 2026
+Updated: April 23, 2026
+
+Discovery / Welcome UI Continuation, Timeline Gap Handling, and Iteration Notes (April 23, 2026)
+- Discovery and Welcome were brought back into a matched visual structure so the user sees the same core layout language before and after leaving the welcome overlay:
+  - A shared discovery blurb component was added above the secondary content area
+  - Shared left-side stacked panel behavior was introduced so both screens use the same expandable / collapsible shell treatment
+  - The previous discovery filter row and the extra `Globe View` / `List View` helper-label treatment were removed from active use
+- The new discovery blurb went through multiple refinement passes based on mockup feedback:
+  - Secondary background sizing and spacing were adjusted so the blurb fills the reclaimed space cleanly without disturbing the globe / list panel placements
+  - Typography was split between `Nyght Serif` for the title and `Tanklager` for the body
+  - A gem separator was added between the title and body copy
+  - Gradient behavior was revised so the blurb uses a lighter version of the app-background lower color treatment instead of a harsher blocky finish
+  - The text block still needs additional centering polish, since visual centering inside the blurb remains slightly off compared with the intended mockup
+- The old single list-view panel was replaced, within the same overall footprint, by two stacked sections with their own secondary backgrounds:
+  - `Pre-Selected Filters`
+  - `List View`
+- Those left-side sections were built as mutually exclusive expand / collapse regions:
+  - `Pre-Selected Filters` opens by default
+  - `List View` starts collapsed
+  - Clicking the currently open section swaps expansion to the other section so both panels cannot end up collapsed at the same time
+- `Pre-Selected Filters` was repurposed from the earlier horizontal filter-row work instead of throwing that code away:
+  - The filter controls were preserved and reused as a vertical full-width button stack
+  - Each row now includes a short right-side explanatory note
+  - The filter rows, Welcome buttons, and `All Filters` control were visually aligned around the same hover and pressed-state behavior
+- The globe panel and list interactions were iterated heavily to solve regressions introduced during the sidebar redesign:
+  - The `All Filters` control was moved into the upper-right area of the globe panel
+  - The globe itself was scaled up slightly inside the same secondary panel footprint
+  - Hovering globe gems once again jumps the list to the matching country
+  - A prior regression caused the list to scroll while hovering directly inside the list itself; that behavior was corrected so list scrolling is once again manual unless the globe triggers the focus change
+- Persistent custom scrollbar behavior was extended to both stacked left-side sections:
+  - `List View` keeps an always-visible custom scrollbar
+  - `Pre-Selected Filters` now uses the same scrollbar treatment
+  - Extra lower padding was added so the final filter row does not sit flush against the end of the panel
+- Secondary background styling was consolidated into a shared gradient fill system so the blurb, left-side panels, and globe panel all use a more consistent layered surface treatment.
+- The discovery timeline control was updated to represent a dataset gap in the later historical range:
+  - A dark blocked section was added onto the slider track
+  - The thumb cannot stop inside the unavailable-year segment
+  - A centered Tanklager disclaimer was added below the timeline and then repositioned upward for better spacing balance
+- Welcome routing and entry-point actions were revised:
+  - Welcome buttons now route to `Discovery Globe`, `Comparison Mode`, `Hidden Songs`, `Dashboard`, and `Credits`
+  - The `Exit` button was removed
+  - Welcome button hover / click states were updated to visually match the discovery filter-button interaction language
+- The Credits screen text content was stripped back out entirely after placeholder copy was deemed inappropriate for the intended page state.
+- Additional responsive header work was attempted on the `Hidden` wordmark so the `i` and gem dot keep their intended appearance on narrower layouts.
+  - This area remains unresolved after several passes, and still needs a better mobile-width solution that preserves the large-layout look more faithfully.
+- Overall problem / solution pattern during this round:
+  - Problem: Discovery and Welcome had drifted apart visually, making the transition between them feel inconsistent
+  - Solution: Shared blurb and shared sidebar panel components were introduced so both screens now inherit the same structure and can be tuned together
+  - Problem: Replacing the list panel introduced list-hover auto-scrolling and broke globe-to-list focus behavior
+  - Solution: Auto-scroll was restricted to globe-driven selection changes only, while list-hover behavior was returned to manual-scroll-only interaction
+  - Problem: Secondary panel gradients initially looked too short and blocky
+  - Solution: Gradient fills were smoothed, spread vertically, and consolidated into a reusable secondary-surface treatment
+  - Problem: Several UI passes added placeholder or extra behavior the user did not want
+  - Solution: Those elements were stripped back out, and the screen was repeatedly re-aligned toward the requested mockup-driven layout rather than speculative additions
 
 Issue 5 Completion and Issue 6 Shell Clarification (April 22, 2026)
 - Issue #5 work was finalized and organized into the project documentation area:

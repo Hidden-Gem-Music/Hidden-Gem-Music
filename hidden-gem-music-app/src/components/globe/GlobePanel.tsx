@@ -1,8 +1,12 @@
-import { StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Country } from "../../types/content";
 import { colors } from "../../theme/colors";
 import { typefaces } from "../../theme/typography";
+import { GemIcon } from "../GemIcon";
 import { Panel } from "../Panel";
+import { SecondarySurfaceFill } from "../SecondarySurfaceFill";
 import { GlobeView } from "./GlobeView";
 
 type Props = {
@@ -14,6 +18,7 @@ type Props = {
   subtitle?: string;
   rightActionLabel?: string;
   onRightAction?: () => void;
+  showHeader?: boolean;
 };
 
 export function GlobePanel({
@@ -25,29 +30,63 @@ export function GlobePanel({
   subtitle,
   rightActionLabel = "All Filters",
   onRightAction,
+  showHeader = true,
 }: Props) {
   const activeCountry = countries.find((country) => country.id === activeCountryId) ?? countries[0];
+  const [isButtonHovered, setIsButtonHovered] = useState(false);
+  const [isButtonPressed, setIsButtonPressed] = useState(false);
+  const showButtonGradient = isButtonHovered || isButtonPressed;
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.headerRow}>
-        {title ? <Text style={styles.title}>{title}</Text> : <View />}
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : <View />}
-      </View>
+      {showHeader ? (
+        <View style={styles.headerRow}>
+          {title ? <Text style={styles.title}>{title}</Text> : <View />}
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : <View />}
+        </View>
+      ) : null}
 
       <Panel style={styles.frame}>
+        <SecondarySurfaceFill />
         <GlobeView
           countries={countries}
           activeCountry={activeCountry}
           onSelectCountry={onSelectCountry}
           onOpenCountry={onOpenCountry}
         />
+        {onRightAction ? (
+          <Pressable
+            onPress={onRightAction}
+            onHoverIn={() => setIsButtonHovered(true)}
+            onHoverOut={() => setIsButtonHovered(false)}
+            onPressIn={() => setIsButtonPressed(true)}
+            onPressOut={() => setIsButtonPressed(false)}
+            style={styles.actionButtonShell}
+          >
+            {showButtonGradient ? (
+              <LinearGradient
+                colors={
+                  isButtonPressed
+                    ? [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised]
+                    : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]
+                }
+                locations={[0, 0.34, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.actionButtonGradient}
+              />
+            ) : null}
+            <View style={[styles.actionButton, showButtonGradient ? styles.actionButtonActive : null]}>
+              <View style={styles.actionButtonContent}>
+                <GemIcon size={22} />
+                <Text style={[styles.actionButtonText, showButtonGradient ? styles.actionButtonTextActive : null]}>
+                  {rightActionLabel}
+                </Text>
+              </View>
+            </View>
+          </Pressable>
+        ) : null}
       </Panel>
-      {onRightAction ? (
-        <Text style={styles.actionLink} onPress={onRightAction}>
-          {rightActionLabel}
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -85,12 +124,47 @@ const styles = StyleSheet.create({
     minHeight: 540,
     overflow: "hidden",
     padding: 0,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: "transparent",
   },
-  actionLink: {
-    color: colors.accentSoft,
-    fontFamily: typefaces.body,
-    fontSize: 16,
-    textAlign: "right",
+  actionButtonShell: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    borderRadius: 14,
+    overflow: "hidden",
+    zIndex: 2,
+  },
+  actionButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  actionButton: {
+    minHeight: 58,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    justifyContent: "center",
+  },
+  actionButtonActive: {
+    backgroundColor: "transparent",
+  },
+  actionButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  actionButtonText: {
+    color: colors.border,
+    fontFamily: typefaces.condensed,
+    fontSize: 19,
+    fontWeight: "600",
+    lineHeight: 24,
+    textAlign: "center",
+  },
+  actionButtonTextActive: {
+    color: colors.text,
   },
 });

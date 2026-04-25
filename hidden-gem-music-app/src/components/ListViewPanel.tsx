@@ -14,6 +14,7 @@ import {
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 import { Panel } from "./Panel";
+import { SecondarySurfaceFill } from "./SecondarySurfaceFill";
 
 type Props = {
   title?: string;
@@ -23,6 +24,7 @@ type Props = {
   selectedItemId?: string;
   subtitleRight?: boolean;
   autoScrollSignal?: number;
+  showHeader?: boolean;
 };
 
 export function ListViewPanel({
@@ -33,6 +35,7 @@ export function ListViewPanel({
   selectedItemId,
   subtitleRight = false,
   autoScrollSignal,
+  showHeader = true,
 }: Props) {
   const scrollRef = useRef<ScrollView>(null);
   const trackRef = useRef<View>(null);
@@ -116,11 +119,14 @@ export function ListViewPanel({
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={[styles.subtitle, subtitleRight ? styles.subtitleRight : null]}>{subtitle}</Text> : null}
-      </View>
-      <Panel style={styles.frame}>
+      {showHeader ? (
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>{title}</Text>
+          {subtitle ? <Text style={[styles.subtitle, subtitleRight ? styles.subtitleRight : null]}>{subtitle}</Text> : null}
+        </View>
+      ) : null}
+      <Panel style={[styles.frame, !showHeader ? styles.frameHeaderHidden : null]}>
+        <SecondarySurfaceFill />
         <ScrollView
           ref={scrollRef}
           nativeID="list-view-scroll"
@@ -211,7 +217,10 @@ const styles = StyleSheet.create({
     maxHeight: 642,
     padding: 0,
     overflow: "hidden",
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: "transparent",
+  },
+  frameHeaderHidden: {
+    marginTop: 0,
   },
   scrollView: {
     ...(Platform.OS === "web"

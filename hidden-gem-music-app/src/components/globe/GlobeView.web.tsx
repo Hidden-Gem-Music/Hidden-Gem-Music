@@ -17,7 +17,7 @@ export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCou
   const { width } = useWindowDimensions();
   const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sceneSize = Math.max(280, Math.min(400, width - 140));
+  const sceneSize = Math.max(320, Math.min(440, width - 110));
   const sceneInset = (sceneSize - 400) / 2;
   const sceneScale = sceneSize / 400;
   const hoveredCountry = countries.find((country) => country.id === hoveredCountryId) ?? null;
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     minHeight: 520,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: "transparent",
   },
   scene: {
     position: "relative",
