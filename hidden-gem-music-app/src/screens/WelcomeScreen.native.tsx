@@ -1,11 +1,15 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 
-export type Props = {
-  navigation?: any;
+type Props = {
+  countries: any[];
+  onNavigate: (route: any) => void;
+  onSelectCountry: (id: string) => void;
+  selectedYear: number;
+  onChangeYear: (year: number) => void;
 };
 
-export function WelcomeScreen({ navigation }: Props) {
+export function WelcomeScreen({ onNavigate }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Hidden Gem Music</Text>
@@ -19,14 +23,14 @@ export function WelcomeScreen({ navigation }: Props) {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => navigation?.navigate("discovery")}
+          onPress={() => onNavigate("discovery")}
         >
           <Text style={styles.buttonText}>Globe</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.button}
-          onPress={() => navigation?.navigate("comparisonSelect")}
+          onPress={() => onNavigate("comparisonSelect")}
         >
           <Text style={styles.buttonText}>Filters</Text>
         </TouchableOpacity>
