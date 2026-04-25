@@ -13,7 +13,7 @@ import { typefaces } from "../theme/typography";
 const navItems: Array<{ label: string; route: ScreenRoute }> = [
   { label: "Discovery Globe", route: "discovery" },
   { label: "Comparison Mode", route: "comparisonSelect" },
-  { label: "Hidden Songs", route: "hiddenGems" },
+  { label: "Hidden Gems", route: "hiddenGems" },
   { label: "Dashboard", route: "dashboard" },
   { label: "Credits", route: "credits" },
 ];
@@ -21,6 +21,7 @@ const navItems: Array<{ label: string; route: ScreenRoute }> = [
 type Props = {
   currentRoute: ScreenRoute;
   onNavigate: (route: ScreenRoute) => void;
+  breadcrumbs: Array<{ label: string; route: ScreenRoute | null }>;
   searchOpen: boolean;
   onToggleSearch: () => void;
   onCloseSearch: () => void;
@@ -54,6 +55,7 @@ function BrandWordmark({ compact }: { compact: boolean }) {
 export function AppHeader({
   currentRoute,
   onNavigate,
+  breadcrumbs,
   searchOpen,
   onToggleSearch,
   onCloseSearch,
@@ -164,7 +166,26 @@ export function AppHeader({
           </View>
         )}
       </View>
+      <View style={styles.breadcrumbBar}>
+        <View style={styles.breadcrumbRow}>
+          {breadcrumbs.map((crumb, index) => {
+            const isLast = index === breadcrumbs.length - 1;
 
+            return (
+              <View key={`${crumb.label}-${index}`} style={styles.breadcrumbItem}>
+                {crumb.route && !isLast ? (
+                  <Pressable onPress={() => handleNavigate(crumb.route!)} hitSlop={6}>
+                    <Text style={[styles.breadcrumbText, index === 0 ? styles.breadcrumbHome : styles.breadcrumbLink]}>{crumb.label}</Text>
+                  </Pressable>
+                ) : (
+                  <Text style={[styles.breadcrumbText, isLast ? styles.breadcrumbCurrent : null]}>{crumb.label}</Text>
+                )}
+                {!isLast ? <Text style={styles.breadcrumbSeparator}> / </Text> : null}
+              </View>
+            );
+          })}
+        </View>
+      </View>
     </LinearGradient>
   );
 }
@@ -173,9 +194,7 @@ const styles = StyleSheet.create({
   wrapper: {
     paddingTop: spacing.lg,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 4,
-    borderBottomColor: colors.border,
+    paddingBottom: 0,
     position: "relative",
     zIndex: 10,
   },
@@ -260,6 +279,47 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     borderBottomWidth: 3,
     borderBottomColor: "transparent",
+  },
+  breadcrumbBar: {
+    minHeight: 34,
+    justifyContent: "center",
+    marginTop: spacing.md,
+    marginHorizontal: -spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 7,
+    backgroundColor: colors.border,
+  },
+  breadcrumbRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    flexWrap: "wrap",
+    maxWidth: "100%",
+  },
+  breadcrumbItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  breadcrumbText: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  breadcrumbLink: {
+    textDecorationLine: "none",
+  },
+  breadcrumbHome: {
+    textDecorationLine: "underline",
+  },
+  breadcrumbCurrent: {
+    color: colors.text,
+  },
+  breadcrumbSeparator: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 18,
   },
   navItemTight: {
     minWidth: 138,

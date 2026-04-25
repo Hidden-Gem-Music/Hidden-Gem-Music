@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Ccaron</key>
+    <string>C_caron.glif</string>
+    <key>Cdotaccent</key>
+    <string>C_dotaccent.glif</string>
+    <key>Dcaron</key>
+    <string>D_caron.glif</string>
+    <key>Ecircumflex</key>
+    <string>E_circumflex.glif</string>
+    <key>breve</key>
+    <string>breve.glif</string>
+    <key>caron</key>
+    <string>caron.glif</string>
+    <key>cedilla</key>
+    <string>cedilla.glif</string>
+    <key>circumflex</key>
+    <string>circumflex.glif</string>
+    <key>dotaccent</key>
+    <string>dotaccent.glif</string>
+    <key>macron</key>
+    <string>macron.glif</string>
+    <key>uni0136</key>
+    <string>uni0136.glif</string>
+  </dict>
+</plist>

@@ -1,0 +1,1386 @@
+import { LinearGradient } from "expo-linear-gradient";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleProp,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  ViewStyle,
+} from "react-native";
+
+import { ActionButton } from "../components/ActionButton";
+import { GemIcon } from "../components/GemIcon";
+import { Panel } from "../components/Panel";
+import { ScreenScaffold } from "../components/ScreenScaffold";
+import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
+import { YearSelector } from "../components/YearSelector";
+import { Country } from "../types/content";
+import { ScreenRoute } from "../types/navigation";
+import { colors } from "../theme/colors";
+import { typefaces } from "../theme/typography";
+
+export type Props = {
+  country: Country;
+  onNavigate: (route: ScreenRoute) => void;
+  selectedYear: number;
+  onChangeYear: (year: number) => void;
+};
+
+type SongPreview = {
+  title: string;
+  artist: string;
+  detail: string;
+  score: number;
+};
+
+type BreakdownItem = {
+  label: string;
+  percent: number;
+};
+
+type CountryProfileViewModel = {
+  totalCharted: number;
+  sharedCount: number;
+  uniqueCount: number;
+  overlapPercent: number;
+  distinctPercent: number;
+  summary: string;
+  sharedSongs: SongPreview[];
+  uniqueSongs: SongPreview[];
+  hiddenGems: SongPreview[];
+  genreBreakdown: BreakdownItem[];
+  languageBreakdown: BreakdownItem[];
+};
+
+const vibeTerms = ["Radio Lift", "Night Signal", "Late Echo", "City Current", "Bright Repeat", "Afterglow Cut"];
+const hiddenTerms = ["Buried Signal", "Quiet Circuit", "Glass Room", "Moon Static", "Deep Receiver", "Soft Relay"];
+const genreChartColors = ["#4F5978", "#64718F", "#7786A4", "#90A0BC", "#AAB8D0", "#C6D2E5"];
+const languageChartColors = ["#51607E", "#68789A", "#8292B0", "#9FADD0"];
+const carouselBackdropColors = ["#B86A72", "#8B9BC0", "#8B5E7A", "#627F8A", "#C28C5E", "#7A7EB0"];
+const cdCaseSource = require("../assets/images/CD-Case-Transparent-Image.png");
+const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
+const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function hashString(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) % 100000;
+  }
+  return hash;
+}
+
+function createPercentBreakdown(labels: string[], seed: number) {
+  const safeLabels = labels.length > 0 ? labels : ["No Data"];
+  const weights = safeLabels.map((_, index) => ((seed + index * 17) % 23) + 10);
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+
+  let runningTotal = 0;
+  return safeLabels.map((label, index) => {
+    const isLast = index === safeLabels.length - 1;
+    const percent = isLast ? 100 - runningTotal : Math.round((weights[index] / totalWeight) * 100);
+    runningTotal += percent;
+    return { label, percent };
+  });
+}
+
+function createSongPreview(title: string, artist: string, detail: string, score: number): SongPreview {
+  return {
+    title,
+    artist,
+    detail,
+    score,
+  };
+}
+
+function buildCountryProfile(country: Country, year: number): CountryProfileViewModel {
+  const seed = hashString(`${country.code}-${year}`);
+  const totalCharted = clamp(
+    56 + (seed % 28) + country.hiddenSongs + country.genres.length * 8 + country.languages.length * 6,
+    60,
+    128
+  );
+  const overlapPercent = clamp(42 + (seed % 24) + country.genres.length * 2 - country.languages.length, 36, 82);
+  const sharedCount = Math.round(totalCharted * (overlapPercent / 100));
+  const uniqueCount = totalCharted - sharedCount;
+  const distinctPercent = 100 - overlapPercent;
+  const leadArtist = country.featuredArtists[0] ?? country.albumArtist;
+  const secondArtist = country.featuredArtists[1] ?? country.albumArtist;
+  const thirdArtist = country.featuredArtists[2] ?? leadArtist;
+
+  const sharedSongs = Array.from({ length: 10 }, (_, index) =>
+    createSongPreview(
+      index === 0 ? country.topSong : `${country.album} ${vibeTerms[(seed + index) % vibeTerms.length]}`,
+      [country.albumArtist, leadArtist, secondArtist, thirdArtist][index % 4],
+      index % 2 === 0 ? "Loved in this country and echoed across other countries" : "Carries broad crossover pull beyond this country",
+      clamp(overlapPercent + 10 - index, 44, 96)
+    )
+  );
+
+  const uniqueSongs = Array.from({ length: 10 }, (_, index) =>
+    createSongPreview(
+      index === 0 ? `${country.region} Private Mix` : `${country.name} ${hiddenTerms[(seed + index) % hiddenTerms.length]}`,
+      [leadArtist, secondArtist, thirdArtist, country.albumArtist][index % 4],
+      index % 2 === 0 ? `Feels especially loved in ${country.name}` : `Shows a more country-specific listening pull for ${country.name}`,
+      clamp(distinctPercent + 28 - index, 38, 95)
+    )
+  );
+
+  const hiddenGems = Array.from({ length: 5 }, (_, index) =>
+    createSongPreview(
+      index === 0 ? `${country.topSong} (Hidden Gem Cut)` : `${country.name} ${hiddenTerms[(seed + index) % hiddenTerms.length]}`,
+      [country.albumArtist, leadArtist, secondArtist, thirdArtist][index % 4],
+      "TrendScore preview",
+      clamp(country.hiddenSongs * 11 + 27 - index * 2, 34, 97)
+    )
+  );
+
+  const genreBreakdown = createPercentBreakdown(country.genres, seed + 13);
+  const languageBreakdown = createPercentBreakdown(country.languages, seed + 41);
+  const summary = `In this ${year} view of ${country.name}, ${totalCharted} songs are included in our data. ${sharedCount} of those songs are also popular in other countries, while ${uniqueCount} are most loved in ${country.name}.`;
+
+  return {
+    totalCharted,
+    sharedCount,
+    uniqueCount,
+    overlapPercent,
+    distinctPercent,
+    summary,
+    sharedSongs,
+    uniqueSongs,
+    hiddenGems,
+    genreBreakdown,
+    languageBreakdown,
+  };
+}
+
+function CountryPageSection({
+  children,
+  style,
+  fillVariant = "default",
+  contentStyle,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  fillVariant?: "default" | "blurb" | "softBlue";
+  contentStyle?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <Panel style={[styles.secondaryPanel, style]}>
+      {fillVariant === "blurb" ? (
+        <LinearGradient
+          colors={[colors.surfaceSecondary, "#27293B", "rgba(66,72,101,0.42)", "rgba(66,72,101,0.72)"]}
+          locations={[0, 0.42, 0.78, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.customFill}
+        />
+      ) : fillVariant === "softBlue" ? (
+        <LinearGradient
+          colors={[colors.backgroundSoft, "#74819B", "#5D6983", colors.backgroundBottom]}
+          locations={[0, 0.48, 0.82, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.customFill}
+        />
+      ) : (
+        <SecondarySurfaceFill />
+      )}
+      <View style={[styles.secondaryPanelContent, contentStyle]}>{children}</View>
+    </Panel>
+  );
+}
+
+function StatSquare({ label, value, note }: { label: string; value: string; note: string }) {
+  return (
+    <CountryPageSection style={styles.statSquare} contentStyle={styles.statSquareContent}>
+      <Text style={styles.statSquareLabel}>{label}</Text>
+      <Text style={styles.statSquareValue}>{value}</Text>
+      <Text style={styles.statSquareNote}>{note}</Text>
+    </CountryPageSection>
+  );
+}
+
+function CdCase({
+  size,
+  artColor,
+  withArtBackdrop = true,
+}: {
+  size: number;
+  artColor?: string;
+  withArtBackdrop?: boolean;
+}) {
+  return (
+    <View style={[styles.cdCaseFrame, { width: size, height: size }]}>
+      {withArtBackdrop ? (
+        <View style={styles.cdCaseBackdropWrap}>
+          <View
+            style={[
+              styles.cdCaseBackdrop,
+              {
+                width: Math.round(size * 0.82),
+                height: Math.round(size * 0.82),
+                backgroundColor: artColor ?? "rgba(108,119,142,0.42)",
+              },
+            ]}
+          />
+        </View>
+      ) : null}
+      <Image source={cdCaseSource} style={[styles.cdCaseImage, { width: size, height: size }]} resizeMode="contain" />
+    </View>
+  );
+}
+
+function MainComparisonArea({
+  title,
+  subtext,
+  songs,
+}: {
+  title: string;
+  subtext?: string;
+  songs: SongPreview[];
+}) {
+  const scrollRef = useRef<ScrollView>(null);
+  const trackRef = useRef<View>(null);
+  const [hoveredSongKey, setHoveredSongKey] = useState<string | null>(null);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+  const [scrollY, setScrollY] = useState(0);
+  const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
+  const scrollbarVisible = Platform.OS === "web" && viewportHeight > 0;
+  const hasOverflow = scrollbarVisible && contentHeight > viewportHeight;
+  const trackHeight = Math.max(viewportHeight - 20, 1);
+  const thumbHeight = scrollbarVisible
+    ? hasOverflow
+      ? Math.max((viewportHeight / contentHeight) * viewportHeight, 52)
+      : trackHeight
+    : 0;
+  const thumbTop = hasOverflow ? (scrollY / (contentHeight - viewportHeight)) * (viewportHeight - thumbHeight) : 0;
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setScrollY(event.nativeEvent.contentOffset.y);
+  };
+
+  const scrollToTrackLocation = (locationY: number) => {
+    if (!hasOverflow || contentHeight <= viewportHeight) {
+      return;
+    }
+
+    const nextThumbTop = Math.min(Math.max(locationY - thumbHeight / 2, 0), trackHeight - thumbHeight);
+    const nextRatio = nextThumbTop / (trackHeight - thumbHeight);
+    const nextScrollY = nextRatio * (contentHeight - viewportHeight);
+    scrollRef.current?.scrollTo({ y: nextScrollY, animated: false });
+    setScrollY(nextScrollY);
+  };
+
+  const scrollToClientY = (clientY: number) => {
+    const rect = (trackRef.current as any)?.getBoundingClientRect?.();
+    if (!rect) {
+      return;
+    }
+
+    scrollToTrackLocation(clientY - rect.top);
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || !isDraggingScrollbar || typeof document === "undefined") {
+      return;
+    }
+
+    const previousUserSelect = document.body.style.userSelect;
+
+    const handleMove = (event: MouseEvent) => {
+      event.preventDefault();
+      scrollToClientY(event.clientY);
+    };
+
+    const handleUp = () => {
+      setIsDraggingScrollbar(false);
+    };
+
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+    };
+  }, [isDraggingScrollbar, hasOverflow, thumbHeight, trackHeight, contentHeight, viewportHeight]);
+
+  return (
+    <View style={styles.mainComparisonArea}>
+      <Text style={styles.panelTitle}>{title}</Text>
+      <View style={styles.mainComparisonListFrame}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.mainComparisonScroll}
+          contentContainerStyle={styles.mainComparisonListContent}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={Platform.OS !== "web"}
+          onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
+          onContentSizeChange={(_, height) => setContentHeight(height)}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        >
+          {songs.map((song, index) => (
+            <Pressable
+              key={`${title}-${song.title}-${song.artist}`}
+              onPress={() => undefined}
+              onHoverIn={() => setHoveredSongKey(`${title}-${song.title}-${song.artist}`)}
+              onHoverOut={() => setHoveredSongKey((current) => (current === `${title}-${song.title}-${song.artist}` ? null : current))}
+              style={styles.songRowShell}
+            >
+              {({ pressed }) => {
+                const songKey = `${title}-${song.title}-${song.artist}`;
+                const showGradient = hoveredSongKey === songKey || pressed;
+
+                return (
+                  <>
+                    {showGradient ? (
+                      <LinearGradient
+                        colors={pressed ? activeGradient : hoverGradient}
+                        locations={[0, 0.34, 1]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.songRowGradient}
+                      />
+                    ) : null}
+                    <View style={[styles.songRow, showGradient ? styles.songRowActive : null]}>
+                      <View style={styles.songCopy}>
+                        <Text style={[styles.songTitle, showGradient ? styles.songTextActive : null]}>{song.title}</Text>
+                        <Text style={[styles.songMeta, showGradient ? styles.songTextActive : null]}>{song.artist}</Text>
+                      </View>
+                      <CdCase size={84} artColor={carouselBackdropColors[index % carouselBackdropColors.length]} />
+                    </View>
+                  </>
+                );
+              }}
+            </Pressable>
+          ))}
+        </ScrollView>
+        {scrollbarVisible ? (
+          <View
+            ref={trackRef}
+            style={styles.mainComparisonScrollbarTrack}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={(event) => scrollToTrackLocation(event.nativeEvent.locationY)}
+            onResponderMove={(event) => scrollToTrackLocation(event.nativeEvent.locationY)}
+            {...(Platform.OS === "web"
+              ? ({
+                  onMouseDown: (event: any) => {
+                    event.preventDefault();
+                    setIsDraggingScrollbar(true);
+                    scrollToClientY(event.clientY);
+                  },
+                } as any)
+              : {})}
+          >
+            <View style={[styles.mainComparisonScrollbarThumb, { height: thumbHeight, transform: [{ translateY: thumbTop }] }]} />
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function GenreSection({
+  title,
+  subtitle,
+  items,
+  visual = "bars",
+}: {
+  title: string;
+  subtitle?: string;
+  items: BreakdownItem[];
+  visual?: "bars" | "pie";
+}) {
+  const pieGradient = useMemo(() => {
+    let running = 0;
+    const segments = items.map((item, index) => {
+      const start = running;
+      running += item.percent;
+      const color = genreChartColors[index % genreChartColors.length];
+      return `${color} ${start}% ${running}%`;
+    });
+
+    return `conic-gradient(${segments.join(", ")})`;
+  }, [items]);
+
+  return (
+    <CountryPageSection style={styles.genreSection} fillVariant="softBlue" contentStyle={styles.insightSectionContent}>
+      <View style={styles.genreSectionHeader}>
+        <Text style={styles.insightSectionTitle}>{title}</Text>
+      </View>
+      {visual === "pie" ? (
+        <View style={styles.genreSectionPieLayout}>
+            <View
+              style={[
+                styles.genreSectionPieChart,
+                Platform.OS === "web"
+                ? ({
+                    backgroundImage: pieGradient,
+                  } as ViewStyle)
+                : styles.genreSectionPieChartFallback,
+            ]}
+          >
+            <View style={styles.genreSectionPieChartInner} />
+          </View>
+          <View style={styles.genreSectionLegend}>
+            {items.slice(0, 4).map((item, index) => (
+              <View key={`${title}-${item.label}`} style={styles.genreSectionLegendRow}>
+                <View style={[styles.genreSectionLegendDot, { backgroundColor: genreChartColors[index % genreChartColors.length] }]} />
+                <Text style={styles.genreSectionLegendLabel}>{item.label}</Text>
+                <Text style={styles.genreSectionLegendValue}>{item.percent}%</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : (
+        <View style={styles.genreSectionBreakdownList}>
+          {items.map((item) => (
+            <View key={`${title}-${item.label}`} style={styles.genreSectionBreakdownRow}>
+              <Text style={styles.genreSectionBreakdownLabel}>{item.label}</Text>
+              <View style={styles.genreSectionBreakdownTrack}>
+                <View style={[styles.genreSectionBreakdownFill, { width: `${item.percent}%` }]} />
+              </View>
+              <Text style={styles.genreSectionBreakdownValue}>{item.percent}%</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </CountryPageSection>
+  );
+}
+
+function LanguageSection({ title, subtitle, items }: { title: string; subtitle?: string; items: BreakdownItem[] }) {
+  const pieGradient = useMemo(() => {
+    let running = 0;
+    const segments = items.map((item, index) => {
+      const start = running;
+      running += item.percent;
+      const color = languageChartColors[index % languageChartColors.length];
+      return `${color} ${start}% ${running}%`;
+    });
+
+    return `conic-gradient(${segments.join(", ")})`;
+  }, [items]);
+
+  return (
+    <CountryPageSection style={styles.languageSection} fillVariant="softBlue" contentStyle={styles.insightSectionContent}>
+      <View style={styles.genreSectionHeader}>
+        <Text style={styles.insightSectionTitle}>{title}</Text>
+      </View>
+      <View style={styles.genreSectionPieLayout}>
+        <View
+          style={[
+            styles.languageSectionPieChart,
+            Platform.OS === "web"
+              ? ({
+                  backgroundImage: pieGradient,
+                } as ViewStyle)
+              : styles.genreSectionPieChartFallback,
+          ]}
+        >
+          <View style={styles.languageSectionPieChartInner} />
+        </View>
+        <View style={styles.genreSectionLegend}>
+          {items.slice(0, 4).map((item, index) => (
+            <View key={`${title}-${item.label}`} style={styles.genreSectionLegendRow}>
+              <View style={[styles.genreSectionLegendDot, { backgroundColor: languageChartColors[index % languageChartColors.length] }]} />
+              <Text style={styles.genreSectionLegendLabel}>{item.label}</Text>
+              <Text style={styles.genreSectionLegendValue}>{item.percent}%</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    </CountryPageSection>
+  );
+}
+
+function HiddenSongsCarouselSection({
+  countryName,
+  songs,
+}: {
+  countryName: string;
+  songs: SongPreview[];
+}) {
+  const [activeIndex, setActiveIndex] = useState(Math.floor(songs.length / 2));
+  const slots = [-3, -2, -1, 0, 1, 2, 3] as const;
+
+  useEffect(() => {
+    setActiveIndex(Math.floor(songs.length / 2));
+  }, [countryName, songs.length]);
+
+  const goPrevious = () => {
+    setActiveIndex((current) => (current === 0 ? songs.length - 1 : current - 1));
+  };
+
+  const goNext = () => {
+    setActiveIndex((current) => (current === songs.length - 1 ? 0 : current + 1));
+  };
+
+  return (
+    <CountryPageSection style={styles.hiddenSongsCarouselSection} contentStyle={styles.hiddenSongsCarouselSectionContent}>
+      <View style={styles.hiddenSongsCarouselHeader}>
+        <Text style={styles.panelTitle}>Preview {countryName}'s Hidden Gems</Text>
+        <Text style={styles.hiddenSongsCarouselHelper} numberOfLines={1}>
+          Click a song to listen to a 30 second preview on the Hidden Gems page.
+        </Text>
+      </View>
+      <View style={styles.hiddenSongsCarouselBody}>
+        <Pressable onPress={goPrevious} style={styles.hiddenSongsCarouselArrowButton}>
+          <GemIcon size={48} style={styles.hiddenSongsCarouselArrowLeft} />
+        </Pressable>
+        <View style={styles.hiddenSongsCarouselTrack}>
+          {slots.map((offset) => {
+            const songIndex = (activeIndex + offset + songs.length) % songs.length;
+            const song = songs[songIndex];
+            const isCenter = offset === 0;
+            const offsetDistance = Math.abs(offset);
+            const size = isCenter ? 300 : offsetDistance === 1 ? 228 : offsetDistance === 2 ? 198 : 172;
+            const horizontalOffset = offset * (offsetDistance === 3 ? 46 : 52);
+            const verticalOffset = isCenter ? -2 : offsetDistance === 1 ? 14 : 24;
+            const scale = isCenter ? 1 : offsetDistance === 1 ? 0.93 : offsetDistance === 2 ? 0.85 : 0.77;
+
+            return (
+              <View
+                key={`${song.title}-${offset}`}
+                style={[
+                  styles.hiddenSongsCarouselItem,
+                  {
+                    transform: [
+                      { translateX: horizontalOffset },
+                      { translateY: verticalOffset },
+                      { scale },
+                    ],
+                    opacity: isCenter ? 1 : offsetDistance === 3 ? 0.54 : 0.78,
+                    zIndex: 100 - Math.abs(offset),
+                  },
+                  Platform.OS === "web"
+                    ? ({
+                        transitionProperty: "transform, opacity",
+                        transitionDuration: "320ms",
+                        transitionTimingFunction: "ease",
+                      } as any)
+                    : null,
+                ]}
+              >
+                <CdCase size={size} artColor={carouselBackdropColors[songIndex % carouselBackdropColors.length]} />
+                {isCenter ? (
+                  <>
+                    <Text style={styles.hiddenSongsCarouselSongTitle}>{song.title}</Text>
+                    <Text style={styles.hiddenSongsCarouselSongArtist}>{song.artist}</Text>
+                  </>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+        <Pressable onPress={goNext} style={styles.hiddenSongsCarouselArrowButton}>
+          <GemIcon size={48} style={styles.hiddenSongsCarouselArrowRight} />
+        </Pressable>
+      </View>
+    </CountryPageSection>
+  );
+}
+
+export function CountryScreen({ country, onNavigate, selectedYear, onChangeYear }: Props) {
+  const { width } = useWindowDimensions();
+  const isStacked = width < 1120;
+  const isCompact = width < 760;
+  const profile = useMemo(() => buildCountryProfile(country, selectedYear), [country, selectedYear]);
+  const pageScrollRef = useRef<ScrollView>(null);
+  const pageTrackRef = useRef<View>(null);
+  const [pageViewportHeight, setPageViewportHeight] = useState(0);
+  const [pageContentHeight, setPageContentHeight] = useState(0);
+  const [pageScrollY, setPageScrollY] = useState(0);
+  const [isDraggingPageScrollbar, setIsDraggingPageScrollbar] = useState(false);
+  const pageScrollbarVisible = Platform.OS === "web" && pageViewportHeight > 0;
+  const pageHasOverflow = pageScrollbarVisible && pageContentHeight > pageViewportHeight;
+  const pageTrackHeight = Math.max(pageViewportHeight - 24, 1);
+  const pageThumbHeight = pageScrollbarVisible
+    ? pageHasOverflow
+      ? Math.max((pageViewportHeight / pageContentHeight) * pageViewportHeight, 60)
+      : pageTrackHeight
+    : 0;
+  const pageThumbTop = pageHasOverflow ? (pageScrollY / (pageContentHeight - pageViewportHeight)) * (pageViewportHeight - pageThumbHeight) : 0;
+
+  const handlePageScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setPageScrollY(event.nativeEvent.contentOffset.y);
+  };
+
+  const scrollPageToTrackLocation = (locationY: number) => {
+    if (!pageHasOverflow || pageContentHeight <= pageViewportHeight) {
+      return;
+    }
+
+    const nextThumbTop = Math.min(Math.max(locationY - pageThumbHeight / 2, 0), pageTrackHeight - pageThumbHeight);
+    const nextRatio = nextThumbTop / (pageTrackHeight - pageThumbHeight);
+    const nextScrollY = nextRatio * (pageContentHeight - pageViewportHeight);
+    pageScrollRef.current?.scrollTo({ y: nextScrollY, animated: false });
+    setPageScrollY(nextScrollY);
+  };
+
+  const scrollPageToClientY = (clientY: number) => {
+    const rect = (pageTrackRef.current as any)?.getBoundingClientRect?.();
+    if (!rect) {
+      return;
+    }
+
+    scrollPageToTrackLocation(clientY - rect.top);
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || !isDraggingPageScrollbar || typeof document === "undefined") {
+      return;
+    }
+
+    const previousUserSelect = document.body.style.userSelect;
+
+    const handleMove = (event: MouseEvent) => {
+      event.preventDefault();
+      scrollPageToClientY(event.clientY);
+    };
+
+    const handleUp = () => {
+      setIsDraggingPageScrollbar(false);
+    };
+
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+    };
+  }, [isDraggingPageScrollbar, pageHasOverflow, pageThumbHeight, pageTrackHeight, pageContentHeight, pageViewportHeight]);
+
+  return (
+    <ScreenScaffold>
+      <View style={styles.pageScrollFrame}>
+      <ScrollView
+        ref={pageScrollRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        onLayout={(event) => setPageViewportHeight(event.nativeEvent.layout.height)}
+        onContentSizeChange={(_, height) => setPageContentHeight(height)}
+        onScroll={handlePageScroll}
+        scrollEventThrottle={16}
+      >
+        <View style={[styles.topSection, isCompact ? styles.topSectionStacked : null]}>
+          <View style={styles.topSectionCountryBlock}>
+            <View style={styles.headerCopy}>
+              <Text style={styles.pageTitle}>{country.name}</Text>
+              <Text style={styles.pageSubtitle}>{country.region}</Text>
+            </View>
+          </View>
+          <View style={styles.topSectionYearBlock}>
+            <View style={styles.topSectionYearWrap}>
+              <YearSelector label="Display Data For Year" year={selectedYear} onSelectYear={onChangeYear} centered smallLabel compactArrows compact />
+            </View>
+          </View>
+        </View>
+
+        <CountryPageSection style={styles.countrySummarySection} fillVariant="blurb">
+          <Text style={styles.countrySummarySectionHeader}>Country Summary</Text>
+
+          <View style={[styles.countrySummarySectionDetailsRow, isCompact ? styles.stackRow : null]}>
+            <View style={styles.countrySummarySectionDetailCard}>
+              <View style={styles.countrySummarySectionDetailTitleWrap}>
+                <Text style={styles.countrySummarySectionDetailTitle}>General Description</Text>
+                <View style={styles.countrySummarySectionDetailTitleUnderline} />
+              </View>
+              <Text style={styles.countrySummarySectionDetailText}>{country.sceneNote}</Text>
+            </View>
+            <View style={styles.countrySummarySectionDetailCard}>
+              <View style={styles.countrySummarySectionDetailTitleWrap}>
+                <Text style={styles.countrySummarySectionDetailTitle}>Genre + Language Mix</Text>
+                <View style={styles.countrySummarySectionDetailTitleUnderline} />
+              </View>
+              <Text style={styles.countrySummarySectionDetailText}>
+                {country.name}'s chart leans through {country.genres.join(", ")}, and includes but is not limited to
+                {` ${country.languages.join(", ")}`} across the language mix represented here.
+              </Text>
+            </View>
+          </View>
+        </CountryPageSection>
+
+        <View style={[styles.statSquaresAndGenreSectionRow, isStacked ? styles.stackRow : null]}>
+          <View style={styles.statSquaresBlock}>
+            <View style={styles.statSquaresGrid}>
+              <StatSquare label="Songs in This View" value={`${profile.totalCharted}`} note="songs" />
+              <StatSquare label="Loved in This Country" value={`${profile.uniqueCount}`} note="songs" />
+              <StatSquare label="Loved Here and Elsewhere" value={`${profile.sharedCount}`} note="songs" />
+              <StatSquare label="Loved Here and Elsewhere" value={`${profile.overlapPercent}%`} note="% of this view" />
+            </View>
+          </View>
+          <View style={[styles.genreAndLanguageSections, isCompact ? styles.stackRow : null]}>
+            <GenreSection
+              title={`${country.name}'s Loved Genres`}
+              subtitle="Genres most loved in this country view"
+              items={profile.genreBreakdown}
+              visual="pie"
+            />
+            <LanguageSection
+              title={`${country.name}'s Languages`}
+              subtitle="Languages most represented in this country view"
+              items={profile.languageBreakdown}
+            />
+          </View>
+        </View>
+
+        <HiddenSongsCarouselSection countryName={country.name} songs={profile.hiddenGems} />
+
+        <CountryPageSection style={styles.mainComparisonSection}>
+          <View style={[styles.mainComparisonColumns, isStacked ? styles.stackRow : null]}>
+            <MainComparisonArea
+              title="Most Loved in This Country"
+              songs={profile.uniqueSongs}
+            />
+            <View style={[styles.mainComparisonDivider, isStacked ? styles.mainComparisonDividerStacked : null]} />
+            <MainComparisonArea
+              title="Loved Here and Elsewhere"
+              songs={profile.sharedSongs}
+            />
+          </View>
+        </CountryPageSection>
+
+        <CountryPageSection style={styles.snapshotPanel}>
+          <Text style={styles.panelEyebrow}>Featured Artists</Text>
+          <Text style={styles.panelTitle}>{country.name}'s Current Focus</Text>
+          <Text style={styles.snapshotCopy}>
+            Featured artists: {country.featuredArtists.join(", ")}
+          </Text>
+
+          <View style={[styles.buttonRow, isCompact ? styles.stackRow : null]}>
+            <ActionButton label={`${country.hiddenSongs} Hidden Gem Songs`} onPress={() => onNavigate("hiddenGems")} />
+            <ActionButton label="Compare Countries" onPress={() => onNavigate("comparisonSelect")} />
+            <ActionButton label="Back to Discovery" onPress={() => onNavigate("discovery")} />
+          </View>
+        </CountryPageSection>
+      </ScrollView>
+      {pageScrollbarVisible ? (
+        <View
+          ref={pageTrackRef}
+          style={styles.pageScrollbarTrack}
+          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => true}
+          onResponderGrant={(event) => scrollPageToTrackLocation(event.nativeEvent.locationY)}
+          onResponderMove={(event) => scrollPageToTrackLocation(event.nativeEvent.locationY)}
+          {...(Platform.OS === "web"
+            ? ({
+                onMouseDown: (event: any) => {
+                  event.preventDefault();
+                  setIsDraggingPageScrollbar(true);
+                  scrollPageToClientY(event.clientY);
+                },
+              } as any)
+            : {})}
+        >
+          <View style={[styles.pageScrollbarThumb, { height: pageThumbHeight, transform: [{ translateY: pageThumbTop }] }]} />
+        </View>
+      ) : null}
+      </View>
+    </ScreenScaffold>
+  );
+}
+
+const styles = StyleSheet.create({
+  pageScrollFrame: {
+    flex: 1,
+    position: "relative",
+    marginTop: -4,
+    marginBottom: -20,
+  },
+  scrollView: {
+    flex: 1,
+    ...(Platform.OS === "web"
+      ? ({
+          overflowY: "scroll",
+          scrollbarWidth: "none",
+        } as ViewStyle)
+      : null),
+  },
+  scrollContent: {
+    gap: 20,
+    paddingBottom: 24,
+    paddingRight: 28,
+  },
+  pageScrollbarTrack: {
+    position: "absolute",
+    top: 12,
+    right: 8,
+    bottom: 12,
+    width: 14,
+    borderRadius: 999,
+    backgroundColor: colors.scrollbarTrack,
+    cursor: "pointer" as any,
+  },
+  pageScrollbarThumb: {
+    width: "100%",
+    borderRadius: 999,
+    backgroundColor: colors.scrollbarThumb,
+  },
+  topSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 18,
+    flexWrap: "wrap",
+  },
+  topSectionStacked: {
+    alignItems: "flex-start",
+  },
+  topSectionCountryBlock: {
+    alignSelf: "flex-start",
+  },
+  headerCopy: {
+    gap: 2,
+    justifyContent: "flex-start",
+  },
+  topSectionYearBlock: {
+    alignSelf: "center",
+    paddingTop: 0,
+  },
+  topSectionYearWrap: {
+    paddingTop: 0,
+  },
+  pageTitle: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 52,
+    lineHeight: 54,
+  },
+  pageSubtitle: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  secondaryPanel: {
+    backgroundColor: "transparent",
+    overflow: "hidden",
+    padding: 0,
+  },
+  secondaryPanelContent: {
+    padding: 18,
+    gap: 16,
+  },
+  customFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  countrySummarySection: {
+    minHeight: 0,
+  },
+  countrySummarySectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 24,
+  },
+  countrySummarySectionHeaderRowStacked: {
+    flexDirection: "column",
+    gap: 8,
+  },
+  countrySummarySectionHeader: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 23,
+    lineHeight: 27,
+  },
+  countrySummarySectionDetailsRow: {
+    flexDirection: "row",
+    gap: 16,
+    flexWrap: "wrap",
+    alignItems: "flex-start",
+  },
+  countrySummarySectionDetailCard: {
+    flex: 1,
+    minWidth: 260,
+    gap: 8,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: "rgba(22,26,38,0.12)",
+    padding: 14,
+    alignSelf: "flex-start",
+  },
+  countrySummarySectionDetailTitle: {
+    color: colors.textStrong,
+    fontFamily: typefaces.body,
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  countrySummarySectionDetailTitleWrap: {
+    alignSelf: "flex-start",
+    gap: 4,
+  },
+  countrySummarySectionDetailTitleUnderline: {
+    width: "100%",
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: colors.accent,
+    opacity: 0.92,
+  },
+  countrySummarySectionDetailText: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  statSquaresGrid: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  statSquaresAndGenreSectionRow: {
+    flexDirection: "row",
+    gap: 16,
+    alignItems: "flex-start",
+    width: "100%",
+  },
+  statSquaresBlock: {
+    width: 656,
+    maxWidth: 656,
+    flexShrink: 0,
+  },
+  genreAndLanguageSections: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    gap: 16,
+    alignItems: "stretch",
+  },
+  statSquare: {
+    width: 152,
+    height: 152,
+    borderWidth: 2,
+    borderColor: "rgba(117, 82, 107, 0.42)",
+    shadowColor: colors.accent,
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  statSquareContent: {
+    height: "100%",
+    padding: 14,
+    gap: 8,
+    justifyContent: "space-between",
+  },
+  insightSectionContent: {
+    paddingTop: 14,
+    paddingBottom: 12,
+    paddingHorizontal: 14,
+    gap: 10,
+    justifyContent: "space-between",
+  },
+  statSquareLabel: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  statSquareValue: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 42,
+    lineHeight: 46,
+  },
+  statSquareNote: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  mainComparisonSection: {
+    minHeight: 0,
+  },
+  mainComparisonColumns: {
+    flexDirection: "row",
+    gap: 18,
+    alignItems: "stretch",
+  },
+  mainComparisonDivider: {
+    width: 2,
+    alignSelf: "stretch",
+    borderRadius: 999,
+    backgroundColor: "rgba(15,16,21,0.52)",
+  },
+  mainComparisonDividerStacked: {
+    width: "100%",
+    height: 2,
+  },
+  mainComparisonArea: {
+    flex: 1,
+    minWidth: 300,
+    gap: 12,
+  },
+  mainComparisonListFrame: {
+    height: 540,
+    position: "relative",
+  },
+  mainComparisonScroll: {
+    flex: 1,
+    ...(Platform.OS === "web"
+      ? ({
+          overflowY: "scroll",
+          scrollbarWidth: "none",
+        } as ViewStyle)
+      : null),
+  },
+  mainComparisonListContent: {
+    paddingRight: 28,
+    paddingBottom: 10,
+    gap: 10,
+  },
+  mainComparisonScrollbarTrack: {
+    position: "absolute",
+    top: 10,
+    right: 8,
+    bottom: 10,
+    width: 14,
+    borderRadius: 999,
+    backgroundColor: colors.scrollbarTrack,
+    cursor: "pointer" as any,
+  },
+  mainComparisonScrollbarThumb: {
+    width: "100%",
+    borderRadius: 999,
+    backgroundColor: colors.scrollbarThumb,
+  },
+  panelEyebrow: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  panelTitle: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 23,
+    lineHeight: 27,
+  },
+  songRowShell: {
+    position: "relative",
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  songRowGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  songRow: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: "rgba(22,26,38,0.16)",
+    minHeight: 98,
+    paddingVertical: 8,
+    paddingLeft: 12,
+    paddingRight: 8,
+  },
+  songRowActive: {
+    backgroundColor: "transparent",
+  },
+  cdCaseFrame: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    overflow: "visible",
+  },
+  cdCaseBackdropWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cdCaseBackdrop: {
+    borderRadius: 4,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  cdCaseImage: {
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
+  },
+  songCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  songTitle: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 17,
+    lineHeight: 20,
+  },
+  songMeta: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 17,
+  },
+  songTextActive: {
+    color: colors.text,
+  },
+  genreSection: {
+    flex: 1,
+    minWidth: 0,
+    height: 152,
+    maxHeight: 152,
+    borderWidth: 2,
+    borderColor: "rgba(117, 82, 107, 0.42)",
+  },
+  languageSection: {
+    flex: 1,
+    minWidth: 0,
+    height: 152,
+    maxHeight: 152,
+    borderWidth: 2,
+    borderColor: "rgba(117, 82, 107, 0.42)",
+  },
+  genreSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 14,
+  },
+  genreSectionSubtitle: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 18,
+    flexShrink: 1,
+    textAlign: "right",
+  },
+  insightSectionTitle: {
+    color: colors.border,
+    fontFamily: typefaces.display,
+    fontSize: 23,
+    lineHeight: 27,
+  },
+  genreSectionPieLayout: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+  },
+  genreSectionPieChart: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  genreSectionPieChartFallback: {
+    backgroundColor: colors.backgroundSoft,
+  },
+  genreSectionPieChartInner: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  languageSectionPieChart: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  languageSectionPieChartInner: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#75829C",
+    borderWidth: 2,
+    borderColor: "rgba(15,16,21,0.34)",
+  },
+  genreSectionLegend: {
+    flex: 1,
+    gap: 4,
+  },
+  genreSectionLegendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  genreSectionLegendDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+  },
+  genreSectionLegendLabel: {
+    flex: 1,
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    lineHeight: 14,
+  },
+  genreSectionLegendValue: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    lineHeight: 14,
+  },
+  genreSectionBreakdownList: {
+    gap: 12,
+  },
+  genreSectionBreakdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  genreSectionBreakdownLabel: {
+    width: 110,
+    color: colors.textStrong,
+    fontFamily: typefaces.body,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  genreSectionBreakdownTrack: {
+    flex: 1,
+    height: 18,
+    borderRadius: 999,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: "rgba(15,16,21,0.38)",
+  },
+  genreSectionBreakdownFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: colors.backgroundSoft,
+  },
+  genreSectionBreakdownValue: {
+    width: 42,
+    textAlign: "right",
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  snapshotPanel: {
+    minWidth: 320,
+  },
+  snapshotCopy: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 16,
+    lineHeight: 25,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 12,
+    flexWrap: "wrap",
+    marginTop: 4,
+  },
+  hiddenSongsCarouselSection: {
+    minHeight: 0,
+  },
+  hiddenSongsCarouselSectionContent: {
+    paddingTop: 14,
+    paddingBottom: 12,
+    paddingHorizontal: 18,
+    gap: 12,
+  },
+  hiddenSongsCarouselHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 20,
+  },
+  hiddenSongsCarouselHelper: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 14,
+    lineHeight: 18,
+    textAlign: "right",
+    flexShrink: 1,
+    maxWidth: 520,
+  },
+  hiddenSongsCarouselBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    minHeight: 350,
+  },
+  hiddenSongsCarouselArrowButton: {
+    width: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.26,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  hiddenSongsCarouselArrowLeft: {
+    transform: [{ rotate: "90deg" }],
+  },
+  hiddenSongsCarouselArrowRight: {
+    transform: [{ rotate: "-90deg" }],
+  },
+  hiddenSongsCarouselTrack: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  hiddenSongsCarouselItem: {
+    width: 296,
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: -54,
+  },
+  hiddenSongsCarouselSongTitle: {
+    width: "100%",
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 20,
+    lineHeight: 22,
+    textAlign: "center",
+    marginTop: 22,
+  },
+  hiddenSongsCarouselSongArtist: {
+    width: "100%",
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 14,
+    lineHeight: 18,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  stackRow: {
+    flexDirection: "column",
+  },
+});
