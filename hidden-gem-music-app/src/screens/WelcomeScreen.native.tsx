@@ -1,62 +1,34 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { ScreenRoute } from "../types/navigation";
-import { colors } from "../theme/colors";
-import { typefaces } from "../theme/typography";
 
-type Props = {
-  onNavigate: (route: ScreenRoute) => void;
+export type Props = {
+  navigation?: any;
 };
 
-export function MobileWelcomeScreen({ onNavigate }: Props) {
+export function WelcomeScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
-      {/* Title */}
       <Text style={styles.title}>Hidden Gem Music</Text>
 
-      {/* Description */}
       <Text style={styles.subtitle}>
-        Discover hidden music gems across countries and years. Explore global
-        culture, compare trends, and uncover songs you’ve never heard before.
+        Discover hidden music gems from around the world.
       </Text>
 
       <View style={{ flex: 1 }} />
 
-      {/* Main Navigation Buttons */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => onNavigate("discovery")}
+          onPress={() => navigation?.navigate("discovery")}
         >
-          <Text style={styles.buttonText}>Discovery Globe</Text>
+          <Text style={styles.buttonText}>Globe</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.button}
-          onPress={() => onNavigate("comparisonSelect")}
+          onPress={() => navigation?.navigate("comparisonSelect")}
         >
-          <Text style={styles.buttonText}>Comparison Mode</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => onNavigate("hiddenGems")}
-        >
-          <Text style={styles.buttonText}>Hidden Songs</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => onNavigate("dashboard")}
-        >
-          <Text style={styles.buttonText}>Dashboard</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => onNavigate("credits")}
-        >
-          <Text style={styles.buttonText}>Credits</Text>
+          <Text style={styles.buttonText}>Filters</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -66,43 +38,35 @@ export function MobileWelcomeScreen({ onNavigate }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: 24,
-    paddingVertical: 60,
+    backgroundColor: "#24293e",
+    padding: 24,
   },
-
   title: {
-    color: colors.textStrong,
-    fontFamily: typefaces.display,
-    fontSize: 34,
+    fontSize: 32,
+    color: "#afcbff",
     textAlign: "center",
-    marginBottom: 18,
+    marginTop: 60,
   },
-
   subtitle: {
-    color: colors.text,
-    fontFamily: typefaces.body,
     fontSize: 16,
+    color: "#afcbff",
     textAlign: "center",
-    lineHeight: 22,
-    opacity: 0.9,
+    marginTop: 20,
+    opacity: 0.8,
   },
-
   buttonContainer: {
-    gap: 14,
-    marginBottom: 30,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 40,
   },
-
   button: {
-    backgroundColor: colors.panel,
-    paddingVertical: 14,
-    borderRadius: 12,
+    flex: 1,
+    backgroundColor: "#3a4161",
+    padding: 14,
+    borderRadius: 10,
     alignItems: "center",
   },
-
   buttonText: {
-    color: colors.textStrong,
-    fontSize: 16,
-    fontFamily: typefaces.body,
+    color: "#afcbff",
   },
 });
