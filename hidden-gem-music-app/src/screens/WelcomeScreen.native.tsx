@@ -1,5 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
 type Props = {
   countries: any[];
@@ -9,13 +11,23 @@ type Props = {
   onChangeYear: (year: number) => void;
 };
 
-export function WelcomeScreen({ onNavigate }: Props) {
+export function WelcomeScreen({
+  onNavigate,
+  countries,
+  onSelectCountry,
+  selectedYear,
+  onChangeYear,
+}: Props) {
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={["#24293e", "#1b1f33", "#0f1220"]}
+      style={styles.container}
+    >
       <Text style={styles.title}>Hidden Gem Music</Text>
 
       <Text style={styles.subtitle}>
-        Discover hidden music gems from around the world.
+        Discover hidden music gems from around the world. Explore different
+        countries, compare trends, and uncover songs you’ve never heard before.
       </Text>
 
       <View style={{ flex: 1 }} />
@@ -25,6 +37,7 @@ export function WelcomeScreen({ onNavigate }: Props) {
           style={styles.button}
           onPress={() => onNavigate("discovery")}
         >
+          <MaterialCommunityIcons name="earth" size={26} color="#afcbff" />
           <Text style={styles.buttonText}>Globe</Text>
         </TouchableOpacity>
 
@@ -32,45 +45,56 @@ export function WelcomeScreen({ onNavigate }: Props) {
           style={styles.button}
           onPress={() => onNavigate("comparisonSelect")}
         >
+          <Feather name="filter" size={26} color="#afcbff" />
           <Text style={styles.buttonText}>Filters</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#24293e",
     padding: 24,
   },
+
   title: {
     fontSize: 32,
     color: "#afcbff",
     textAlign: "center",
-    marginTop: 60,
+    marginTop: 80,
+    fontWeight: "700",
   },
+
   subtitle: {
     fontSize: 16,
     color: "#afcbff",
     textAlign: "center",
     marginTop: 20,
-    opacity: 0.8,
+    opacity: 0.85,
+    lineHeight: 22,
   },
+
   buttonContainer: {
     flexDirection: "row",
     gap: 12,
     marginBottom: 40,
   },
+
   button: {
     flex: 1,
     backgroundColor: "#3a4161",
-    padding: 14,
-    borderRadius: 10,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
+
   buttonText: {
     color: "#afcbff",
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: "500",
   },
 });
