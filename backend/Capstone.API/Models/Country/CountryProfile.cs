@@ -1,3 +1,5 @@
+using Capstone.API.Models.Shared;
+
 namespace Capstone.API.Models.Country
 {
     /// <summary>
