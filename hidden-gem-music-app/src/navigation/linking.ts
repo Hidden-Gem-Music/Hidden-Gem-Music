@@ -38,8 +38,21 @@ function parseYearValue(value: string | null | undefined) {
   return availableYears.includes(parsedYear) ? parsedYear : undefined;
 }
 
+/**
+ * SAFE helper: only runs on web
+ */
+function getWebURL() {
+  try {
+    if (typeof window === "undefined") return null;
+    return new URL(window.location.href);
+  } catch {
+    return null;
+  }
+}
+
 export const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [ExpoLinking.createURL("/")],
+
   config: {
     initialRouteName: "welcome",
     screens: {
@@ -55,12 +68,18 @@ export const linking: LinkingOptions<RootStackParamList> = {
   },
 };
 
+/**
+ * SAFE FOR MOBILE + WEB
+ * (no direct window access outside guard)
+ */
 export function getInitialNavigationSeed(): NavigationSeed {
-  if (typeof window === "undefined") {
+  const url = getWebURL();
+
+  // MOBILE SAFE DEFAULT
+  if (!url) {
     return { route: "welcome" };
   }
 
-  const url = new URL(window.location.href);
   const normalizedPath = url.pathname.replace(/^\/+|\/+$/g, "");
   const route = routeByPath[normalizedPath] ?? "welcome";
 
@@ -71,19 +90,25 @@ export function getInitialNavigationSeed(): NavigationSeed {
   };
 }
 
-export function getRouteParams(route: ScreenRoute, selectedYear: number, selectedCountryId: string) {
+export function getRouteParams(
+  route: ScreenRoute,
+  selectedYear: number,
+  selectedCountryId: string
+) {
   switch (route) {
     case "discovery":
     case "comparisonSelect":
     case "comparisonResults":
     case "dashboard":
       return { year: selectedYear };
+
     case "country":
     case "hiddenGems":
       return {
         year: selectedYear,
         country: selectedCountryId,
       };
+
     default:
       return undefined;
   }
