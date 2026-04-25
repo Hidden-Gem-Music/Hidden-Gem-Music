@@ -100,7 +100,24 @@ export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCou
                 ]}
               />
 
-              <View pointerEvents="none" style={[styles.tooltip, { left: tooltipLeft, top: tooltipTop, width: tooltipWidth }]}>
+              <Pressable
+                onPress={() => onOpenCountry?.(hoveredCountry.id)}
+                onHoverIn={() => {
+                  if (hoverTimeoutRef.current) {
+                    clearTimeout(hoverTimeoutRef.current);
+                    hoverTimeoutRef.current = null;
+                  }
+                  setHoveredCountryId(hoveredCountry.id);
+                  onSelectCountry(hoveredCountry.id);
+                }}
+                onHoverOut={() => {
+                  hoverTimeoutRef.current = setTimeout(() => {
+                    setHoveredCountryId((current) => (current === hoveredCountry.id ? null : current));
+                    hoverTimeoutRef.current = null;
+                  }, 60);
+                }}
+                style={[styles.tooltip, { left: tooltipLeft, top: tooltipTop, width: tooltipWidth }]}
+              >
                 <View style={styles.tooltipInner}>
                   <View style={styles.tooltipHeader}>
                     <Text style={styles.tooltipCountry}>{hoveredCountry.name}</Text>
@@ -115,7 +132,7 @@ export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCou
                     </Text>
                   </View>
                 </View>
-              </View>
+              </Pressable>
             </>
           ) : null}
         </View>

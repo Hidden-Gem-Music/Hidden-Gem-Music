@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="w" format="2">
+  <advance width="632"/>
+  <unicode hex="0077"/>
+  <anchor x="316" y="0" name="bottom"/>
+  <anchor x="316" y="470" name="top"/>
+  <outline>
+    <contour>
+      <point x="88" y="0" type="line"/>
+      <point x="198" y="0" type="line"/>
+      <point x="120" y="470" type="line"/>
+      <point x="10" y="470" type="line"/>
+    </contour>
+    <contour>
+      <point x="179" y="0" type="line"/>
+      <point x="258" y="0" type="line"/>
+      <point x="336" y="470" type="line"/>
+      <point x="257" y="470" type="line"/>
+    </contour>
+    <contour>
+      <point x="383" y="0" type="line"/>
+      <point x="464" y="0" type="line"/>
+      <point x="386" y="470" type="line"/>
+      <point x="305" y="470" type="line"/>
+    </contour>
+    <contour>
+      <point x="445" y="0" type="line"/>
+      <point x="544" y="0" type="line"/>
+      <point x="622" y="470" type="line"/>
+      <point x="523" y="470" type="line"/>
+    </contour>
+  </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.lastChange</key>
+      <string>2024-06-19 07:11:29 +0000</string>
+      <key>com.schriftgestaltung.Glyphs.leftMetricsKey</key>
+      <string>v</string>
+      <key>com.schriftgestaltung.Glyphs.rightMetricsKey</key>
+      <string>v</string>
+      <key>public.markColor</key>
+      <string>0.67,0.95,0.38,1</string>
+    </dict>
+  </lib>
+</glyph>

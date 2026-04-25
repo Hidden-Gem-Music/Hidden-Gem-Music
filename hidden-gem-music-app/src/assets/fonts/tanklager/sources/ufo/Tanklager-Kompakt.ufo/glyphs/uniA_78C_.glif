@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="uniA78C" format="2">
+  <advance width="156"/>
+  <unicode hex="A78C"/>
+  <outline>
+    <contour>
+      <point x="32" y="470" type="line"/>
+      <point x="124" y="470" type="line"/>
+      <point x="128" y="700" type="line"/>
+      <point x="28" y="700" type="line"/>
+    </contour>
+  </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.lastChange</key>
+      <string>2024-06-17 08:47:25 +0000</string>
+      <key>public.markColor</key>
+      <string>0.67,0.95,0.38,1</string>
+    </dict>
+  </lib>
+</glyph>

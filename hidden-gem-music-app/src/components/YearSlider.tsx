@@ -126,7 +126,8 @@ export function YearSlider({ year, onChangeYear }: Props) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: 10,
+    gap: 8,
+    marginTop: -6,
   },
   topRow: {
     flexDirection: "row",
@@ -201,6 +202,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     textAlign: "center",
-    marginTop: -6,
+    marginTop: -10,
   },
 });

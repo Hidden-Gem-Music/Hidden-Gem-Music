@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<glyph name="lslash" format="2">
+  <advance width="270"/>
+  <unicode hex="0142"/>
+  <guideline x="260" y="367" angle="90"/>
+  <outline>
+    <component base="l" identifier="C9268BEA"/>
+    <contour>
+      <point x="260" y="315" type="line"/>
+      <point x="260" y="417" type="line"/>
+      <point x="6" y="320" type="line"/>
+      <point x="6" y="218" type="line"/>
+    </contour>
+  </outline>
+  <lib>
+    <dict>
+      <key>com.schriftgestaltung.Glyphs.lastChange</key>
+      <string>2024-06-18 14:27:59 +0000</string>
+      <key>public.markColor</key>
+      <string>0.67,0.95,0.38,1</string>
+      <key>public.objectLibs</key>
+      <dict>
+        <key>C9268BEA</key>
+        <dict>
+          <key>com.schriftgestaltung.alignment</key>
+          <integer>-1</integer>
+        </dict>
+      </dict>
+    </dict>
+  </lib>
+</glyph>

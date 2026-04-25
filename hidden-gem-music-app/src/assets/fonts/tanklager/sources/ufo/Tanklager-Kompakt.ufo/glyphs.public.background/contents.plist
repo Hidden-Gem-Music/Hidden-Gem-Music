@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Lcaron</key>
+    <string>L_caron.glif</string>
+    <key>Ocircumflex</key>
+    <string>O_circumflex.glif</string>
+    <key>Ohungarumlaut</key>
+    <string>O_hungarumlaut.glif</string>
+    <key>Scedilla</key>
+    <string>S_cedilla.glif</string>
+    <key>acircumflex</key>
+    <string>acircumflex.glif</string>
+    <key>adieresis</key>
+    <string>adieresis.glif</string>
+    <key>aring</key>
+    <string>aring.glif</string>
+    <key>ccaron</key>
+    <string>ccaron.glif</string>
+    <key>dieresis</key>
+    <string>dieresis.glif</string>
+    <key>dotaccent</key>
+    <string>dotaccent.glif</string>
+    <key>edieresis</key>
+    <string>edieresis.glif</string>
+    <key>ogonek</key>
+    <string>ogonek.glif</string>
+    <key>uni013B</key>
+    <string>uni013B_.glif</string>
+    <key>uni013C.loclMAH</key>
+    <string>uni013C_.loclM_A_H_.glif</string>
+    <key>uni0162</key>
+    <string>uni0162.glif</string>
+    <key>uni0163</key>
+    <string>uni0163.glif</string>
+    <key>uring</key>
+    <string>uring.glif</string>
+    <key>zdotaccent</key>
+    <string>zdotaccent.glif</string>
+  </dict>
+</plist>

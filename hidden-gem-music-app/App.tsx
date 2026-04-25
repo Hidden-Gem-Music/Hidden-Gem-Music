@@ -1,19 +1,22 @@
+import { CommonActions, NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader } from "./src/components/AppHeader";
 import { LoadingOverlay } from "./src/components/LoadingOverlay";
-import { CreditsScreen } from "./src/screens/CreditsScreen";
-import { DashboardScreen } from "./src/screens/DashboardScreen";
-import { DiscoveryScreen } from "./src/screens/DiscoveryScreen";
 import { ComparisonResultsScreen } from "./src/screens/ComparisonResultsScreen";
 import { ComparisonSelectScreen } from "./src/screens/ComparisonSelectScreen";
 import { CountryScreen } from "./src/screens/CountryScreen";
+import { CreditsScreen } from "./src/screens/CreditsScreen";
+import { DashboardScreen } from "./src/screens/DashboardScreen";
+import { DiscoveryScreen } from "./src/screens/DiscoveryScreen";
 import { HiddenGemsScreen } from "./src/screens/HiddenGemsScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import {
+  availableYears,
   getCountriesForYear,
   getCountryByYear,
   getDashboardMetrics,
@@ -21,54 +24,93 @@ import {
   getFeaturedCountry,
   getSongsForCountryYear,
 } from "./src/data/mockData";
+import { getInitialNavigationSeed, getRouteParams, linking, RootStackParamList } from "./src/navigation/linking";
 import { ScreenRoute } from "./src/types/navigation";
 import { colors } from "./src/theme/colors";
 import { typefaces } from "./src/theme/typography";
 
-const validRoutes: ScreenRoute[] = [
-  "welcome",
-  "discovery",
-  "country",
-  "hiddenGems",
-  "comparisonSelect",
-  "comparisonResults",
-  "dashboard",
-  "credits",
-];
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function getRouteFromHash(): ScreenRoute {
-  if (typeof window === "undefined") {
-    return "welcome";
+type RouteParams = {
+  year?: number;
+  country?: string;
+};
+
+function areRouteParamsEqual(currentParams?: RouteParams, nextParams?: RouteParams) {
+  return currentParams?.year === nextParams?.year && currentParams?.country === nextParams?.country;
+}
+
+class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
   }
 
-  const route = window.location.hash.replace(/^#/, "");
-  return validRoutes.includes(route as ScreenRoute) ? (route as ScreenRoute) : "welcome";
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  override componentDidCatch(error: unknown) {
+    console.error("App render error", error);
+  }
+
+  private handleReset = () => {
+    if (typeof window !== "undefined") {
+      window.location.assign("/welcome");
+      return;
+    }
+
+    this.setState({ hasError: false });
+  };
+
+  override render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorShell}>
+          <Text style={styles.errorTitle}>Something on the page crashed.</Text>
+          <Pressable onPress={this.handleReset} style={styles.errorButton}>
+            <Text style={styles.errorButtonText}>Reload To Welcome</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    "NyghtSerif-MediumItalic": require("./src/assets/fonts/NyghtSerif-MediumItalic.ttf"),
-    "NyghtSerif-Regular": require("./src/assets/fonts/NyghtSerif-Regular.ttf"),
-    "NyghtSerif-RegularItalic": require("./src/assets/fonts/NyghtSerif-RegularItalic.ttf"),
-    "NyghtSerif-Bold": require("./src/assets/fonts/NyghtSerif-Bold.ttf"),
-    "NyghtSerif-BoldItalic": require("./src/assets/fonts/NyghtSerif-BoldItalic.ttf"),
-    "NyghtSerif-Dark": require("./src/assets/fonts/NyghtSerif-Dark.ttf"),
-    "NyghtSerif-DarkItalic": require("./src/assets/fonts/NyghtSerif-DarkItalic.ttf"),
-    "Tanklager-Kompakt": require("./src/assets/fonts/Tanklager-Kompakt.ttf"),
-    "Tanklager-Original": require("./src/assets/fonts/Tanklager-Original.ttf"),
+    "NyghtSerif-MediumItalic": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-MediumItalic.ttf"),
+    "NyghtSerif-Regular": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-Regular.ttf"),
+    "NyghtSerif-RegularItalic": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-RegularItalic.ttf"),
+    "NyghtSerif-Bold": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-Bold.ttf"),
+    "NyghtSerif-BoldItalic": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-BoldItalic.ttf"),
+    "NyghtSerif-Dark": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-Dark.ttf"),
+    "NyghtSerif-DarkItalic": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-DarkItalic.ttf"),
+    "Tanklager-Kompakt": require("./src/assets/fonts/tanklager/fonts/TTF/Tanklager-Kompakt.ttf"),
+    "Tanklager-Original": require("./src/assets/fonts/tanklager/fonts/TTF/Tanklager-Original.ttf"),
   });
 
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [route, setRoute] = useState<ScreenRoute>(() => getRouteFromHash());
-  const [selectedYear, setSelectedYear] = useState(2021);
-  const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
-  const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
-  const [selectedCountryId, setSelectedCountryId] = useState(featuredCountry.id);
-  const songs = useMemo(() => getSongsForCountryYear(selectedCountryId, selectedYear), [selectedCountryId, selectedYear]);
-  const [selectedSongId, setSelectedSongId] = useState(songs[0]?.id ?? "");
+  const initialNavigationSeedRef = useRef(getInitialNavigationSeed());
+  const initialNavigationSeed = initialNavigationSeedRef.current;
+  const initialYear = initialNavigationSeed.year ?? 2021;
+  const initialFeaturedCountry = getFeaturedCountry(initialYear);
+
+  const [navigationReady, setNavigationReady] = useState(false);
+  const [currentRoute, setCurrentRoute] = useState<ScreenRoute>(initialNavigationSeed.route);
+  const [selectedYear, setSelectedYear] = useState(initialYear);
+  const [selectedCountryId, setSelectedCountryId] = useState(initialNavigationSeed.countryId ?? initialFeaturedCountry.id);
+  const [selectedSongId, setSelectedSongId] = useState("");
   const [comparisonIds, setComparisonIds] = useState<string[]>(getDefaultComparisonIds());
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
+  const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
+  const songs = useMemo(() => getSongsForCountryYear(selectedCountryId, selectedYear), [selectedCountryId, selectedYear]);
 
   const selectedCountry = useMemo(
     () => getCountryByYear(selectedCountryId, selectedYear) ?? featuredCountry,
@@ -87,7 +129,7 @@ export default function App() {
 
   const dashboardMetrics = useMemo(() => getDashboardMetrics(selectedYear, countries), [countries, selectedYear]);
   const breadcrumbs = useMemo(() => {
-    switch (route) {
+    switch (currentRoute) {
       case "welcome":
         return [{ label: "Home", route: "welcome" as ScreenRoute }];
       case "discovery":
@@ -105,7 +147,7 @@ export default function App() {
         return [
           { label: "Home", route: "welcome" as ScreenRoute },
           { label: selectedCountry.name, route: "country" as ScreenRoute },
-          { label: "Hidden Songs", route: null },
+          { label: "Hidden Gems", route: null },
         ];
       case "comparisonSelect":
         return [
@@ -131,13 +173,92 @@ export default function App() {
       default:
         return [{ label: "Home", route: "welcome" as ScreenRoute }];
     }
-  }, [route, selectedCountry.name]);
+  }, [currentRoute, selectedCountry.name]);
+
+  const syncStateFromNavigation = () => {
+    if (!navigationRef.isReady()) {
+      return;
+    }
+
+    const activeRoute = navigationRef.getCurrentRoute();
+    if (!activeRoute) {
+      return;
+    }
+
+    const nextRoute = activeRoute.name as ScreenRoute;
+    const params = (activeRoute.params ?? {}) as RouteParams;
+
+    setCurrentRoute(nextRoute);
+
+    if (typeof params.year === "number" && availableYears.includes(params.year)) {
+      setSelectedYear((current) => (current === params.year ? current : params.year!));
+    }
+
+    if (typeof params.country === "string") {
+      setSelectedCountryId((current) => (current === params.country ? current : params.country!));
+    }
+  };
+
+  const navigateToRoute = (route: ScreenRoute) => {
+    if (!navigationRef.isReady()) {
+      return;
+    }
+
+    switch (route) {
+      case "welcome":
+        navigationRef.navigate("welcome");
+        break;
+      case "discovery":
+        navigationRef.navigate("discovery", getRouteParams("discovery", selectedYear, selectedCountryId));
+        break;
+      case "country":
+        navigationRef.navigate("country", getRouteParams("country", selectedYear, selectedCountryId));
+        break;
+      case "hiddenGems":
+        navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
+        break;
+      case "comparisonSelect":
+        navigationRef.navigate("comparisonSelect", getRouteParams("comparisonSelect", selectedYear, selectedCountryId));
+        break;
+      case "comparisonResults":
+        navigationRef.navigate("comparisonResults", getRouteParams("comparisonResults", selectedYear, selectedCountryId));
+        break;
+      case "dashboard":
+        navigationRef.navigate("dashboard", getRouteParams("dashboard", selectedYear, selectedCountryId));
+        break;
+      case "credits":
+        navigationRef.navigate("credits");
+        break;
+      default:
+        navigationRef.navigate("welcome");
+        break;
+    }
+  };
+
+  const openCountry = (countryId: string) => {
+    setSelectedCountryId(countryId);
+
+    if (!navigationRef.isReady()) {
+      return;
+    }
+
+    navigationRef.navigate("country", {
+      country: countryId,
+      year: selectedYear,
+    });
+  };
 
   useEffect(() => {
     if (!songs.find((song) => song.id === selectedSongId)) {
       setSelectedSongId(songs[0]?.id ?? "");
     }
   }, [songs, selectedSongId]);
+
+  useEffect(() => {
+    if (!countries.some((country) => country.id === selectedCountryId)) {
+      setSelectedCountryId(featuredCountry.id);
+    }
+  }, [countries, featuredCountry.id, selectedCountryId]);
 
   useEffect(() => {
     return () => {
@@ -148,28 +269,23 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (!navigationReady || !navigationRef.isReady()) {
       return;
     }
 
-    const handleHashChange = () => {
-      setRoute(getRouteFromHash());
-    };
-
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
+    const activeRoute = navigationRef.getCurrentRoute();
+    if (!activeRoute) {
       return;
     }
 
-    const nextHash = `#${route}`;
-    if (window.location.hash !== nextHash) {
-      window.history.pushState(null, "", nextHash);
+    const routeName = activeRoute.name as ScreenRoute;
+    const nextParams = getRouteParams(routeName, selectedYear, selectedCountryId);
+    const currentParams = (activeRoute.params ?? undefined) as RouteParams | undefined;
+
+    if (nextParams && !areRouteParamsEqual(currentParams, nextParams)) {
+      navigationRef.dispatch(CommonActions.setParams(nextParams));
     }
-  }, [route]);
+  }, [currentRoute, navigationReady, navigationRef, selectedCountryId, selectedYear]);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -228,10 +344,12 @@ export default function App() {
     if (nextYear === selectedYear) {
       return;
     }
+
     setLoadingMessage(`Refreshing ${context} for ${nextYear}...`);
     if (loadingTimerRef.current) {
       clearTimeout(loadingTimerRef.current);
     }
+
     loadingTimerRef.current = setTimeout(() => {
       setSelectedYear(nextYear);
       setLoadingMessage(null);
@@ -243,129 +361,131 @@ export default function App() {
   }
 
   return (
-    <View style={styles.appShell}>
-      <StatusBar style="light" />
-      <AppHeader
-        currentRoute={route}
-        onNavigate={setRoute}
-        searchOpen={searchOpen}
-        onToggleSearch={() => setSearchOpen((open) => !open)}
-        onCloseSearch={() => setSearchOpen(false)}
-        countries={countries}
-        onOpenCountry={(countryId) => {
-          setSelectedCountryId(countryId);
-          setRoute("country");
+    <AppErrorBoundary>
+      <NavigationContainer
+        ref={navigationRef}
+        linking={linking}
+        onReady={() => {
+          setNavigationReady(true);
+          syncStateFromNavigation();
         }}
-      />
-      <View style={styles.screenArea}>
-        {route === "welcome" ? (
-          <WelcomeScreen
+        onStateChange={syncStateFromNavigation}
+      >
+        <View style={styles.appShell}>
+          <StatusBar style="light" />
+          <AppHeader
+            currentRoute={currentRoute}
+            onNavigate={navigateToRoute}
+            breadcrumbs={breadcrumbs}
+            searchOpen={searchOpen}
+            onToggleSearch={() => setSearchOpen((open) => !open)}
+            onCloseSearch={() => setSearchOpen(false)}
             countries={countries}
-            onNavigate={setRoute}
-            onSelectCountry={(countryId) => {
-              setSelectedCountryId(countryId);
-              setRoute("country");
-            }}
-            selectedYear={selectedYear}
-            onChangeYear={(year) => handleYearChange(year, "Welcome preview")}
+            onOpenCountry={openCountry}
           />
-        ) : null}
-
-        {route === "discovery" ? (
-          <DiscoveryScreen
-            countries={countries}
-            selectedCountryId={selectedCountryId}
-            onSelectCountry={(countryId) => setSelectedCountryId(countryId)}
-            onOpenCountry={(countryId) => {
-              setSelectedCountryId(countryId);
-              setRoute("country");
-            }}
-            selectedYear={selectedYear}
-            onChangeYear={(year) => handleYearChange(year, "Discovery Globe")}
-          />
-        ) : null}
-
-        {route === "country" ? (
-          <CountryScreen
-            country={selectedCountry}
-            onNavigate={setRoute}
-            selectedYear={selectedYear}
-            onChangeYear={(year) => handleYearChange(year, `${selectedCountry.name} overview`)}
-          />
-        ) : null}
-
-        {route === "hiddenGems" ? (
-          <HiddenGemsScreen
-            country={selectedCountry}
-            songs={songs}
-            selectedSongId={selectedSongId}
-            selectedSong={selectedSong}
-            onSelectSong={setSelectedSongId}
-            selectedYear={selectedYear}
-            onChangeYear={(year) => handleYearChange(year, `${selectedCountry.name} hidden gems`)}
-          />
-        ) : null}
-
-        {route === "comparisonSelect" ? (
-          <ComparisonSelectScreen
-            countries={countries}
-            selectedCountryIds={comparisonIds}
-            onToggleCountry={(countryId) => {
-              setComparisonIds((current) => {
-                if (current.includes(countryId)) {
-                  return current.filter((id) => id !== countryId);
-                }
-                if (current.length >= 3) {
-                  return current;
-                }
-                return [...current, countryId];
-              });
-            }}
-            onDone={() => setRoute("comparisonResults")}
-            selectedYear={selectedYear}
-            onChangeYear={(year) => handleYearChange(year, "Comparison Mode")}
-          />
-        ) : null}
-
-        {route === "comparisonResults" ? (
-          <ComparisonResultsScreen
-            countries={selectedComparisonCountries}
-            selectedYear={selectedYear}
-            onBack={() => setRoute("comparisonSelect")}
-          />
-        ) : null}
-
-        {route === "dashboard" ? (
-          <DashboardScreen year={selectedYear} metrics={dashboardMetrics} countries={countries} />
-        ) : null}
-        {route === "credits" ? <CreditsScreen /> : null}
-      </View>
-      <View pointerEvents="box-none" style={styles.breadcrumbWrap}>
-        <View style={styles.breadcrumbRow}>
-          {breadcrumbs.map((crumb, index) => {
-            const isLast = index === breadcrumbs.length - 1;
-
-            return (
-              <View key={`${crumb.label}-${index}`} style={styles.breadcrumbItem}>
-                {crumb.route && !isLast ? (
-                  <Pressable onPress={() => setRoute(crumb.route!)} hitSlop={6}>
-                    <Text
-                      style={[styles.breadcrumbText, index === 0 ? styles.breadcrumbHome : styles.breadcrumbLink]}
-                    >
-                      {crumb.label}
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <Text style={[styles.breadcrumbText, isLast ? styles.breadcrumbCurrent : null]}>{crumb.label}</Text>
+          <View style={styles.screenArea}>
+            <Stack.Navigator
+              initialRouteName="welcome"
+              screenOptions={{
+                headerShown: false,
+                animation: "none",
+                contentStyle: { backgroundColor: colors.background },
+              }}
+            >
+              <Stack.Screen name="welcome">
+                {() => (
+                  <WelcomeScreen
+                    countries={countries}
+                    onNavigate={navigateToRoute}
+                    onSelectCountry={openCountry}
+                    selectedYear={selectedYear}
+                    onChangeYear={(year) => handleYearChange(year, "Welcome preview")}
+                  />
                 )}
-                {!isLast ? <Text style={styles.breadcrumbSeparator}> / </Text> : null}
-              </View>
-            );
-          })}
+              </Stack.Screen>
+
+              <Stack.Screen name="discovery">
+                {() => (
+                  <DiscoveryScreen
+                    countries={countries}
+                    selectedCountryId={selectedCountryId}
+                    onSelectCountry={(countryId) => setSelectedCountryId(countryId)}
+                    onOpenCountry={openCountry}
+                    selectedYear={selectedYear}
+                    onChangeYear={(year) => handleYearChange(year, "Discovery Globe")}
+                  />
+                )}
+              </Stack.Screen>
+
+              <Stack.Screen name="country">
+                {() => (
+                  <CountryScreen
+                    country={selectedCountry}
+                    onNavigate={navigateToRoute}
+                    selectedYear={selectedYear}
+                    onChangeYear={(year) => handleYearChange(year, `${selectedCountry.name} overview`)}
+                  />
+                )}
+              </Stack.Screen>
+
+              <Stack.Screen name="hiddenGems">
+                {() => (
+                  <HiddenGemsScreen
+                    country={selectedCountry}
+                    songs={songs}
+                    selectedSongId={selectedSongId}
+                    selectedSong={selectedSong}
+                    onSelectSong={setSelectedSongId}
+                    selectedYear={selectedYear}
+                    onChangeYear={(year) => handleYearChange(year, `${selectedCountry.name} hidden gems`)}
+                  />
+                )}
+              </Stack.Screen>
+
+              <Stack.Screen name="comparisonSelect">
+                {() => (
+                  <ComparisonSelectScreen
+                    countries={countries}
+                    selectedCountryIds={comparisonIds}
+                    onToggleCountry={(countryId) => {
+                      setComparisonIds((current) => {
+                        if (current.includes(countryId)) {
+                          return current.filter((id) => id !== countryId);
+                        }
+                        if (current.length >= 3) {
+                          return current;
+                        }
+                        return [...current, countryId];
+                      });
+                    }}
+                    onDone={() => navigateToRoute("comparisonResults")}
+                    selectedYear={selectedYear}
+                    onChangeYear={(year) => handleYearChange(year, "Comparison Mode")}
+                  />
+                )}
+              </Stack.Screen>
+
+              <Stack.Screen name="comparisonResults">
+                {() => (
+                  <ComparisonResultsScreen
+                    countries={selectedComparisonCountries}
+                    selectedYear={selectedYear}
+                    onBack={() => navigateToRoute("comparisonSelect")}
+                  />
+                )}
+              </Stack.Screen>
+
+              <Stack.Screen name="dashboard">
+                {() => <DashboardScreen year={selectedYear} metrics={dashboardMetrics} countries={countries} />}
+              </Stack.Screen>
+
+              <Stack.Screen name="credits" component={CreditsScreen} />
+            </Stack.Navigator>
+          </View>
+          <LoadingOverlay visible={Boolean(loadingMessage)} message={loadingMessage ?? undefined} />
         </View>
-      </View>
-      <LoadingOverlay visible={Boolean(loadingMessage)} message={loadingMessage ?? undefined} />
-    </View>
+      </NavigationContainer>
+    </AppErrorBoundary>
   );
 }
 
@@ -374,49 +494,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  errorShell: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+    backgroundColor: colors.background,
+    padding: 24,
+  },
+  errorTitle: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 22,
+    lineHeight: 26,
+    textAlign: "center",
+  },
+  errorButton: {
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  errorButtonText: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 16,
+    lineHeight: 18,
+  },
   screenArea: {
     flex: 1,
-  },
-  breadcrumbWrap: {
-    position: "absolute",
-    left: 24,
-    right: 24,
-    bottom: 10,
-    alignItems: "flex-start",
-    zIndex: 3,
-  },
-  breadcrumbRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    flexWrap: "wrap",
-    maxWidth: "100%",
-  },
-  breadcrumbItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  breadcrumbText: {
-    color: colors.text,
-    fontFamily: typefaces.display,
-    fontSize: 13,
-    lineHeight: 18,
-    opacity: 1,
-  },
-  breadcrumbLink: {
-    textDecorationLine: "none",
-  },
-  breadcrumbHome: {
-    textDecorationLine: "underline",
-  },
-  breadcrumbCurrent: {
-    color: colors.text,
-  },
-  breadcrumbSeparator: {
-    color: colors.text,
-    fontFamily: typefaces.display,
-    fontSize: 13,
-    lineHeight: 18,
-    opacity: 1,
   },
 });
