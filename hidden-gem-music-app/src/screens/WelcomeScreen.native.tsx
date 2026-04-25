@@ -20,9 +20,9 @@ export function WelcomeScreen({
 }: Props) {
   return (
     <LinearGradient
-      colors={["#24293e", "#1b1f33", "#0f1220"]}
-      style={styles.container}
-    >
+  colors={["#24293e", "#1b1f33", "#75526B"]}
+  style={styles.container}
+>
       <Text style={styles.title}>Hidden Gem Music</Text>
 
       <Text style={styles.subtitle}>
@@ -64,16 +64,17 @@ const styles = StyleSheet.create({
     color: "#afcbff",
     textAlign: "center",
     marginTop: 80,
-    fontWeight: "700",
+    
+    fontFamily: "NyghtSerif-Regular",
   },
 
   subtitle: {
     fontSize: 16,
     color: "#afcbff",
     textAlign: "center",
-    marginTop: 20,
-    opacity: 0.85,
-    lineHeight: 22,
+    marginTop: 150,
+    fontFamily: "Tanklager-Kompakt",
+    
   },
 
   buttonContainer: {
