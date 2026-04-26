@@ -160,7 +160,7 @@ export function DiscoveryScreen({
       <View style={styles.listContainer}>
 
         <LinearGradient
-          colors={["#24293e", "#1b1f33", "#0f1220"]}
+          colors={["#24293e", "#1b1f33", "#75526B"]}
           style={styles.listBackground}
         >
 
