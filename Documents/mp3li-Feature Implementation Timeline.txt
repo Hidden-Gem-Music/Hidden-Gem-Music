@@ -1,6 +1,49 @@
 mp3li's Feature Implementation Timeline for Hidden Gem Music
 
-Updated: April 25, 2026
+Updated: April 26, 2026
+
+Hidden Gems Screen Completion, Interaction System, and Dropdown / Playback Iteration (April 26, 2026)
+- Hidden Gems is now completed as a core web screen implementation rather than remaining in placeholder status.
+- Hidden Gems moved from an earlier placeholder-style detail layout into a full two-panel web implementation aligned to the newer mockup direction:
+  - A top blurb section with title/body copy and stat square
+  - A left hidden-song listing panel
+  - A right playing-side panel centered around a large CD case and selected-song details
+- The route labeling/navigation context for Hidden Gems was aligned to country-specific naming:
+  - Browser tab / route title and breadcrumb naming now use `{Country Name}'s Hidden Gems` wording instead of generic `Hidden Gems`
+- Hidden-song data presentation was expanded:
+  - Additional generated hidden-gem mock entries were added beyond the base country-year songs
+  - List rendering now starts with a batch and loads more as the user scrolls instead of rendering the entire set immediately
+  - Song rows include left-side ranked numbering and compacted row density
+- The right-side playing area went through substantial interaction and typography work:
+  - Main CD was resized and vertically repositioned with matching art-backdrop coverage relative to country-page carousel CD ratios
+  - Song title/artist line under the CD was converted to mixed-font styling with repeated spacing refinements
+  - A nav-style underline was added beneath the song title/artist line
+  - Metadata blocks below were converted into slightly transparent card rows and resized for readability tuning
+- Hover-based playback control behaviors were added and repeatedly refined:
+  - Hovering the main CD shows previous/play-pause/next controls
+  - Hovering small list CDs shows a play button overlay
+  - Clicking list-CD play updates selection and marks preview playback state as active (audio stream hookup remains future work)
+  - Button styling was iterated to match selected-filter visual language and then adjusted so gradients run vertically with pink at the bottom
+- Hidden Gems blurb controls were redesigned from a single simple year selector to stacked custom dropdowns:
+  - Top dropdown: `Country` with `Select Country` as the first option, then all countries
+  - Bottom dropdown: `Select Year` with `Select Year` as the first option, then full global app years
+  - Both dropdowns share the same width and panel-styled option menus
+  - Multiple z-index and placement passes were required to avoid one dropdown blocking the other
+- Custom scrollbar behavior was maintained and then tuned:
+  - Both left and right secondary panels keep custom scrollbar tracks/thumbs
+  - Scrollbar colors were adjusted to semi-transparent styling
+- Additions / removals / changes during this Hidden Gems round:
+  - Added local helper copy in the blurb explaining CD hover/play preview behavior
+  - Removed older separate helper-line treatment by folding that instruction into the main blurb paragraph flow
+  - Replaced simpler native/select year control with custom panel-based dropdown interaction
+  - Reworked repeated spacing/color/position values across stat square, song rows, metadata cards, and control overlays
+- Overall problem / solution pattern during this round:
+  - Problem: Clicking rows in the hidden-song list could glitch or appear to revert the main CD selection
+  - Solution: Introduced Hidden-Gems-local active song selection state and guarded parent sync so generated list items no longer fight parent song-state reconciliation
+  - Problem: Hover controls on the main CD disappeared while moving across the CD/button region
+  - Solution: Main CD hover detection was moved to full-case hover-target logic so controls persist until pointer actually leaves the CD area
+  - Problem: Mock album-art backdrops on Hidden Gems CDs did not match the carousel visual footprint
+  - Solution: Backdrop sizes were resized to align with the same relative coverage ratio used on the country-page carousel CD component
 
 Country Screen Completion, Hidden Gems Preview Routing, and Navigation Updates (April 25, 2026)
 - The Country screen moved out of placeholder status and into a much more complete mockup-driven web implementation:
@@ -146,7 +189,7 @@ Issue 5 Completion and Issue 6 Shell Clarification (April 22, 2026)
   - Discovery Globe shell ownership and follow-up filter/modal area
   - Dashboard shell area where chart placeholders and overlap-specific visuals will be added
   - Hidden Songs detail area where the planned transparent CD case component will be implemented
-- The issue-6 comments also clarify that the CD case asset itself will only contain album art, while supporting metadata will remain in the app UI and later be filled from the dataset and external API sources as needed.
+- The issue-6 comments also clarify that the CD case asset itself will only contain album art, while supporting metadata will remain in the app UI and later be filled from dataset-backed sources as needed.
 
 Architecture Documentation and Repo Tracking Cleanup (April 21, 2026)
 - A frontend architecture document was added to record the scaffold deliverables for issue #5:

@@ -146,7 +146,7 @@ export default function App() {
         return [
           { label: "Welcome", route: "welcome" as ScreenRoute },
           { label: selectedCountry.name, route: "country" as ScreenRoute },
-          { label: "Hidden Gems", route: null },
+          { label: `${selectedCountry.name}'s Hidden Gems`, route: null },
         ];
       case "comparisonSelect":
         return [
@@ -392,7 +392,7 @@ export default function App() {
         document.title = `${selectedCountry.name}'s Detail Page`;
         break;
       case "hiddenGems":
-        document.title = "Hidden Gems";
+        document.title = `${selectedCountry.name}'s Hidden Gems`;
         break;
       case "comparisonSelect":
         document.title = "Comparison Mode";
@@ -501,14 +501,16 @@ export default function App() {
                 )}
               </Stack.Screen>
 
-              <Stack.Screen name="hiddenGems" options={{ title: "Hidden Gems" }}>
+              <Stack.Screen name="hiddenGems" options={{ title: `${selectedCountry.name}'s Hidden Gems` }}>
                 {() => (
                   <HiddenGemsScreen
                     country={selectedCountry}
+                    countries={countries}
                     songs={songs}
                     selectedSongId={selectedSongId}
                     selectedSong={selectedSong}
                     onSelectSong={setSelectedSongId}
+                    onSelectCountry={(countryId) => setSelectedCountryId(countryId)}
                     selectedYear={selectedYear}
                     onChangeYear={(year) => handleYearChange(year, `${selectedCountry.name} hidden gems`)}
                   />
