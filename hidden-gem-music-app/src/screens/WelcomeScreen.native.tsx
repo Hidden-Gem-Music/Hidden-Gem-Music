@@ -26,29 +26,43 @@ export function WelcomeScreen({
       <Text style={styles.title}>Hidden Gem Music</Text>
 
       <Text style={styles.subtitle}>
-        Discover hidden music gems from around the world. Explore different
-        countries, compare trends, and uncover songs you’ve never heard before.
+        Insert a semi long description of the app here. Maybe something about how it can help you discover new music and artists from around the world, and how it uses data to find hidden gems that you might not have heard of before.
       </Text>
 
       <View style={{ flex: 1 }} />
 
       <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => onNavigate("discovery")}
-        >
-          <MaterialCommunityIcons name="earth" size={26} color="#afcbff" />
-          <Text style={styles.buttonText}>Globe</Text>
-        </TouchableOpacity>
+  <TouchableOpacity style={styles.button} onPress={() => onNavigate("discovery")}>
+    <MaterialCommunityIcons name="earth" size={22} color="#afcbff" />
+    <Text style={styles.buttonText}>Globe</Text>
+  </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => onNavigate("filters")}
-        >
-          <Feather name="filter" size={26} color="#afcbff" />
-          <Text style={styles.buttonText}>Filters</Text>
-        </TouchableOpacity>
-      </View>
+  <TouchableOpacity style={styles.button} onPress={() => onNavigate("filters")}>
+    <Feather name="filter" size={22} color="#afcbff" />
+    <Text style={styles.buttonText}>Filters</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity style={styles.button} onPress={() => onNavigate("comparisonSelect")}>
+    <MaterialCommunityIcons name="compare" size={22} color="#afcbff" />
+    <Text style={styles.buttonText}>Compare</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity style={styles.button} onPress={() => onNavigate("hiddenGems")}>
+    <MaterialCommunityIcons name="music" size={22} color="#afcbff" />
+    <Text style={styles.buttonText}>Hidden Gems</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity style={styles.button} onPress={() => onNavigate("dashboard")}>
+    <MaterialCommunityIcons name="view-dashboard" size={22} color="#afcbff" />
+    <Text style={styles.buttonText}>Dashboard</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity style={styles.button} onPress={() => onNavigate("credits")}>
+    <Feather name="info" size={22} color="#afcbff" />
+    <Text style={styles.buttonText}>Credits</Text>
+  </TouchableOpacity>
+                </View>
+      
     </LinearGradient>
   );
 }
@@ -65,7 +79,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 80,
     
-    fontFamily: "NyghtSerif-Regular",
+    fontFamily: "NyghtSerif-MediumItalic",
   },
 
   subtitle: {
@@ -78,19 +92,19 @@ const styles = StyleSheet.create({
   },
 
   buttonContainer: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 40,
-  },
+  flexDirection: "row",
+  flexWrap: "wrap",   // ✅ allows multiple rows
+  gap: 12,
+  marginBottom: 40,
+},
 
   button: {
-    flex: 1,
-    backgroundColor: "#3a4161",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  width: "48%",        // ✅ 2 per row
+  backgroundColor: "#3a4161",
+  padding: 14,
+  borderRadius: 10,
+  alignItems: "center",
+},
 
   buttonText: {
     color: "#afcbff",
