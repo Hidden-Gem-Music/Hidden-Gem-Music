@@ -19,6 +19,7 @@ export type Props = {
   onOpenCountry: (countryId: string) => void;
   selectedYear: number;
   onChangeYear: (year: number) => void;
+  onNavigate?: (route: "filters") => void;
 };
 
 export function DiscoveryScreen({
@@ -28,6 +29,7 @@ export function DiscoveryScreen({
   onOpenCountry,
   selectedYear,
   onChangeYear,
+  onNavigate,
 }: Props) {
   // Issue #6 shell: this screen owns the core Discovery Globe layout,
   // including globe rendering, country selection, panel structure, and dummy-data wiring.

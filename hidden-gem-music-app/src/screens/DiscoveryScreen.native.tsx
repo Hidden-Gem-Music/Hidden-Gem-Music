@@ -9,15 +9,10 @@ import {
 } from "react-native";
 import { useEffect, useRef, useState } from "react";
 
-/* =========================================================
-   CONFIG
-========================================================= */
+/* ================= CONFIG ================= */
 
 const SIZE = 220;
 
-/**
- * Converts ISO-like country code into emoji flag
- */
 const getFlagEmoji = (countryCode?: string) => {
   if (!countryCode) return "🌍";
 
@@ -28,9 +23,6 @@ const getFlagEmoji = (countryCode?: string) => {
     );
 };
 
-/**
- * Positions cards evenly around a circular “fake globe”
- */
 const getGlobePosition = (index: number, total: number) => {
   const angle = (index / total) * Math.PI * 2;
   const radius = SIZE / 2.4;
@@ -41,10 +33,6 @@ const getGlobePosition = (index: number, total: number) => {
   };
 };
 
-/**
- * Generates mock “insight data” for each country card.
- * This will later be replaced by real API data.
- */
 const getMockInsights = (id: string) => {
   const seed = id.length * 7;
 
@@ -55,32 +43,25 @@ const getMockInsights = (id: string) => {
   };
 };
 
-/* =========================================================
-   SCREEN
-========================================================= */
+/* ================= SCREEN ================= */
 
 export function DiscoveryScreen({
   countries,
   onOpenCountry,
+  selectedCountryId,
+  onNavigate, // 👈 IMPORTANT: make sure this exists in Props
 }: Props) {
   const safeCountries = countries ?? [];
-
   const listRef = useRef<FlatList>(null);
 
   const [activeCountryId, setActiveCountryId] = useState<string>(
     safeCountries[0]?.id ?? ""
   );
 
-  /**
-   * Currently focused country (controls globe + label)
-   */
   const activeCountry =
     safeCountries.find((c) => c.id === activeCountryId) ??
     safeCountries[0];
 
-  /**
-   * Sync list scroll when active country changes (globe interaction)
-   */
   useEffect(() => {
     const index = safeCountries.findIndex(
       (c) => c.id === activeCountryId
@@ -95,33 +76,29 @@ export function DiscoveryScreen({
     }
   }, [activeCountryId]);
 
-  /**
-   * Handles selection from either globe OR list
-   */
   const handleSelect = (id: string) => {
     setActiveCountryId(id);
     onOpenCountry(id);
   };
 
-  /* =========================================================
-     UI
-  ========================================================= */
-
   return (
     <View style={styles.container}>
 
-      {/* ===================== GLOBE ===================== */}
+      {/* ================= GLOBE HEADER ================= */}
       <View style={styles.globeContainer}>
 
+        {/* 🔘 FILTER BUTTON (NEW) */}
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => onNavigate?.("filters")}
+        >
+          <Text style={styles.filterButtonText}>Filters</Text>
+        </TouchableOpacity>
+
         <View style={styles.globe}>
-
-          {/* soft background glow */}
           <View style={styles.globeGlow} />
-
-          {/* base globe icon */}
           <Text style={styles.globeBackground}>🌍</Text>
 
-          {/* orbiting interactive country nodes */}
           {safeCountries.map((country, index) => {
             const pos = getGlobePosition(index, safeCountries.length);
             const isActive = country.id === activeCountryId;
@@ -147,23 +124,19 @@ export function DiscoveryScreen({
               </TouchableOpacity>
             );
           })}
-
         </View>
 
-        {/* dynamic label under globe */}
         <Text style={styles.globeLabel}>
           {activeCountry?.name ?? "Explore the World"}
         </Text>
       </View>
 
-      {/* ===================== LIST ===================== */}
+      {/* ================= LIST ================= */}
       <View style={styles.listContainer}>
-
         <LinearGradient
           colors={["#24293e", "#1b1f33", "#75526B"]}
           style={styles.listBackground}
         >
-
           <FlatList
             ref={listRef}
             data={safeCountries}
@@ -180,32 +153,26 @@ export function DiscoveryScreen({
                     isActive && styles.countryRowActive,
                   ]}
                   onPress={() => handleSelect(item.id)}
-                  activeOpacity={0.85}
                 >
-
-                  {/* country name */}
                   <Text style={styles.countryName}>
                     {item.name}
                   </Text>
 
-                  {/* FAKE DATA INSIGHTS */}
                   <Text style={styles.countryMeta}>
                     Hidden Songs: {insights.hiddenSongs}
                   </Text>
 
                   <Text style={styles.countryMeta}>
-                    Most Popular Genres: {insights.genres}
+                    Genres: {insights.genres}
                   </Text>
 
                   <Text style={styles.countryMeta}>
                     Top Album: {insights.topAlbum}
                   </Text>
-
                 </TouchableOpacity>
               );
             }}
           />
-
         </LinearGradient>
       </View>
 
@@ -213,21 +180,33 @@ export function DiscoveryScreen({
   );
 }
 
-/* =========================================================
-   STYLES
-========================================================= */
+/* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
-  /* ================= GLOBE ================= */
+  container: { flex: 1 },
 
   globeContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  /* 🔘 FILTER BUTTON */
+  filterButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    backgroundColor: "#3a4161",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    zIndex: 10,
+  },
+
+  filterButtonText: {
+    color: "#afcbff",
+    fontSize: 14,
+    fontFamily: "NyghtSerif-Regular",
   },
 
   globe: {
@@ -282,8 +261,6 @@ const styles = StyleSheet.create({
     fontFamily: "Tanklager-Kompakt",
   },
 
-  /* ================= LIST ================= */
-
   listContainer: {
     flex: 1.3,
   },
@@ -317,6 +294,5 @@ const styles = StyleSheet.create({
   countryMeta: {
     color: "#8fa3c7",
     fontSize: 12,
-    marginTop: 2,
   },
 });
