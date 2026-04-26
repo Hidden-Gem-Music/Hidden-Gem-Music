@@ -20,7 +20,6 @@ import {
   getCountriesForYear,
   getCountryByYear,
   getDashboardMetrics,
-  getDefaultComparisonIds,
   getFeaturedCountry,
   getSongsForCountryYear,
 } from "./src/data/mockData";
@@ -104,7 +103,7 @@ export default function App() {
   const [selectedYear, setSelectedYear] = useState(initialYear);
   const [selectedCountryId, setSelectedCountryId] = useState(initialNavigationSeed.countryId ?? initialFeaturedCountry.id);
   const [selectedSongId, setSelectedSongId] = useState("");
-  const [comparisonIds, setComparisonIds] = useState<string[]>(getDefaultComparisonIds());
+  const [comparisonIds, setComparisonIds] = useState<string[]>([]);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -131,47 +130,47 @@ export default function App() {
   const breadcrumbs = useMemo(() => {
     switch (currentRoute) {
       case "welcome":
-        return [{ label: "Home", route: "welcome" as ScreenRoute }];
+        return [{ label: "Welcome", route: "welcome" as ScreenRoute }];
       case "discovery":
         return [
-          { label: "Home", route: "welcome" as ScreenRoute },
+          { label: "Welcome", route: "welcome" as ScreenRoute },
           { label: "Discovery Globe", route: "discovery" as ScreenRoute },
         ];
       case "country":
         return [
-          { label: "Home", route: "welcome" as ScreenRoute },
+          { label: "Welcome", route: "welcome" as ScreenRoute },
           { label: "Discovery Globe", route: "discovery" as ScreenRoute },
           { label: selectedCountry.name, route: null },
         ];
       case "hiddenGems":
         return [
-          { label: "Home", route: "welcome" as ScreenRoute },
+          { label: "Welcome", route: "welcome" as ScreenRoute },
           { label: selectedCountry.name, route: "country" as ScreenRoute },
           { label: "Hidden Gems", route: null },
         ];
       case "comparisonSelect":
         return [
-          { label: "Home", route: "welcome" as ScreenRoute },
+          { label: "Welcome", route: "welcome" as ScreenRoute },
           { label: "Comparison Mode", route: "comparisonSelect" as ScreenRoute },
         ];
       case "comparisonResults":
         return [
-          { label: "Home", route: "welcome" as ScreenRoute },
+          { label: "Welcome", route: "welcome" as ScreenRoute },
           { label: "Comparison Mode", route: "comparisonSelect" as ScreenRoute },
           { label: "Results", route: null },
         ];
       case "dashboard":
         return [
-          { label: "Home", route: "welcome" as ScreenRoute },
+          { label: "Welcome", route: "welcome" as ScreenRoute },
           { label: "Dashboard", route: "dashboard" as ScreenRoute },
         ];
       case "credits":
         return [
-          { label: "Home", route: "welcome" as ScreenRoute },
+          { label: "Welcome", route: "welcome" as ScreenRoute },
           { label: "Credits", route: "credits" as ScreenRoute },
         ];
       default:
-        return [{ label: "Home", route: "welcome" as ScreenRoute }];
+        return [{ label: "Welcome", route: "welcome" as ScreenRoute }];
     }
   }, [currentRoute, selectedCountry.name]);
 
@@ -233,6 +232,32 @@ export default function App() {
         navigationRef.navigate("welcome");
         break;
     }
+  };
+
+  const openHiddenGems = (selection?: { songTitle?: string; artist?: string }) => {
+    const normalize = (value?: string) => value?.trim().toLowerCase() ?? "";
+    const normalizedTitle = normalize(selection?.songTitle);
+    const normalizedArtist = normalize(selection?.artist);
+    const matchedSong =
+      songs.find(
+        (song) =>
+          normalizedTitle &&
+          normalize(song.title) === normalizedTitle &&
+          (!normalizedArtist || normalize(song.artist) === normalizedArtist)
+      ) ??
+      songs.find((song) => normalizedTitle && normalize(song.title) === normalizedTitle) ??
+      songs.find((song) => normalizedArtist && normalize(song.artist) === normalizedArtist) ??
+      songs[0];
+
+    if (matchedSong) {
+      setSelectedSongId(matchedSong.id);
+    }
+
+    if (!navigationRef.isReady()) {
+      return;
+    }
+
+    navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
   };
 
   const openCountry = (countryId: string) => {
@@ -340,6 +365,42 @@ export default function App() {
     return () => styleTag.remove();
   }, []);
 
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    switch (currentRoute) {
+      case "welcome":
+        document.title = "Welcome to Hidden Gems Music App";
+        break;
+      case "discovery":
+        document.title = "Discovery Globe";
+        break;
+      case "country":
+        document.title = `${selectedCountry.name}'s Detail Page`;
+        break;
+      case "hiddenGems":
+        document.title = "Hidden Gems";
+        break;
+      case "comparisonSelect":
+        document.title = "Comparison Mode";
+        break;
+      case "comparisonResults":
+        document.title = "Comparison View";
+        break;
+      case "credits":
+        document.title = "Credits";
+        break;
+      case "dashboard":
+        document.title = "Dashboard";
+        break;
+      default:
+        document.title = "Hidden Gems Music App";
+        break;
+    }
+  }, [currentRoute, selectedCountry.name]);
+
   const handleYearChange = (nextYear: number, context: string) => {
     if (nextYear === selectedYear) {
       return;
@@ -421,7 +482,8 @@ export default function App() {
                 {() => (
                   <CountryScreen
                     country={selectedCountry}
-                    onNavigate={navigateToRoute}
+                    onOpenHiddenGems={openHiddenGems}
+                    onOpenComparisonMode={() => navigateToRoute("comparisonSelect")}
                     selectedYear={selectedYear}
                     onChangeYear={(year) => handleYearChange(year, `${selectedCountry.name} overview`)}
                   />
@@ -452,7 +514,7 @@ export default function App() {
                         if (current.includes(countryId)) {
                           return current.filter((id) => id !== countryId);
                         }
-                        if (current.length >= 3) {
+                        if (current.length >= 2) {
                           return current;
                         }
                         return [...current, countryId];

@@ -15,20 +15,20 @@ import {
   ViewStyle,
 } from "react-native";
 
-import { ActionButton } from "../components/ActionButton";
 import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { YearSelector } from "../components/YearSelector";
-import { Country } from "../types/content";
-import { ScreenRoute } from "../types/navigation";
+import { getSongsForCountryYear } from "../data/mockData";
+import { Country, Song } from "../types/content";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 export type Props = {
   country: Country;
-  onNavigate: (route: ScreenRoute) => void;
+  onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
+  onOpenComparisonMode: () => void;
   selectedYear: number;
   onChangeYear: (year: number) => void;
 };
@@ -67,6 +67,9 @@ const carouselBackdropColors = ["#B86A72", "#8B9BC0", "#8B5E7A", "#627F8A", "#C2
 const cdCaseSource = require("../assets/images/CD-Case-Transparent-Image.png");
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
 const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
+const carouselSizes = [300, 228, 198, 172, 150, 136, 124, 114] as const;
+const carouselScales = [1, 0.93, 0.85, 0.77, 0.7, 0.64, 0.58, 0.52] as const;
+const carouselOverlap = 62;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -78,6 +81,35 @@ function hashString(value: string) {
     hash = (hash * 31 + value.charCodeAt(index)) % 100000;
   }
   return hash;
+}
+
+function getCarouselVisualSize(offsetDistance: number) {
+  return carouselSizes[Math.min(offsetDistance, carouselSizes.length - 1)];
+}
+
+function getCarouselVisualScale(offsetDistance: number) {
+  return carouselScales[Math.min(offsetDistance, carouselScales.length - 1)];
+}
+
+function getCarouselTranslateX(offset: number) {
+  const distance = Math.abs(offset);
+
+  if (distance === 0) {
+    return 0;
+  }
+
+  let translateX = 0;
+  for (let index = 1; index <= distance; index += 1) {
+    const previousWidth = getCarouselVisualSize(index - 1) * getCarouselVisualScale(index - 1);
+    const currentWidth = getCarouselVisualSize(index) * getCarouselVisualScale(index);
+    translateX += (previousWidth + currentWidth) / 2 - carouselOverlap;
+  }
+
+  return offset < 0 ? -translateX : translateX;
+}
+
+function getWrappedIndex(index: number, length: number) {
+  return ((index % length) + length) % length;
 }
 
 function createPercentBreakdown(labels: string[], seed: number) {
@@ -118,7 +150,7 @@ function buildCountryProfile(country: Country, year: number): CountryProfileView
   const secondArtist = country.featuredArtists[1] ?? country.albumArtist;
   const thirdArtist = country.featuredArtists[2] ?? leadArtist;
 
-  const sharedSongs = Array.from({ length: 10 }, (_, index) =>
+  const sharedSongs = Array.from({ length: sharedCount }, (_, index) =>
     createSongPreview(
       index === 0 ? country.topSong : `${country.album} ${vibeTerms[(seed + index) % vibeTerms.length]}`,
       [country.albumArtist, leadArtist, secondArtist, thirdArtist][index % 4],
@@ -127,7 +159,7 @@ function buildCountryProfile(country: Country, year: number): CountryProfileView
     )
   );
 
-  const uniqueSongs = Array.from({ length: 10 }, (_, index) =>
+  const uniqueSongs = Array.from({ length: uniqueCount }, (_, index) =>
     createSongPreview(
       index === 0 ? `${country.region} Private Mix` : `${country.name} ${hiddenTerms[(seed + index) % hiddenTerms.length]}`,
       [leadArtist, secondArtist, thirdArtist, country.albumArtist][index % 4],
@@ -172,7 +204,7 @@ function CountryPageSection({
 }: {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
-  fillVariant?: "default" | "blurb" | "softBlue";
+  fillVariant?: "default" | "blurb" | "softBlue" | "comparisonBlue";
   contentStyle?: StyleProp<ViewStyle>;
 }) {
   return (
@@ -189,6 +221,14 @@ function CountryPageSection({
         <LinearGradient
           colors={[colors.backgroundSoft, "#74819B", "#5D6983", colors.backgroundBottom]}
           locations={[0, 0.48, 0.82, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.customFill}
+        />
+      ) : fillVariant === "comparisonBlue" ? (
+        <LinearGradient
+          colors={[colors.backgroundSoft, "#74819B", "#70536A"]}
+          locations={[0, 0.38, 1]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={styles.customFill}
@@ -243,12 +283,14 @@ function CdCase({
 
 function MainComparisonArea({
   title,
-  subtext,
   songs,
+  onOpenHiddenGems,
+  darkTheme = false,
 }: {
   title: string;
-  subtext?: string;
   songs: SongPreview[];
+  onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
+  darkTheme?: boolean;
 }) {
   const scrollRef = useRef<ScrollView>(null);
   const trackRef = useRef<View>(null);
@@ -321,7 +363,7 @@ function MainComparisonArea({
 
   return (
     <View style={styles.mainComparisonArea}>
-      <Text style={styles.panelTitle}>{title}</Text>
+      <Text style={[styles.panelTitle, darkTheme ? styles.panelTitleDark : null]}>{title}</Text>
       <View style={styles.mainComparisonListFrame}>
         <ScrollView
           ref={scrollRef}
@@ -337,7 +379,7 @@ function MainComparisonArea({
           {songs.map((song, index) => (
             <Pressable
               key={`${title}-${song.title}-${song.artist}`}
-              onPress={() => undefined}
+              onPress={() => onOpenHiddenGems({ songTitle: song.title, artist: song.artist })}
               onHoverIn={() => setHoveredSongKey(`${title}-${song.title}-${song.artist}`)}
               onHoverOut={() => setHoveredSongKey((current) => (current === `${title}-${song.title}-${song.artist}` ? null : current))}
               style={styles.songRowShell}
@@ -359,8 +401,24 @@ function MainComparisonArea({
                     ) : null}
                     <View style={[styles.songRow, showGradient ? styles.songRowActive : null]}>
                       <View style={styles.songCopy}>
-                        <Text style={[styles.songTitle, showGradient ? styles.songTextActive : null]}>{song.title}</Text>
-                        <Text style={[styles.songMeta, showGradient ? styles.songTextActive : null]}>{song.artist}</Text>
+                        <Text
+                          style={[
+                            styles.songTitle,
+                            darkTheme ? styles.songTitleDark : null,
+                            showGradient ? (darkTheme ? styles.songTextActiveDark : styles.songTextActive) : null,
+                          ]}
+                        >
+                          {song.title}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.songMeta,
+                            darkTheme ? styles.songMetaDark : null,
+                            showGradient ? (darkTheme ? styles.songTextActiveDark : styles.songTextActive) : null,
+                          ]}
+                        >
+                          {song.artist}
+                        </Text>
                       </View>
                       <CdCase size={84} artColor={carouselBackdropColors[index % carouselBackdropColors.length]} />
                     </View>
@@ -513,51 +571,88 @@ function LanguageSection({ title, subtitle, items }: { title: string; subtitle?:
 function HiddenSongsCarouselSection({
   countryName,
   songs,
+  onOpenHiddenGems,
 }: {
   countryName: string;
-  songs: SongPreview[];
+  songs: Pick<Song, "title" | "artist">[];
+  onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
 }) {
-  const [activeIndex, setActiveIndex] = useState(Math.floor(songs.length / 2));
-  const slots = [-3, -2, -1, 0, 1, 2, 3] as const;
+  const songCount = songs.length;
+  const [activeIndex, setActiveIndex] = useState(songCount > 0 ? Math.floor(songCount / 2) : 0);
+  const slots = [-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7] as const;
 
   useEffect(() => {
-    setActiveIndex(Math.floor(songs.length / 2));
-  }, [countryName, songs.length]);
+    setActiveIndex(songCount > 0 ? Math.floor(songCount / 2) : 0);
+  }, [countryName, songCount]);
 
   const goPrevious = () => {
-    setActiveIndex((current) => (current === 0 ? songs.length - 1 : current - 1));
+    if (songCount === 0) {
+      return;
+    }
+
+    setActiveIndex((current) => getWrappedIndex(current - 1, songCount));
   };
 
   const goNext = () => {
-    setActiveIndex((current) => (current === songs.length - 1 ? 0 : current + 1));
+    if (songCount === 0) {
+      return;
+    }
+
+    setActiveIndex((current) => getWrappedIndex(current + 1, songCount));
+  };
+
+  const handleCarouselItemPress = (songIndex: number, isCenter: boolean) => {
+    const song = songs[songIndex];
+    if (!song) {
+      return;
+    }
+
+    if (isCenter) {
+      onOpenHiddenGems({ songTitle: song.title, artist: song.artist });
+      return;
+    }
+
+    setActiveIndex(songIndex);
   };
 
   return (
     <CountryPageSection style={styles.hiddenSongsCarouselSection} contentStyle={styles.hiddenSongsCarouselSectionContent}>
       <View style={styles.hiddenSongsCarouselHeader}>
-        <Text style={styles.panelTitle}>Preview {countryName}'s Hidden Gems</Text>
-        <Text style={styles.hiddenSongsCarouselHelper} numberOfLines={1}>
-          Click a song to listen to a 30 second preview on the Hidden Gems page.
-        </Text>
+        <View style={styles.hiddenSongsCarouselHeaderLeft}>
+          <Text style={styles.panelTitle}>Preview {countryName}'s Hidden Gems</Text>
+          <Text style={styles.hiddenSongsCarouselHelper}>
+            Click a song to listen to a 30 second preview on the Hidden Gems page.
+          </Text>
+        </View>
+        <Pressable onPress={() => onOpenHiddenGems()} style={styles.hiddenSongsCarouselHelperAction}>
+          <Text style={styles.hiddenSongsCarouselHelperActionText}>{`Click here to view all of ${countryName}'s hidden gems`}</Text>
+        </Pressable>
       </View>
       <View style={styles.hiddenSongsCarouselBody}>
         <Pressable onPress={goPrevious} style={styles.hiddenSongsCarouselArrowButton}>
-          <GemIcon size={48} style={styles.hiddenSongsCarouselArrowLeft} />
+          <View style={styles.hiddenSongsCarouselArrowButtonInner}>
+            <GemIcon size={46} style={styles.hiddenSongsCarouselArrowLeft} />
+          </View>
         </Pressable>
         <View style={styles.hiddenSongsCarouselTrack}>
           {slots.map((offset) => {
-            const songIndex = (activeIndex + offset + songs.length) % songs.length;
+            if (songCount === 0) {
+              return null;
+            }
+
+            const songIndex = getWrappedIndex(activeIndex + offset, songCount);
             const song = songs[songIndex];
             const isCenter = offset === 0;
             const offsetDistance = Math.abs(offset);
-            const size = isCenter ? 300 : offsetDistance === 1 ? 228 : offsetDistance === 2 ? 198 : 172;
-            const horizontalOffset = offset * (offsetDistance === 3 ? 46 : 52);
-            const verticalOffset = isCenter ? -2 : offsetDistance === 1 ? 14 : 24;
-            const scale = isCenter ? 1 : offsetDistance === 1 ? 0.93 : offsetDistance === 2 ? 0.85 : 0.77;
+            const size = getCarouselVisualSize(offsetDistance);
+            const horizontalOffset = getCarouselTranslateX(offset);
+            const verticalOffset = -18;
+            const scale = getCarouselVisualScale(offsetDistance);
 
             return (
-              <View
+              <Pressable
                 key={`${song.title}-${offset}`}
+                onPress={() => handleCarouselItemPress(songIndex, isCenter)}
                 style={[
                   styles.hiddenSongsCarouselItem,
                   {
@@ -566,7 +661,20 @@ function HiddenSongsCarouselSection({
                       { translateY: verticalOffset },
                       { scale },
                     ],
-                    opacity: isCenter ? 1 : offsetDistance === 3 ? 0.54 : 0.78,
+                    opacity:
+                      isCenter
+                        ? 1
+                        : offsetDistance >= 7
+                          ? 0.24
+                          : offsetDistance === 6
+                            ? 0.28
+                            : offsetDistance === 5
+                              ? 0.34
+                              : offsetDistance === 4
+                                ? 0.42
+                                : offsetDistance === 3
+                                  ? 0.56
+                                  : 0.8,
                     zIndex: 100 - Math.abs(offset),
                   },
                   Platform.OS === "web"
@@ -578,30 +686,108 @@ function HiddenSongsCarouselSection({
                     : null,
                 ]}
               >
-                <CdCase size={size} artColor={carouselBackdropColors[songIndex % carouselBackdropColors.length]} />
+                <View style={styles.hiddenSongsCarouselCdSlot}>
+                  <CdCase size={size} artColor={carouselBackdropColors[songIndex % carouselBackdropColors.length]} />
+                </View>
                 {isCenter ? (
                   <>
                     <Text style={styles.hiddenSongsCarouselSongTitle}>{song.title}</Text>
                     <Text style={styles.hiddenSongsCarouselSongArtist}>{song.artist}</Text>
                   </>
                 ) : null}
-              </View>
+              </Pressable>
             );
           })}
         </View>
         <Pressable onPress={goNext} style={styles.hiddenSongsCarouselArrowButton}>
-          <GemIcon size={48} style={styles.hiddenSongsCarouselArrowRight} />
+          <View style={styles.hiddenSongsCarouselArrowButtonInner}>
+            <GemIcon size={46} style={styles.hiddenSongsCarouselArrowRight} />
+          </View>
         </Pressable>
       </View>
     </CountryPageSection>
   );
 }
 
-export function CountryScreen({ country, onNavigate, selectedYear, onChangeYear }: Props) {
+function FavoriteArtistsSection({
+  country,
+  selectedYear,
+  onOpenHiddenGems,
+}: {
+  country: Country;
+  selectedYear: number;
+  onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
+}) {
+  const artists = Array.from({ length: 8 }, (_, index) => country.featuredArtists[index % country.featuredArtists.length]);
+
+  return (
+    <CountryPageSection style={styles.snapshotPanel}>
+      <Text style={styles.panelTitle}>{`${country.name}'s Favorite Artists in ${selectedYear}`}</Text>
+
+      <View style={styles.favoriteArtistsRow}>
+        {artists.map((artist, index) => (
+          <Pressable
+            key={`${artist}-${index}`}
+            onPress={() => onOpenHiddenGems({ artist })}
+            style={styles.favoriteArtistItem}
+          >
+            <CdCase size={104} artColor={carouselBackdropColors[index % carouselBackdropColors.length]} />
+            <Text style={styles.favoriteArtistName}>{artist}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </CountryPageSection>
+  );
+}
+
+function ComparisonModeFooter({ onPress }: { onPress: () => void }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  const showGradient = isHovered || isPressed;
+
+  return (
+    <View style={styles.comparisonModeFooter}>
+      <Pressable
+        onPress={onPress}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
+        onPressIn={() => setIsPressed(true)}
+        onPressOut={() => setIsPressed(false)}
+        style={styles.comparisonModeFooterShell}
+      >
+        <LinearGradient
+          colors={[colors.surfaceSecondary, "#27293B", "rgba(66,72,101,0.42)", "rgba(66,72,101,0.72)"]}
+          locations={[0, 0.42, 0.78, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.comparisonModeFooterBaseFill}
+        />
+        {showGradient ? (
+          <LinearGradient
+            colors={isPressed ? activeGradient : hoverGradient}
+            locations={[0, 0.34, 1]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.comparisonModeFooterGradient}
+          />
+        ) : null}
+        <View style={[styles.comparisonModeFooterInner, showGradient ? styles.comparisonModeFooterInnerActive : null]}>
+          <Text style={[styles.comparisonModeFooterText, showGradient ? styles.comparisonModeFooterTextActive : null]}>
+            <Text style={styles.comparisonModeFooterLead}>To compare two countries</Text>
+            <Text style={styles.comparisonModeFooterBody}>,  click here to utilize Comparison Mode.</Text>
+          </Text>
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+
+export function CountryScreen({ country, onOpenHiddenGems, onOpenComparisonMode, selectedYear, onChangeYear }: Props) {
   const { width } = useWindowDimensions();
   const isStacked = width < 1120;
   const isCompact = width < 760;
   const profile = useMemo(() => buildCountryProfile(country, selectedYear), [country, selectedYear]);
+  const hiddenGemSongs = useMemo(() => getSongsForCountryYear(country.id, selectedYear), [country.id, selectedYear]);
   const pageScrollRef = useRef<ScrollView>(null);
   const pageTrackRef = useRef<View>(null);
   const [pageViewportHeight, setPageViewportHeight] = useState(0);
@@ -692,34 +878,45 @@ export function CountryScreen({ country, onNavigate, selectedYear, onChangeYear 
           </View>
           <View style={styles.topSectionYearBlock}>
             <View style={styles.topSectionYearWrap}>
-              <YearSelector label="Display Data For Year" year={selectedYear} onSelectYear={onChangeYear} centered smallLabel compactArrows compact />
+              <YearSelector
+                label="Display Data For Year"
+                year={selectedYear}
+                onSelectYear={onChangeYear}
+                centered
+                smallLabel
+                compactArrows
+                compact
+                filterStyled
+              />
             </View>
           </View>
         </View>
 
-        <CountryPageSection style={styles.countrySummarySection} fillVariant="blurb">
-          <Text style={styles.countrySummarySectionHeader}>Country Summary</Text>
+        <CountryPageSection style={styles.countrySummarySection} fillVariant="comparisonBlue">
+          <Text style={[styles.countrySummarySectionHeader, styles.countrySummarySectionTextDark]}>Country Summary</Text>
 
           <View style={[styles.countrySummarySectionDetailsRow, isCompact ? styles.stackRow : null]}>
             <View style={styles.countrySummarySectionDetailCard}>
               <View style={styles.countrySummarySectionDetailTitleWrap}>
-                <Text style={styles.countrySummarySectionDetailTitle}>General Description</Text>
+                <Text style={[styles.countrySummarySectionDetailTitle, styles.countrySummarySectionTextDark]}>General Description</Text>
                 <View style={styles.countrySummarySectionDetailTitleUnderline} />
               </View>
-              <Text style={styles.countrySummarySectionDetailText}>{country.sceneNote}</Text>
+              <Text style={[styles.countrySummarySectionDetailText, styles.countrySummarySectionTextDark]}>{country.sceneNote}</Text>
             </View>
             <View style={styles.countrySummarySectionDetailCard}>
               <View style={styles.countrySummarySectionDetailTitleWrap}>
-                <Text style={styles.countrySummarySectionDetailTitle}>Genre + Language Mix</Text>
+                <Text style={[styles.countrySummarySectionDetailTitle, styles.countrySummarySectionTextDark]}>Genre + Language Mix</Text>
                 <View style={styles.countrySummarySectionDetailTitleUnderline} />
               </View>
-              <Text style={styles.countrySummarySectionDetailText}>
+              <Text style={[styles.countrySummarySectionDetailText, styles.countrySummarySectionTextDark]}>
                 {country.name}'s chart leans through {country.genres.join(", ")}, and includes but is not limited to
                 {` ${country.languages.join(", ")}`} across the language mix represented here.
               </Text>
             </View>
           </View>
         </CountryPageSection>
+
+        <FavoriteArtistsSection country={country} selectedYear={selectedYear} onOpenHiddenGems={onOpenHiddenGems} />
 
         <View style={[styles.statSquaresAndGenreSectionRow, isStacked ? styles.stackRow : null]}>
           <View style={styles.statSquaresBlock}>
@@ -745,35 +942,26 @@ export function CountryScreen({ country, onNavigate, selectedYear, onChangeYear 
           </View>
         </View>
 
-        <HiddenSongsCarouselSection countryName={country.name} songs={profile.hiddenGems} />
+        <HiddenSongsCarouselSection countryName={country.name} songs={hiddenGemSongs} onOpenHiddenGems={onOpenHiddenGems} />
 
-        <CountryPageSection style={styles.mainComparisonSection}>
+        <CountryPageSection style={styles.mainComparisonSection} fillVariant="comparisonBlue">
           <View style={[styles.mainComparisonColumns, isStacked ? styles.stackRow : null]}>
             <MainComparisonArea
               title="Most Loved in This Country"
               songs={profile.uniqueSongs}
+              onOpenHiddenGems={onOpenHiddenGems}
+              darkTheme
             />
-            <View style={[styles.mainComparisonDivider, isStacked ? styles.mainComparisonDividerStacked : null]} />
             <MainComparisonArea
               title="Loved Here and Elsewhere"
               songs={profile.sharedSongs}
+              onOpenHiddenGems={onOpenHiddenGems}
+              darkTheme
             />
           </View>
         </CountryPageSection>
 
-        <CountryPageSection style={styles.snapshotPanel}>
-          <Text style={styles.panelEyebrow}>Featured Artists</Text>
-          <Text style={styles.panelTitle}>{country.name}'s Current Focus</Text>
-          <Text style={styles.snapshotCopy}>
-            Featured artists: {country.featuredArtists.join(", ")}
-          </Text>
-
-          <View style={[styles.buttonRow, isCompact ? styles.stackRow : null]}>
-            <ActionButton label={`${country.hiddenSongs} Hidden Gem Songs`} onPress={() => onNavigate("hiddenGems")} />
-            <ActionButton label="Compare Countries" onPress={() => onNavigate("comparisonSelect")} />
-            <ActionButton label="Back to Discovery" onPress={() => onNavigate("discovery")} />
-          </View>
-        </CountryPageSection>
+        <ComparisonModeFooter onPress={onOpenComparisonMode} />
       </ScrollView>
       {pageScrollbarVisible ? (
         <View
@@ -904,6 +1092,9 @@ const styles = StyleSheet.create({
     fontSize: 23,
     lineHeight: 27,
   },
+  countrySummarySectionTextDark: {
+    color: colors.border,
+  },
   countrySummarySectionDetailsRow: {
     flexDirection: "row",
     gap: 16,
@@ -923,9 +1114,9 @@ const styles = StyleSheet.create({
   },
   countrySummarySectionDetailTitle: {
     color: colors.textStrong,
-    fontFamily: typefaces.body,
-    fontSize: 16,
-    lineHeight: 20,
+    fontFamily: typefaces.display,
+    fontSize: 19,
+    lineHeight: 24,
   },
   countrySummarySectionDetailTitleWrap: {
     alignSelf: "flex-start",
@@ -1017,16 +1208,6 @@ const styles = StyleSheet.create({
     gap: 18,
     alignItems: "stretch",
   },
-  mainComparisonDivider: {
-    width: 2,
-    alignSelf: "stretch",
-    borderRadius: 999,
-    backgroundColor: "rgba(15,16,21,0.52)",
-  },
-  mainComparisonDividerStacked: {
-    width: "100%",
-    height: 2,
-  },
   mainComparisonArea: {
     flex: 1,
     minWidth: 300,
@@ -1076,6 +1257,9 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.display,
     fontSize: 23,
     lineHeight: 27,
+  },
+  panelTitleDark: {
+    color: colors.border,
   },
   songRowShell: {
     position: "relative",
@@ -1137,14 +1321,23 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 20,
   },
+  songTitleDark: {
+    color: colors.border,
+  },
   songMeta: {
     color: colors.text,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 17,
   },
+  songMetaDark: {
+    color: colors.border,
+  },
   songTextActive: {
     color: colors.text,
+  },
+  songTextActiveDark: {
+    color: colors.border,
   },
   genreSection: {
     flex: 1,
@@ -1306,10 +1499,10 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   hiddenSongsCarouselSectionContent: {
-    paddingTop: 14,
+    paddingTop: 10,
     paddingBottom: 12,
     paddingHorizontal: 18,
-    gap: 12,
+    gap: 8,
   },
   hiddenSongsCarouselHeader: {
     flexDirection: "row",
@@ -1317,50 +1510,94 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 20,
   },
+  hiddenSongsCarouselHeaderLeft: {
+    flex: 1,
+    maxWidth: 620,
+    gap: 6,
+  },
   hiddenSongsCarouselHelper: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: "left",
+    maxWidth: 620,
+  },
+  hiddenSongsCarouselHelperAction: {
+    alignSelf: "flex-start",
+    maxWidth: 460,
+    marginTop: 6,
+  },
+  hiddenSongsCarouselHelperActionText: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 16,
+    lineHeight: 21,
     textAlign: "right",
+    textDecorationLine: "underline",
     flexShrink: 1,
-    maxWidth: 520,
   },
   hiddenSongsCarouselBody: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
-    minHeight: 350,
+    gap: 16,
+    minHeight: 390,
+    marginTop: -6,
   },
   hiddenSongsCarouselArrowButton: {
-    width: 56,
+    width: 72,
+    height: 72,
+    flexShrink: 0,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 2,
     shadowColor: colors.shadow,
     shadowOpacity: 0.26,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
     elevation: 10,
   },
+  hiddenSongsCarouselArrowButtonInner: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+  },
   hiddenSongsCarouselArrowLeft: {
-    transform: [{ rotate: "90deg" }],
+    transform: [{ translateX: -3 }, { rotate: "90deg" }],
   },
   hiddenSongsCarouselArrowRight: {
-    transform: [{ rotate: "-90deg" }],
+    transform: [{ translateX: 3 }, { rotate: "-90deg" }],
   },
   hiddenSongsCarouselTrack: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    position: "relative",
     overflow: "hidden",
+    minHeight: 390,
+    marginHorizontal: 8,
+    zIndex: 1,
   },
   hiddenSongsCarouselItem: {
-    width: 296,
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    width: 300,
+    marginLeft: -150,
+    marginTop: -165,
     alignItems: "center",
     gap: 8,
-    marginHorizontal: -54,
+  },
+  hiddenSongsCarouselCdSlot: {
+    width: 300,
+    height: 300,
+    alignItems: "center",
+    justifyContent: "center",
   },
   hiddenSongsCarouselSongTitle: {
     width: "100%",
@@ -1369,7 +1606,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 22,
     textAlign: "center",
-    marginTop: 22,
+    marginTop: 6,
   },
   hiddenSongsCarouselSongArtist: {
     width: "100%",
@@ -1378,7 +1615,73 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     textAlign: "center",
-    marginTop: 2,
+    marginTop: 1,
+  },
+  comparisonModeFooter: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 6,
+    paddingBottom: 12,
+  },
+  comparisonModeFooterShell: {
+    alignSelf: "center",
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  comparisonModeFooterGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  comparisonModeFooterBaseFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  comparisonModeFooterInner: {
+    minWidth: 660,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: "transparent",
+  },
+  comparisonModeFooterInnerActive: {
+    borderColor: colors.border,
+    backgroundColor: "transparent",
+  },
+  comparisonModeFooterText: {
+    color: colors.text,
+    textAlign: "center",
+  },
+  comparisonModeFooterTextActive: {
+    color: colors.textStrong,
+  },
+  comparisonModeFooterLead: {
+    fontFamily: typefaces.display,
+    fontSize: 23,
+    lineHeight: 28,
+  },
+  comparisonModeFooterBody: {
+    fontFamily: typefaces.body,
+    fontSize: 19,
+    lineHeight: 24,
+  },
+  favoriteArtistsRow: {
+    flexDirection: "row",
+    gap: 14,
+    flexWrap: "wrap",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  favoriteArtistItem: {
+    alignItems: "center",
+    gap: 10,
+    width: 118,
+  },
+  favoriteArtistName: {
+    color: colors.textStrong,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 17,
+    textAlign: "center",
   },
   stackRow: {
     flexDirection: "column",
