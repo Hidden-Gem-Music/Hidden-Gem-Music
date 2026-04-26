@@ -14,6 +14,17 @@ import { useEffect, useRef, useState } from "react";
 
 const SIZE = 220;
 
+/* ================= FILTER OPTIONS ================= */
+
+const PRESET_FILTERS = [
+  "Global Hits you might have missed",
+  "The viral wave",
+  "Your Region vs The World",
+  "Latin music Global Takeover",
+  "Country Wonders",
+  "Biggest Crossover Hits",
+];
+
 /* ================= HELPERS ================= */
 
 const getFlagEmoji = (countryCode?: string) => {
@@ -62,6 +73,10 @@ export function DiscoveryScreen({
 
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [listOpen, setListOpen] = useState(true);
+
+  const [activeFilter, setActiveFilter] = useState<string>(
+    PRESET_FILTERS[0]
+  );
 
   const activeCountry =
     safeCountries.find((c) => c.id === activeCountryId) ??
@@ -140,7 +155,7 @@ export function DiscoveryScreen({
           </Text>
         </View>
 
-        {/* ================= FILTERS BUTTON (NEW FIXED) ================= */}
+        {/* ================= FILTER BUTTON ================= */}
         <TouchableOpacity
           style={styles.filtersButton}
           onPress={() => onNavigate?.("filters")}
@@ -148,27 +163,49 @@ export function DiscoveryScreen({
           <Text style={styles.filtersButtonText}>All Filters</Text>
         </TouchableOpacity>
 
-        {/* ================= FILTERS CARD ================= */}
+        {/* ================= PRESET FILTERS ================= */}
         <View style={styles.sectionCard}>
           <TouchableOpacity
             style={styles.sectionHeader}
             onPress={() => setFiltersOpen(!filtersOpen)}
           >
-            <Text style={styles.sectionTitle}>Pre-Selected Filters</Text>
+            <Text style={styles.sectionTitle}>
+              Pre-Selected Filters
+            </Text>
             <Text style={styles.sectionToggle}>
               {filtersOpen ? "−" : "+"}
             </Text>
           </TouchableOpacity>
 
           <Text style={styles.sectionBlurb}>
-            Refine what data is shown across countries.
+            Choose a global listening perspective.
           </Text>
 
           {filtersOpen && (
             <View style={styles.sectionBody}>
-              <Text style={styles.placeholderText}>
-                (Filter UI goes here)
-              </Text>
+              {PRESET_FILTERS.map((filter) => {
+                const active = filter === activeFilter;
+
+                return (
+                  <TouchableOpacity
+                    key={filter}
+                    onPress={() => setActiveFilter(filter)}
+                    style={[
+                      styles.filterItem,
+                      active && styles.filterItemActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        active && styles.filterTextActive,
+                      ]}
+                    >
+                      {filter}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </View>
@@ -248,7 +285,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  /* TITLE */
   pageHeader: {
     paddingTop: 50,
     alignItems: "center",
@@ -269,7 +305,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  /* GLOBE */
   globeSection: {
     alignItems: "center",
     marginBottom: 20,
@@ -326,7 +361,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  /* FILTER BUTTON (FIXED) */
   filtersButton: {
     alignSelf: "center",
     marginVertical: 14,
@@ -339,11 +373,8 @@ const styles = StyleSheet.create({
   filtersButtonText: {
     color: "#afcbff",
     fontSize: 16,
-    fontFamily: "Tanklager-Kompakt",
-    textAlign: "center",
   },
 
-  /* CARDS */
   sectionCard: {
     marginHorizontal: 12,
     marginBottom: 12,
@@ -379,11 +410,26 @@ const styles = StyleSheet.create({
     padding: 12,
   },
 
-  placeholderText: {
-    color: "#8fa3c7",
+  filterItem: {
+    padding: 12,
+    marginBottom: 10,
+    borderRadius: 10,
+    backgroundColor: "#3a4161",
   },
 
-  /* LIST */
+  filterItemActive: {
+    backgroundColor: "#afcbff",
+  },
+
+  filterText: {
+    color: "#afcbff",
+  },
+
+  filterTextActive: {
+    color: "#1b1f33",
+    fontWeight: "bold",
+  },
+
   listBackground: {
     padding: 12,
   },
