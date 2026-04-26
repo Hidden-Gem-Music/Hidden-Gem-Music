@@ -34,7 +34,7 @@ export function WelcomeScreen({
       <View style={styles.buttonContainer}>
   <TouchableOpacity style={styles.button} onPress={() => onNavigate("discovery")}>
     <MaterialCommunityIcons name="earth" size={22} color="#afcbff" />
-    <Text style={styles.buttonText}>Globe</Text>
+    <Text style={styles.buttonText}>Discovery Globe</Text>
   </TouchableOpacity>
 
   <TouchableOpacity style={styles.button} onPress={() => onNavigate("filters")}>
@@ -44,7 +44,7 @@ export function WelcomeScreen({
 
   <TouchableOpacity style={styles.button} onPress={() => onNavigate("comparisonSelect")}>
     <MaterialCommunityIcons name="compare" size={22} color="#afcbff" />
-    <Text style={styles.buttonText}>Compare</Text>
+    <Text style={styles.buttonText}>Comparison Mode</Text>
   </TouchableOpacity>
 
   <TouchableOpacity style={styles.button} onPress={() => onNavigate("hiddenGems")}>
@@ -93,13 +93,13 @@ const styles = StyleSheet.create({
 
   buttonContainer: {
   flexDirection: "row",
-  flexWrap: "wrap",   // ✅ allows multiple rows
+  flexWrap: "wrap",   
   gap: 12,
   marginBottom: 40,
 },
 
   button: {
-  width: "48%",        // ✅ 2 per row
+  width: "48%",       
   backgroundColor: "#3a4161",
   padding: 14,
   borderRadius: 10,
@@ -110,6 +110,6 @@ const styles = StyleSheet.create({
     color: "#afcbff",
     marginTop: 6,
     fontSize: 14,
-    fontWeight: "500",
+    fontFamily: "Tanklager-Kompakt",
   },
 });
