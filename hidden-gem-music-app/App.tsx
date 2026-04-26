@@ -24,6 +24,7 @@ import {
   getSongsForCountryYear,
 } from "./src/data/mockData";
 import { getInitialNavigationSeed, getRouteParams, linking, RootStackParamList } from "./src/navigation/linking";
+import { Country } from "./src/types/content";
 import { ScreenRoute } from "./src/types/navigation";
 import { colors } from "./src/theme/colors";
 import { typefaces } from "./src/theme/typography";
@@ -34,6 +35,46 @@ type RouteParams = {
   year?: number;
   country?: string;
 };
+
+type PersistedAppState = {
+  selectedYear?: number;
+  selectedCountryId?: string;
+  selectedSongId?: string;
+  comparisonIds?: string[];
+};
+
+const APP_STATE_STORAGE_KEY = "hidden-gem-app-state-v1";
+
+function readPersistedAppState(): PersistedAppState {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(APP_STATE_STORAGE_KEY);
+    if (!rawValue) {
+      return {};
+    }
+
+    const parsedValue = JSON.parse(rawValue) as PersistedAppState;
+    const persistedYear =
+      typeof parsedValue.selectedYear === "number" && availableYears.includes(parsedValue.selectedYear)
+        ? parsedValue.selectedYear
+        : undefined;
+    const persistedComparisonIds = Array.isArray(parsedValue.comparisonIds)
+      ? parsedValue.comparisonIds.filter((value): value is string => typeof value === "string").slice(0, 2)
+      : undefined;
+
+    return {
+      selectedYear: persistedYear,
+      selectedCountryId: typeof parsedValue.selectedCountryId === "string" ? parsedValue.selectedCountryId : undefined,
+      selectedSongId: typeof parsedValue.selectedSongId === "string" ? parsedValue.selectedSongId : undefined,
+      comparisonIds: persistedComparisonIds,
+    };
+  } catch {
+    return {};
+  }
+}
 
 function areRouteParamsEqual(currentParams?: RouteParams, nextParams?: RouteParams) {
   return currentParams?.year === nextParams?.year && currentParams?.country === nextParams?.country;
@@ -94,16 +135,20 @@ export default function App() {
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialNavigationSeedRef = useRef(getInitialNavigationSeed());
+  const persistedAppStateRef = useRef(readPersistedAppState());
   const initialNavigationSeed = initialNavigationSeedRef.current;
-  const initialYear = initialNavigationSeed.year ?? 2021;
+  const persistedAppState = persistedAppStateRef.current;
+  const initialYear = initialNavigationSeed.year ?? persistedAppState.selectedYear ?? 2021;
   const initialFeaturedCountry = getFeaturedCountry(initialYear);
 
   const [navigationReady, setNavigationReady] = useState(false);
   const [currentRoute, setCurrentRoute] = useState<ScreenRoute>(initialNavigationSeed.route);
   const [selectedYear, setSelectedYear] = useState(initialYear);
-  const [selectedCountryId, setSelectedCountryId] = useState(initialNavigationSeed.countryId ?? initialFeaturedCountry.id);
-  const [selectedSongId, setSelectedSongId] = useState("");
-  const [comparisonIds, setComparisonIds] = useState<string[]>([]);
+  const [selectedCountryId, setSelectedCountryId] = useState(
+    initialNavigationSeed.countryId ?? persistedAppState.selectedCountryId ?? initialFeaturedCountry.id
+  );
+  const [selectedSongId, setSelectedSongId] = useState(persistedAppState.selectedSongId ?? "");
+  const [comparisonIds, setComparisonIds] = useState<string[]>(persistedAppState.comparisonIds ?? []);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -122,7 +167,10 @@ export default function App() {
   );
 
   const selectedComparisonCountries = useMemo(
-    () => countries.filter((country) => comparisonIds.includes(country.id)),
+    () =>
+      comparisonIds
+        .map((countryId) => countries.find((country) => country.id === countryId))
+        .filter((country): country is Country => Boolean(country)),
     [comparisonIds, countries]
   );
 
@@ -157,7 +205,7 @@ export default function App() {
         return [
           { label: "Welcome", route: "welcome" as ScreenRoute },
           { label: "Comparison Mode", route: "comparisonSelect" as ScreenRoute },
-          { label: "Results", route: null },
+          { label: "Comparison View", route: null },
         ];
       case "dashboard":
         return [
@@ -217,7 +265,6 @@ export default function App() {
         navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
         break;
       case "comparisonSelect":
-        setComparisonIds([]);
         navigationRef.navigate("comparisonSelect", getRouteParams("comparisonSelect", selectedYear, selectedCountryId));
         break;
       case "comparisonResults":
@@ -274,6 +321,37 @@ export default function App() {
     });
   };
 
+  const openHiddenGemsForCountry = (countryId: string, selection?: { songTitle?: string; artist?: string }) => {
+    const countrySongs = getSongsForCountryYear(countryId, selectedYear);
+    const normalize = (value?: string) => value?.trim().toLowerCase() ?? "";
+    const normalizedTitle = normalize(selection?.songTitle);
+    const normalizedArtist = normalize(selection?.artist);
+    const matchedSong =
+      countrySongs.find(
+        (song) =>
+          normalizedTitle &&
+          normalize(song.title) === normalizedTitle &&
+          (!normalizedArtist || normalize(song.artist) === normalizedArtist)
+      ) ??
+      countrySongs.find((song) => normalizedTitle && normalize(song.title) === normalizedTitle) ??
+      countrySongs.find((song) => normalizedArtist && normalize(song.artist) === normalizedArtist) ??
+      countrySongs[0];
+
+    setSelectedCountryId(countryId);
+    if (matchedSong) {
+      setSelectedSongId(matchedSong.id);
+    }
+
+    if (!navigationRef.isReady()) {
+      return;
+    }
+
+    navigationRef.navigate("hiddenGems", {
+      country: countryId,
+      year: selectedYear,
+    });
+  };
+
   useEffect(() => {
     if (!songs.find((song) => song.id === selectedSongId)) {
       setSelectedSongId(songs[0]?.id ?? "");
@@ -285,6 +363,10 @@ export default function App() {
       setSelectedCountryId(featuredCountry.id);
     }
   }, [countries, featuredCountry.id, selectedCountryId]);
+
+  useEffect(() => {
+    setComparisonIds((current) => current.filter((id) => countries.some((country) => country.id === id)).slice(0, 2));
+  }, [countries]);
 
   useEffect(() => {
     return () => {
@@ -411,6 +493,26 @@ export default function App() {
         break;
     }
   }, [currentRoute, selectedCountry.name]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        APP_STATE_STORAGE_KEY,
+        JSON.stringify({
+          selectedYear,
+          selectedCountryId,
+          selectedSongId,
+          comparisonIds: comparisonIds.slice(0, 2),
+        } satisfies PersistedAppState)
+      );
+    } catch {
+      // Ignore localStorage write failures.
+    }
+  }, [comparisonIds, selectedCountryId, selectedSongId, selectedYear]);
 
   const handleYearChange = (nextYear: number, context: string) => {
     if (nextYear === selectedYear) {
@@ -544,8 +646,18 @@ export default function App() {
                 {() => (
                   <ComparisonResultsScreen
                     countries={selectedComparisonCountries}
+                    availableCountries={countries}
                     selectedYear={selectedYear}
                     onBack={() => navigateToRoute("comparisonSelect")}
+                    onChangeYear={(year) => handleYearChange(year, "Comparison View")}
+                    onChangeCountryAtIndex={(index, countryId) => {
+                      setComparisonIds((current) => {
+                        const next = [...current];
+                        next[index] = countryId;
+                        return next.slice(0, 2);
+                      });
+                    }}
+                    onOpenHiddenGemsForCountry={openHiddenGemsForCountry}
                   />
                 )}
               </Stack.Screen>

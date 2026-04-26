@@ -2,6 +2,44 @@ mp3li's Feature Implementation Timeline for Hidden Gem Music
 
 Updated: April 26, 2026
 
+Comparison View Screen Completion and Final Layout Refinement (April 26, 2026)
+- Comparison View is now completed as a core web screen implementation rather than remaining a placeholder-style results page.
+- The results layout is now built as two full comparison panes shown side by side:
+  - Left country pane
+  - Right country pane
+  - Shared back action returning to Comparison Mode
+- Each comparison pane now includes completed top-area controls and identity:
+  - Large country name and region header
+  - A `Select Country` dropdown at the top right of the panel
+  - A `Select Year` dropdown directly under it
+  - The dropdown buttons now show the currently selected country for that pane and the currently active comparison year instead of generic placeholder text
+- The country/year controls are wired into live comparison state rather than being decorative:
+  - Changing the year from either pane updates the shared comparison year
+  - Changing a country from a pane swaps only that panel's selected country while preserving the two-country comparison structure
+  - Country options avoid duplicating the country already assigned to the opposite panel
+- Each pane now includes a fuller completed comparison-content stack:
+  - `Country Summary`
+  - `Favorite Artists`
+  - Stats strip
+  - Genre and language sections
+  - Hidden-gems preview carousel
+  - Main comparison lists
+- Hidden-gems routing in Comparison View was completed across the pane interactions:
+  - Clicking featured artists opens the related hidden-gems view for that country
+  - Clicking main comparison rows opens the related hidden-gems view for that country
+  - Clicking the center hidden-gems preview CD opens the hidden-gems view, while off-center CDs recenter first
+- Several layout regressions introduced during comparison-page iteration were corrected before completion:
+  - The missing top-right dropdown controls were restored
+  - The divider line between the two main comparison sections was added back in
+  - Carousel arrow buttons were reduced in size
+  - Featured-artist arrow buttons were resized smaller than the carousel arrows
+  - The carousel spacing / overflow treatment was adjusted so the outer CD edges are no longer clipped off as harshly
+- Overall problem / solution pattern during this round:
+  - Problem: Comparison View had lost key interface pieces during iteration, including its per-panel dropdown controls and section divider treatment
+  - Solution: The results screen was rewired so those controls are part of the screen's actual live comparison state again rather than being absent or placeholder-like
+  - Problem: Shared button sizing created visual mismatch between the hidden-gems preview carousel and featured-artist controls
+  - Solution: The shared arrow-button pattern was split so featured-artist controls could use a smaller variant without undoing carousel sizing
+
 Hidden Gems Screen Completion, Interaction System, and Dropdown / Playback Iteration (April 26, 2026)
 - Hidden Gems is now completed as a core web screen implementation rather than remaining in placeholder status.
 - Hidden Gems moved from an earlier placeholder-style detail layout into a full two-panel web implementation aligned to the newer mockup direction:

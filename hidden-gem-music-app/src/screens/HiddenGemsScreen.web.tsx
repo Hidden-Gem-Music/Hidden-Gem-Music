@@ -625,7 +625,7 @@ export function HiddenGemsScreen({
                         showCountryDropdownGradient ? styles.blurbYearDropdownButtonActive : null,
                       ]}
                     >
-                      <Text style={styles.blurbYearDropdownText}>Country</Text>
+                      <Text style={styles.blurbYearDropdownText}>Select Country</Text>
                       <Text style={styles.blurbYearDropdownChevron}>{isCountryDropdownOpen ? "-" : "+"}</Text>
                     </View>
                   </Pressable>
@@ -913,7 +913,9 @@ const styles = StyleSheet.create({
   blurbDropdownStack: {
     width: 156,
     gap: 8,
-    zIndex: 9,
+    position: "relative",
+    zIndex: 100,
+    overflow: "visible",
   },
   blurbStatCardShell: {
     width: 82,
@@ -1011,8 +1013,8 @@ const styles = StyleSheet.create({
     padding: 0,
     overflow: "hidden",
     backgroundColor: "transparent",
-    zIndex: 25,
-    elevation: 25,
+    zIndex: 9999,
+    elevation: 9999,
   },
   blurbYearDropdownScroll: {
     maxHeight: 260,
