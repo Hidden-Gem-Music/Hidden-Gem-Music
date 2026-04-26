@@ -9,8 +9,15 @@ import {
 } from "react-native";
 import { useEffect, useRef, useState } from "react";
 
+/* =========================================================
+   CONFIG
+========================================================= */
+
 const SIZE = 220;
 
+/**
+ * Converts ISO-like country code into emoji flag
+ */
 const getFlagEmoji = (countryCode?: string) => {
   if (!countryCode) return "🌍";
 
@@ -21,6 +28,9 @@ const getFlagEmoji = (countryCode?: string) => {
     );
 };
 
+/**
+ * Positions cards evenly around a circular “fake globe”
+ */
 const getGlobePosition = (index: number, total: number) => {
   const angle = (index / total) * Math.PI * 2;
   const radius = SIZE / 2.4;
@@ -31,22 +41,46 @@ const getGlobePosition = (index: number, total: number) => {
   };
 };
 
+/**
+ * Generates mock “insight data” for each country card.
+ * This will later be replaced by real API data.
+ */
+const getMockInsights = (id: string) => {
+  const seed = id.length * 7;
+
+  return {
+    hiddenSongs: (seed % 120) + 20,
+    genres: (seed % 25) + 5,
+    topAlbum: `Album #${(seed % 10) + 1}`,
+  };
+};
+
+/* =========================================================
+   SCREEN
+========================================================= */
+
 export function DiscoveryScreen({
   countries,
   onOpenCountry,
 }: Props) {
-
   const safeCountries = countries ?? [];
+
   const listRef = useRef<FlatList>(null);
 
   const [activeCountryId, setActiveCountryId] = useState<string>(
     safeCountries[0]?.id ?? ""
   );
 
+  /**
+   * Currently focused country (controls globe + label)
+   */
   const activeCountry =
     safeCountries.find((c) => c.id === activeCountryId) ??
     safeCountries[0];
 
+  /**
+   * Sync list scroll when active country changes (globe interaction)
+   */
   useEffect(() => {
     const index = safeCountries.findIndex(
       (c) => c.id === activeCountryId
@@ -61,26 +95,33 @@ export function DiscoveryScreen({
     }
   }, [activeCountryId]);
 
+  /**
+   * Handles selection from either globe OR list
+   */
   const handleSelect = (id: string) => {
     setActiveCountryId(id);
     onOpenCountry(id);
   };
 
+  /* =========================================================
+     UI
+  ========================================================= */
+
   return (
     <View style={styles.container}>
 
-      {/* 🌍 GLOBE */}
+      {/* ===================== GLOBE ===================== */}
       <View style={styles.globeContainer}>
 
         <View style={styles.globe}>
 
-          {/* 🌟 soft glow layer (FIXED DEPTH) */}
+          {/* soft background glow */}
           <View style={styles.globeGlow} />
 
-          {/* 🌐 background globe */}
+          {/* base globe icon */}
           <Text style={styles.globeBackground}>🌍</Text>
 
-          {/* 🧭 orbiting cards */}
+          {/* orbiting interactive country nodes */}
           {safeCountries.map((country, index) => {
             const pos = getGlobePosition(index, safeCountries.length);
             const isActive = country.id === activeCountryId;
@@ -109,15 +150,17 @@ export function DiscoveryScreen({
 
         </View>
 
+        {/* dynamic label under globe */}
         <Text style={styles.globeLabel}>
           {activeCountry?.name ?? "Explore the World"}
         </Text>
       </View>
 
-      {/* 📜 LIST */}
+      {/* ===================== LIST ===================== */}
       <View style={styles.listContainer}>
+
         <LinearGradient
-          colors={["#24293e", "#1b1f33", "#75526B"]}
+          colors={["#24293e", "#1b1f33", "#0f1220"]}
           style={styles.listBackground}
         >
 
@@ -128,6 +171,7 @@ export function DiscoveryScreen({
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => {
               const isActive = item.id === activeCountryId;
+              const insights = getMockInsights(item.id);
 
               return (
                 <TouchableOpacity
@@ -138,13 +182,25 @@ export function DiscoveryScreen({
                   onPress={() => handleSelect(item.id)}
                   activeOpacity={0.85}
                 >
+
+                  {/* country name */}
                   <Text style={styles.countryName}>
                     {item.name}
                   </Text>
 
-                  <Text style={styles.countrySubtext}>
-                    Tap to explore music →
+                  {/* FAKE DATA INSIGHTS */}
+                  <Text style={styles.countryMeta}>
+                    Hidden Songs: {insights.hiddenSongs}
                   </Text>
+
+                  <Text style={styles.countryMeta}>
+                    Most Popular Genres: {insights.genres}
+                  </Text>
+
+                  <Text style={styles.countryMeta}>
+                    Top Album: {insights.topAlbum}
+                  </Text>
+
                 </TouchableOpacity>
               );
             }}
@@ -157,10 +213,16 @@ export function DiscoveryScreen({
   );
 }
 
-/* ================= STYLES ================= */
+/* =========================================================
+   STYLES
+========================================================= */
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+  },
+
+  /* ================= GLOBE ================= */
 
   globeContainer: {
     flex: 1,
@@ -179,21 +241,19 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  /* 🌟 FIXED GLOW LAYER */
   globeGlow: {
     position: "absolute",
     width: SIZE * 1.6,
     height: SIZE * 1.6,
     borderRadius: SIZE,
     backgroundColor: "#afcbff",
-    opacity: 0.07,
+    opacity: 0.06,
   },
 
-  /* 🌐 globe background (less aggressive now) */
   globeBackground: {
     position: "absolute",
     fontSize: 200,
-    opacity: 100,
+    opacity: 0.08,
   },
 
   globeCard: {
@@ -222,6 +282,8 @@ const styles = StyleSheet.create({
     fontFamily: "Tanklager-Kompakt",
   },
 
+  /* ================= LIST ================= */
+
   listContainer: {
     flex: 1.3,
   },
@@ -249,9 +311,10 @@ const styles = StyleSheet.create({
     color: "#afcbff",
     fontSize: 16,
     fontFamily: "NyghtSerif-Regular",
+    marginBottom: 6,
   },
 
-  countrySubtext: {
+  countryMeta: {
     color: "#8fa3c7",
     fontSize: 12,
     marginTop: 2,
