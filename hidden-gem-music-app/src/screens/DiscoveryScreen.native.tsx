@@ -154,7 +154,7 @@ export function DiscoveryScreen({
             style={styles.sectionHeader}
             onPress={() => setFiltersOpen(!filtersOpen)}
           >
-            <Text style={styles.sectionTitle}>Filters</Text>
+            <Text style={styles.sectionTitle}>Pre-Selected Filters</Text>
             <Text style={styles.sectionToggle}>
               {filtersOpen ? "−" : "+"}
             </Text>
