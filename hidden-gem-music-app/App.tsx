@@ -217,6 +217,7 @@ export default function App() {
         navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
         break;
       case "comparisonSelect":
+        setComparisonIds([]);
         navigationRef.navigate("comparisonSelect", getRouteParams("comparisonSelect", selectedYear, selectedCountryId));
         break;
       case "comparisonResults":
@@ -359,6 +360,16 @@ export default function App() {
         width: 0;
         height: 0;
       }
+
+      #comparison-mode-scroll {
+        scrollbar-width: none;
+      }
+
+      #comparison-mode-scroll::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+      }
     `;
 
     document.head.appendChild(styleTag);
@@ -453,7 +464,7 @@ export default function App() {
                 contentStyle: { backgroundColor: colors.background },
               }}
             >
-              <Stack.Screen name="welcome">
+              <Stack.Screen name="welcome" options={{ title: "Welcome" }}>
                 {() => (
                   <WelcomeScreen
                     countries={countries}
@@ -465,7 +476,7 @@ export default function App() {
                 )}
               </Stack.Screen>
 
-              <Stack.Screen name="discovery">
+              <Stack.Screen name="discovery" options={{ title: "Discovery Globe" }}>
                 {() => (
                   <DiscoveryScreen
                     countries={countries}
@@ -478,7 +489,7 @@ export default function App() {
                 )}
               </Stack.Screen>
 
-              <Stack.Screen name="country">
+              <Stack.Screen name="country" options={{ title: `${selectedCountry.name} Detail Page` }}>
                 {() => (
                   <CountryScreen
                     country={selectedCountry}
@@ -490,7 +501,7 @@ export default function App() {
                 )}
               </Stack.Screen>
 
-              <Stack.Screen name="hiddenGems">
+              <Stack.Screen name="hiddenGems" options={{ title: "Hidden Gems" }}>
                 {() => (
                   <HiddenGemsScreen
                     country={selectedCountry}
@@ -504,7 +515,7 @@ export default function App() {
                 )}
               </Stack.Screen>
 
-              <Stack.Screen name="comparisonSelect">
+              <Stack.Screen name="comparisonSelect" options={{ title: "Comparison Mode" }}>
                 {() => (
                   <ComparisonSelectScreen
                     countries={countries}
@@ -527,7 +538,7 @@ export default function App() {
                 )}
               </Stack.Screen>
 
-              <Stack.Screen name="comparisonResults">
+              <Stack.Screen name="comparisonResults" options={{ title: "Comparison View" }}>
                 {() => (
                   <ComparisonResultsScreen
                     countries={selectedComparisonCountries}
@@ -537,11 +548,11 @@ export default function App() {
                 )}
               </Stack.Screen>
 
-              <Stack.Screen name="dashboard">
+              <Stack.Screen name="dashboard" options={{ title: "Dashboard" }}>
                 {() => <DashboardScreen year={selectedYear} metrics={dashboardMetrics} countries={countries} />}
               </Stack.Screen>
 
-              <Stack.Screen name="credits" component={CreditsScreen} />
+              <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />
             </Stack.Navigator>
           </View>
           <LoadingOverlay visible={Boolean(loadingMessage)} message={loadingMessage ?? undefined} />

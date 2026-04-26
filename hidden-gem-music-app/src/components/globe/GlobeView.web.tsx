@@ -8,12 +8,13 @@ import { typefaces } from "../../theme/typography";
 
 type Props = {
   countries: Country[];
-  activeCountry: Country;
+  activeCountry?: Country;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry?: (countryId: string) => void;
+  selectOnHover?: boolean;
 };
 
-export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCountry }: Props) {
+export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCountry, selectOnHover = true }: Props) {
   const { width } = useWindowDimensions();
   const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,7 +68,9 @@ export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCou
                     hoverTimeoutRef.current = null;
                   }
                   setHoveredCountryId(country.id);
-                  onSelectCountry(country.id);
+                  if (selectOnHover) {
+                    onSelectCountry(country.id);
+                  }
                 }}
                 onHoverOut={() => {
                   hoverTimeoutRef.current = setTimeout(() => {
@@ -101,14 +104,23 @@ export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCou
               />
 
               <Pressable
-                onPress={() => onOpenCountry?.(hoveredCountry.id)}
+                onPress={() => {
+                  if (onOpenCountry) {
+                    onOpenCountry(hoveredCountry.id);
+                    return;
+                  }
+
+                  onSelectCountry(hoveredCountry.id);
+                }}
                 onHoverIn={() => {
                   if (hoverTimeoutRef.current) {
                     clearTimeout(hoverTimeoutRef.current);
                     hoverTimeoutRef.current = null;
                   }
                   setHoveredCountryId(hoveredCountry.id);
-                  onSelectCountry(hoveredCountry.id);
+                  if (selectOnHover) {
+                    onSelectCountry(hoveredCountry.id);
+                  }
                 }}
                 onHoverOut={() => {
                   hoverTimeoutRef.current = setTimeout(() => {

@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { Country } from "../../types/content";
 import { colors } from "../../theme/colors";
 import { typefaces } from "../../theme/typography";
@@ -11,7 +11,7 @@ import { GlobeView } from "./GlobeView";
 
 type Props = {
   countries: Country[];
-  activeCountryId: string;
+  activeCountryId?: string;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry?: (countryId: string) => void;
   title: string;
@@ -19,6 +19,8 @@ type Props = {
   rightActionLabel?: string;
   onRightAction?: () => void;
   showHeader?: boolean;
+  frameStyle?: StyleProp<ViewStyle>;
+  selectOnHover?: boolean;
 };
 
 export function GlobePanel({
@@ -31,8 +33,10 @@ export function GlobePanel({
   rightActionLabel = "All Filters",
   onRightAction,
   showHeader = true,
+  frameStyle,
+  selectOnHover = true,
 }: Props) {
-  const activeCountry = countries.find((country) => country.id === activeCountryId) ?? countries[0];
+  const activeCountry = countries.find((country) => country.id === activeCountryId);
   const [isButtonHovered, setIsButtonHovered] = useState(false);
   const [isButtonPressed, setIsButtonPressed] = useState(false);
   const showButtonGradient = isButtonHovered || isButtonPressed;
@@ -46,13 +50,14 @@ export function GlobePanel({
         </View>
       ) : null}
 
-      <Panel style={styles.frame}>
+      <Panel style={[styles.frame, frameStyle]}>
         <SecondarySurfaceFill />
         <GlobeView
           countries={countries}
           activeCountry={activeCountry}
           onSelectCountry={onSelectCountry}
           onOpenCountry={onOpenCountry}
+          selectOnHover={selectOnHover}
         />
         {onRightAction ? (
           <Pressable

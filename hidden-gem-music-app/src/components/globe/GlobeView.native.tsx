@@ -6,12 +6,14 @@ import { typefaces } from "../../theme/typography";
 
 type Props = {
   countries: Country[];
-  activeCountry: Country;
+  activeCountry?: Country;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry?: (countryId: string) => void;
 };
 
 export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCountry }: Props) {
+  const currentCountry = activeCountry ?? countries[0];
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.deviceFrame}>
@@ -24,22 +26,36 @@ export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCou
             <Pressable
               key={country.id}
               onPress={() => onSelectCountry(country.id)}
-              style={[styles.markerChip, activeCountry.id === country.id ? styles.markerChipActive : null]}
+              style={[styles.markerChip, currentCountry?.id === country.id ? styles.markerChipActive : null]}
             >
               <Text style={styles.markerChipText}>{country.name}</Text>
             </Pressable>
           ))}
         </View>
-        <Pressable style={styles.tooltip} onPress={() => onOpenCountry?.(activeCountry.id)}>
+        <Pressable
+          style={styles.tooltip}
+          onPress={() => {
+            if (!currentCountry) {
+              return;
+            }
+
+            if (onOpenCountry) {
+              onOpenCountry(currentCountry.id);
+              return;
+            }
+
+            onSelectCountry(currentCountry.id);
+          }}
+        >
           <View style={styles.tooltipInner}>
             <View style={styles.tooltipHeader}>
-              <Text style={styles.tooltipCountry}>{activeCountry.name}</Text>
-              <Text style={styles.tooltipRegion}>{activeCountry.region}</Text>
+              <Text style={styles.tooltipCountry}>{currentCountry.name}</Text>
+              <Text style={styles.tooltipRegion}>{currentCountry.region}</Text>
             </View>
             <View style={styles.tooltipDivider} />
             <View style={styles.tooltipBody}>
-              <Text style={styles.tooltipCopy}>Hidden Songs: {activeCountry.hiddenSongs}</Text>
-              <Text style={styles.tooltipCopy}>Genres: {activeCountry.genres.join(", ")}</Text>
+              <Text style={styles.tooltipCopy}>Hidden Songs: {currentCountry.hiddenSongs}</Text>
+              <Text style={styles.tooltipCopy}>Genres: {currentCountry.genres.join(", ")}</Text>
             </View>
           </View>
         </Pressable>
