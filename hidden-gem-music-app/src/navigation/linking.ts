@@ -13,6 +13,7 @@ export type RootStackParamList = {
   comparisonResults: { year?: number } | undefined;
   dashboard: { year?: number } | undefined;
   credits: undefined;
+  filters: undefined;
 };
 
 type NavigationSeed = {
@@ -64,6 +65,7 @@ export const linking: LinkingOptions<RootStackParamList> = {
       comparisonResults: "compare/results",
       dashboard: "dashboard",
       credits: "credits",
+      
     },
   },
 };

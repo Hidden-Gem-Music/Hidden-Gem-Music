@@ -43,7 +43,7 @@ export function WelcomeScreen({
 
         <TouchableOpacity
           style={styles.button}
-          onPress={() => onNavigate("comparisonSelect")}
+          onPress={() => onNavigate("filters")}
         >
           <Feather name="filter" size={26} color="#afcbff" />
           <Text style={styles.buttonText}>Filters</Text>

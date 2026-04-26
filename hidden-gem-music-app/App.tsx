@@ -15,6 +15,7 @@ import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { DiscoveryScreen } from "./src/screens/DiscoveryScreen";
 import { HiddenGemsScreen } from "./src/screens/HiddenGemsScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
+import { FiltersScreen } from "./src/screens/FiltersScreen.native";
 
 import {
   availableYears,
@@ -146,8 +147,6 @@ export default function App() {
     [countries, selectedYear]
   );
 
-  /* ---------------- NAV ---------------- */
-
   const navigateToRoute = (route: ScreenRoute) => {
     if (!navigationRef.isReady()) return;
 
@@ -189,6 +188,10 @@ export default function App() {
       case "credits":
         navigationRef.navigate("credits");
         break;
+        
+        case "filters":
+  navigationRef.navigate("filters");
+  break;  
     }
   };
 
@@ -223,14 +226,11 @@ export default function App() {
       <NavigationContainer
         ref={navigationRef}
         linking={linking}
-        onReady={() => {
-          setNavigationReady(true);
-        }}
+        onReady={() => setNavigationReady(true)}
       >
         <View style={styles.appShell}>
           <StatusBar style="light" />
 
-          {/* HEADER (kept unchanged behavior) */}
           {!(currentRoute === "welcome" && Platform.OS !== "web") && (
             <AppHeader
               currentRoute={currentRoute}
@@ -253,7 +253,6 @@ export default function App() {
                 contentStyle: { backgroundColor: colors.background },
               }}
             >
-              {/* ✅ FIXED: ALL REQUIRED PROPS PASSED */}
               <Stack.Screen name="welcome">
                 {() => (
                   <WelcomeScreen
@@ -278,6 +277,16 @@ export default function App() {
                   />
                 )}
               </Stack.Screen>
+
+              <Stack.Screen name="filters">
+               {() =>
+               Platform.OS !== "web" ? (
+                <FiltersScreen onNavigate={navigateToRoute} />
+               ) : (
+                     <View />
+                   )
+                    }
+                  </Stack.Screen>
 
               <Stack.Screen name="country">
                 {() => (
@@ -351,8 +360,6 @@ export default function App() {
     </AppErrorBoundary>
   );
 }
-
-/* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
   appShell: { flex: 1, backgroundColor: colors.background },
