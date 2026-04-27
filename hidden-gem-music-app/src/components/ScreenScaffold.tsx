@@ -5,6 +5,7 @@ import {
   NativeSyntheticEvent,
   Platform,
   ScrollView,
+  StyleProp,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -16,15 +17,24 @@ import { colors } from "../theme/colors";
 
 type Props = {
   children: ReactNode;
+  contentStyle?: StyleProp<ViewStyle>;
+  alwaysScrollableOnWeb?: boolean;
+  scrollNativeId?: string;
 };
 
-export function ScreenScaffold({ children }: Props) {
+export function ScreenScaffold({
+  children,
+  contentStyle,
+  alwaysScrollableOnWeb = false,
+  scrollNativeId = "screen-scaffold-scroll",
+}: Props) {
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
+  const shouldUseScrollView = isStacked || (Platform.OS === "web" && alwaysScrollableOnWeb);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const [scrollY, setScrollY] = useState(0);
-  const scrollbarVisible = Platform.OS === "web" && isStacked && viewportHeight > 0 && contentHeight > viewportHeight;
+  const scrollbarVisible = Platform.OS === "web" && shouldUseScrollView && viewportHeight > 0 && contentHeight > viewportHeight;
   const thumbHeight = scrollbarVisible ? Math.max((viewportHeight / contentHeight) * viewportHeight, 60) : 0;
   const thumbTop =
     scrollbarVisible && contentHeight > viewportHeight
@@ -45,12 +55,12 @@ export function ScreenScaffold({ children }: Props) {
         style={styles.baseGradient}
       />
       <View style={styles.noiseWash} />
-      {isStacked ? (
+      {shouldUseScrollView ? (
         <>
           <ScrollView
-            nativeID="screen-scaffold-scroll"
+            nativeID={scrollNativeId}
             style={styles.scrollView}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[styles.content, contentStyle]}
             showsVerticalScrollIndicator={false}
             onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
             onContentSizeChange={(_, height) => setContentHeight(height)}
@@ -66,7 +76,7 @@ export function ScreenScaffold({ children }: Props) {
           ) : null}
         </>
       ) : (
-        <View style={styles.content}>{children}</View>
+        <View style={[styles.content, contentStyle]}>{children}</View>
       )}
     </View>
   );

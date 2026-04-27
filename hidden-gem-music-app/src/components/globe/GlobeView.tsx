@@ -6,9 +6,10 @@ import { GlobeView as WebGlobeView } from "./GlobeView.web";
 
 type Props = {
   countries: Country[];
-  activeCountry: Country;
+  activeCountry?: Country;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry?: (countryId: string) => void;
+  selectOnHover?: boolean;
 };
 
 export function GlobeView(props: Props) {
