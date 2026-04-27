@@ -148,7 +148,9 @@ export default function App() {
     initialNavigationSeed.countryId ?? persistedAppState.selectedCountryId ?? initialFeaturedCountry.id
   );
   const [selectedSongId, setSelectedSongId] = useState(persistedAppState.selectedSongId ?? "");
-  const [comparisonIds, setComparisonIds] = useState<string[]>(persistedAppState.comparisonIds ?? []);
+  const [comparisonIds, setComparisonIds] = useState<string[]>(
+    initialNavigationSeed.route === "comparisonResults" ? persistedAppState.comparisonIds ?? [] : []
+  );
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -265,6 +267,9 @@ export default function App() {
         navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
         break;
       case "comparisonSelect":
+        if (currentRoute !== "comparisonResults") {
+          setComparisonIds([]);
+        }
         navigationRef.navigate("comparisonSelect", getRouteParams("comparisonSelect", selectedYear, selectedCountryId));
         break;
       case "comparisonResults":
@@ -403,6 +408,19 @@ export default function App() {
     const styleTag = document.createElement("style");
     styleTag.setAttribute("data-hidden-gem-scrollbars", "true");
     styleTag.textContent = `
+      html, body, #root {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: ${colors.background};
+      }
+
+      body > div,
+      #root > div,
+      [data-expo-root] {
+        height: 100%;
+      }
+
       * {
         scrollbar-color: ${colors.scrollbarThumb} ${colors.scrollbarTrack};
       }
@@ -448,6 +466,16 @@ export default function App() {
       }
 
       #comparison-mode-scroll::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+      }
+
+      #discovery-page-scroll {
+        scrollbar-width: none;
+      }
+
+      #discovery-page-scroll::-webkit-scrollbar {
         display: none;
         width: 0;
         height: 0;
@@ -595,6 +623,8 @@ export default function App() {
                 {() => (
                   <CountryScreen
                     country={selectedCountry}
+                    countries={countries}
+                    onSelectCountry={openCountry}
                     onOpenHiddenGems={openHiddenGems}
                     onOpenComparisonMode={() => navigateToRoute("comparisonSelect")}
                     selectedYear={selectedYear}
@@ -657,6 +687,7 @@ export default function App() {
                         return next.slice(0, 2);
                       });
                     }}
+                    onOpenCountry={openCountry}
                     onOpenHiddenGemsForCountry={openHiddenGemsForCountry}
                   />
                 )}

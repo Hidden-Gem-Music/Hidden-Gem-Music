@@ -714,7 +714,7 @@ export function ComparisonSelectScreen({
   );
 
   return (
-    <ScreenScaffold>
+    <ScreenScaffold alwaysScrollableOnWeb>
       {comparisonContent}
       {validationOpen ? <SelectionRequiredModal onClose={() => setValidationOpen(false)} /> : null}
     </ScreenScaffold>

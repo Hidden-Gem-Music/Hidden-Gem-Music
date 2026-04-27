@@ -19,14 +19,15 @@ import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
-import { YearSelector } from "../components/YearSelector";
-import { getSongsForCountryYear } from "../data/mockData";
+import { availableYears as allAvailableYears, getSongsForCountryYear } from "../data/mockData";
 import { Country, Song } from "../types/content";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 export type Props = {
   country: Country;
+  countries: Country[];
+  onSelectCountry: (countryId: string) => void;
   onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
   onOpenComparisonMode: () => void;
   selectedYear: number;
@@ -568,6 +569,250 @@ function LanguageSection({ title, subtitle, items }: { title: string; subtitle?:
   );
 }
 
+function CountryHeaderDropdownStack({
+  countries,
+  country,
+  selectedYear,
+  onSelectCountry,
+  onChangeYear,
+}: {
+  countries: Country[];
+  country: Country;
+  selectedYear: number;
+  onSelectCountry: (countryId: string) => void;
+  onChangeYear: (year: number) => void;
+}) {
+  const yearOptions = useMemo(() => [...allAvailableYears], []);
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
+  const [isCountryDropdownHovered, setIsCountryDropdownHovered] = useState(false);
+  const [isYearDropdownHovered, setIsYearDropdownHovered] = useState(false);
+  const [isCountryDropdownPressed, setIsCountryDropdownPressed] = useState(false);
+  const [isYearDropdownPressed, setIsYearDropdownPressed] = useState(false);
+  const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
+  const [hoveredYear, setHoveredYear] = useState<number | null>(null);
+
+  const showCountryDropdownGradient =
+    isCountryDropdownOpen || isCountryDropdownHovered || isCountryDropdownPressed;
+  const showYearDropdownGradient = isYearDropdownOpen || isYearDropdownHovered || isYearDropdownPressed;
+
+  return (
+    <View style={styles.headerDropdownStack}>
+      <View style={[styles.headerDropdownWrap, styles.headerCountryDropdownWrap]}>
+        <Pressable
+          onPress={() => {
+            setIsCountryDropdownOpen((current) => !current);
+            setIsYearDropdownOpen(false);
+          }}
+          onHoverIn={() => setIsCountryDropdownHovered(true)}
+          onHoverOut={() => setIsCountryDropdownHovered(false)}
+          onPressIn={() => setIsCountryDropdownPressed(true)}
+          onPressOut={() => setIsCountryDropdownPressed(false)}
+          style={styles.headerDropdownShell}
+        >
+          {showCountryDropdownGradient ? (
+            <LinearGradient
+              colors={isCountryDropdownPressed ? activeGradient : hoverGradient}
+              locations={[0, 0.34, 1]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.headerDropdownButtonGradient}
+            />
+          ) : null}
+          <View style={[styles.headerDropdownButton, showCountryDropdownGradient ? styles.headerDropdownButtonActive : null]}>
+            <Text style={styles.headerDropdownText} numberOfLines={1}>
+              {country.name}
+            </Text>
+            <Text style={styles.headerDropdownChevron}>{isCountryDropdownOpen ? "-" : "+"}</Text>
+          </View>
+        </Pressable>
+        {isCountryDropdownOpen ? (
+          <Panel style={styles.headerDropdownMenu}>
+            <SecondarySurfaceFill />
+            <ScrollView style={styles.headerDropdownScroll} contentContainerStyle={styles.headerDropdownContent}>
+              <Pressable
+                onHoverIn={() => setHoveredCountryId("__select_country__")}
+                onHoverOut={() => setHoveredCountryId((current) => (current === "__select_country__" ? null : current))}
+                onPress={() => setIsCountryDropdownOpen(false)}
+                style={styles.headerDropdownOptionShell}
+              >
+                {hoveredCountryId === "__select_country__" ? (
+                  <LinearGradient
+                    colors={hoverGradient}
+                    locations={[0, 0.34, 1]}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.headerDropdownOptionGradient}
+                  />
+                ) : null}
+                <View
+                  style={[
+                    styles.headerDropdownOption,
+                    hoveredCountryId === "__select_country__" ? styles.headerDropdownOptionActive : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.headerDropdownOptionText,
+                      hoveredCountryId === "__select_country__" ? styles.headerDropdownOptionTextActive : null,
+                    ]}
+                  >
+                    Select Country
+                  </Text>
+                </View>
+              </Pressable>
+              {countries.map((countryOption) => {
+                const selected = countryOption.id === country.id;
+                const hovered = hoveredCountryId === countryOption.id;
+                const showOptionGradient = selected || hovered;
+
+                return (
+                  <Pressable
+                    key={countryOption.id}
+                    onHoverIn={() => setHoveredCountryId(countryOption.id)}
+                    onHoverOut={() => setHoveredCountryId((current) => (current === countryOption.id ? null : current))}
+                    onPress={() => {
+                      onSelectCountry(countryOption.id);
+                      setIsCountryDropdownOpen(false);
+                    }}
+                    style={styles.headerDropdownOptionShell}
+                  >
+                    {showOptionGradient ? (
+                      <LinearGradient
+                        colors={selected ? activeGradient : hoverGradient}
+                        locations={[0, 0.34, 1]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.headerDropdownOptionGradient}
+                      />
+                    ) : null}
+                    <View
+                      style={[
+                        styles.headerDropdownOption,
+                        showOptionGradient ? styles.headerDropdownOptionActive : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.headerDropdownOptionText,
+                          showOptionGradient ? styles.headerDropdownOptionTextActive : null,
+                        ]}
+                      >
+                        {countryOption.name}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Panel>
+        ) : null}
+      </View>
+
+      <View style={[styles.headerDropdownWrap, styles.headerBottomYearDropdownWrap]}>
+        <Pressable
+          onPress={() => {
+            setIsYearDropdownOpen((current) => !current);
+            setIsCountryDropdownOpen(false);
+          }}
+          onHoverIn={() => setIsYearDropdownHovered(true)}
+          onHoverOut={() => setIsYearDropdownHovered(false)}
+          onPressIn={() => setIsYearDropdownPressed(true)}
+          onPressOut={() => setIsYearDropdownPressed(false)}
+          style={styles.headerDropdownShell}
+        >
+          {showYearDropdownGradient ? (
+            <LinearGradient
+              colors={isYearDropdownPressed ? activeGradient : hoverGradient}
+              locations={[0, 0.34, 1]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.headerDropdownButtonGradient}
+            />
+          ) : null}
+          <View style={[styles.headerDropdownButton, showYearDropdownGradient ? styles.headerDropdownButtonActive : null]}>
+            <Text style={styles.headerDropdownText}>{selectedYear}</Text>
+            <Text style={styles.headerDropdownChevron}>{isYearDropdownOpen ? "-" : "+"}</Text>
+          </View>
+        </Pressable>
+        {isYearDropdownOpen ? (
+          <Panel style={styles.headerDropdownMenu}>
+            <SecondarySurfaceFill />
+            <ScrollView style={styles.headerDropdownScroll} contentContainerStyle={styles.headerDropdownContent}>
+              <Pressable
+                onHoverIn={() => setHoveredYear(0)}
+                onHoverOut={() => setHoveredYear((current) => (current === 0 ? null : current))}
+                onPress={() => setIsYearDropdownOpen(false)}
+                style={styles.headerDropdownOptionShell}
+              >
+                {hoveredYear === 0 ? (
+                  <LinearGradient
+                    colors={hoverGradient}
+                    locations={[0, 0.34, 1]}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.headerDropdownOptionGradient}
+                  />
+                ) : null}
+                <View style={[styles.headerDropdownOption, hoveredYear === 0 ? styles.headerDropdownOptionActive : null]}>
+                  <Text
+                    style={[styles.headerDropdownOptionText, hoveredYear === 0 ? styles.headerDropdownOptionTextActive : null]}
+                  >
+                    Select Year
+                  </Text>
+                </View>
+              </Pressable>
+              {yearOptions.map((year) => {
+                const selected = selectedYear === year;
+                const hovered = hoveredYear === year;
+                const showOptionGradient = selected || hovered;
+
+                return (
+                  <Pressable
+                    key={year}
+                    onHoverIn={() => setHoveredYear(year)}
+                    onHoverOut={() => setHoveredYear((current) => (current === year ? null : current))}
+                    onPress={() => {
+                      onChangeYear(year);
+                      setIsYearDropdownOpen(false);
+                    }}
+                    style={styles.headerDropdownOptionShell}
+                  >
+                    {showOptionGradient ? (
+                      <LinearGradient
+                        colors={selected ? activeGradient : hoverGradient}
+                        locations={[0, 0.34, 1]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.headerDropdownOptionGradient}
+                      />
+                    ) : null}
+                    <View
+                      style={[
+                        styles.headerDropdownOption,
+                        showOptionGradient ? styles.headerDropdownOptionActive : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.headerDropdownOptionText,
+                          showOptionGradient ? styles.headerDropdownOptionTextActive : null,
+                        ]}
+                      >
+                        {year}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Panel>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 function HiddenSongsCarouselSection({
   countryName,
   songs,
@@ -782,7 +1027,15 @@ function ComparisonModeFooter({ onPress }: { onPress: () => void }) {
   );
 }
 
-export function CountryScreen({ country, onOpenHiddenGems, onOpenComparisonMode, selectedYear, onChangeYear }: Props) {
+export function CountryScreen({
+  country,
+  countries,
+  onSelectCountry,
+  onOpenHiddenGems,
+  onOpenComparisonMode,
+  selectedYear,
+  onChangeYear,
+}: Props) {
   const { width } = useWindowDimensions();
   const isStacked = width < 1120;
   const isCompact = width < 760;
@@ -877,18 +1130,13 @@ export function CountryScreen({ country, onOpenHiddenGems, onOpenComparisonMode,
             </View>
           </View>
           <View style={styles.topSectionYearBlock}>
-            <View style={styles.topSectionYearWrap}>
-              <YearSelector
-                label="Display Data For Year"
-                year={selectedYear}
-                onSelectYear={onChangeYear}
-                centered
-                smallLabel
-                compactArrows
-                compact
-                filterStyled
-              />
-            </View>
+            <CountryHeaderDropdownStack
+              countries={countries}
+              country={country}
+              selectedYear={selectedYear}
+              onSelectCountry={onSelectCountry}
+              onChangeYear={onChangeYear}
+            />
           </View>
         </View>
 
@@ -1001,6 +1249,7 @@ const styles = StyleSheet.create({
     ...(Platform.OS === "web"
       ? ({
           overflowY: "scroll",
+          overflowX: "visible",
           scrollbarWidth: "none",
         } as ViewStyle)
       : null),
@@ -1008,12 +1257,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: 20,
     paddingBottom: 24,
-    paddingRight: 28,
+    paddingRight: 18,
+    overflow: "visible",
   },
   pageScrollbarTrack: {
     position: "absolute",
     top: 12,
-    right: 8,
+    right: 2,
     bottom: 12,
     width: 14,
     borderRadius: 999,
@@ -1031,23 +1281,132 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 18,
     flexWrap: "wrap",
+    position: "relative",
+    zIndex: 40,
+    overflow: "visible",
   },
   topSectionStacked: {
     alignItems: "flex-start",
   },
   topSectionCountryBlock: {
     alignSelf: "flex-start",
+    zIndex: 41,
   },
   headerCopy: {
     gap: 2,
     justifyContent: "flex-start",
   },
   topSectionYearBlock: {
-    alignSelf: "center",
+    alignSelf: "flex-start",
     paddingTop: 0,
+    zIndex: 45,
   },
-  topSectionYearWrap: {
-    paddingTop: 0,
+  headerDropdownStack: {
+    width: 156,
+    gap: 8,
+    position: "relative",
+    zIndex: 100,
+    overflow: "visible",
+  },
+  headerDropdownWrap: {
+    width: 156,
+    position: "relative",
+    zIndex: 10,
+    alignItems: "stretch",
+    justifyContent: "center",
+  },
+  headerCountryDropdownWrap: {
+    zIndex: 14,
+  },
+  headerBottomYearDropdownWrap: {
+    zIndex: 11,
+  },
+  headerDropdownShell: {
+    borderRadius: 17,
+    overflow: "hidden",
+  },
+  headerDropdownButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  headerDropdownButton: {
+    minWidth: 156,
+    minHeight: 38,
+    height: 38,
+    borderRadius: 17,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  headerDropdownButtonActive: {
+    backgroundColor: "transparent",
+  },
+  headerDropdownText: {
+    color: colors.border,
+    fontFamily: typefaces.condensed,
+    fontSize: 15,
+    lineHeight: 18,
+    flexShrink: 1,
+  },
+  headerDropdownChevron: {
+    color: colors.border,
+    fontFamily: typefaces.condensed,
+    fontSize: 28,
+    lineHeight: 28,
+  },
+  headerDropdownMenu: {
+    position: "absolute",
+    top: 50,
+    right: 0,
+    width: 156,
+    maxHeight: 260,
+    padding: 0,
+    overflow: "hidden",
+    backgroundColor: "transparent",
+    zIndex: 9999,
+    elevation: 9999,
+  },
+  headerDropdownScroll: {
+    maxHeight: 260,
+  },
+  headerDropdownContent: {
+    padding: 8,
+    gap: 8,
+  },
+  headerDropdownOptionShell: {
+    position: "relative",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  headerDropdownOptionGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  headerDropdownOption: {
+    minHeight: 42,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    justifyContent: "center",
+  },
+  headerDropdownOptionActive: {
+    backgroundColor: "transparent",
+  },
+  headerDropdownOptionText: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 18,
+  },
+  headerDropdownOptionTextActive: {
+    color: colors.text,
   },
   pageTitle: {
     color: colors.textStrong,

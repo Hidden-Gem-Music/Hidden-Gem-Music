@@ -31,6 +31,7 @@ export type Props = {
   onBack: () => void;
   onChangeYear: (year: number) => void;
   onChangeCountryAtIndex: (index: number, countryId: string) => void;
+  onOpenCountry: (countryId: string) => void;
   onOpenHiddenGemsForCountry: (
     countryId: string,
     selection?: { songTitle?: string; artist?: string }
@@ -985,6 +986,7 @@ function ComparisonCountryPane({
   selectedYear,
   onChangeYear,
   onChangeCountry,
+  onOpenCountry,
   onOpenHiddenGemsForCountry,
 }: {
   availableCountries: Country[];
@@ -993,6 +995,7 @@ function ComparisonCountryPane({
   selectedYear: number;
   onChangeYear: (year: number) => void;
   onChangeCountry: (countryId: string) => void;
+  onOpenCountry: (countryId: string) => void;
   onOpenHiddenGemsForCountry: (countryId: string, selection?: { songTitle?: string; artist?: string }) => void;
 }) {
   const profile = useMemo(() => buildCountryProfile(country, selectedYear), [country, selectedYear]);
@@ -1024,7 +1027,9 @@ function ComparisonCountryPane({
       >
         <View style={styles.paneHeaderRow}>
           <View style={styles.headerCopy}>
-            <Text style={styles.pageTitle}>{country.name}</Text>
+            <Pressable onPress={() => onOpenCountry(country.id)} style={styles.pageTitlePressable}>
+              <Text style={styles.pageTitle}>{country.name}</Text>
+            </Pressable>
             <Text style={styles.pageSubtitle}>{country.region}</Text>
           </View>
           <ComparisonPaneDropdownStack
@@ -1137,6 +1142,7 @@ export function ComparisonResultsScreen({
   onBack,
   onChangeYear,
   onChangeCountryAtIndex,
+  onOpenCountry,
   onOpenHiddenGemsForCountry,
 }: Props) {
   const leftCountry = countries[0];
@@ -1157,6 +1163,7 @@ export function ComparisonResultsScreen({
               selectedYear={selectedYear}
               onChangeYear={onChangeYear}
               onChangeCountry={(countryId) => onChangeCountryAtIndex(0, countryId)}
+              onOpenCountry={onOpenCountry}
               onOpenHiddenGemsForCountry={onOpenHiddenGemsForCountry}
             />
           ) : (
@@ -1170,6 +1177,7 @@ export function ComparisonResultsScreen({
               selectedYear={selectedYear}
               onChangeYear={onChangeYear}
               onChangeCountry={(countryId) => onChangeCountryAtIndex(1, countryId)}
+              onOpenCountry={onOpenCountry}
               onOpenHiddenGemsForCountry={onOpenHiddenGemsForCountry}
             />
           ) : (
@@ -1236,6 +1244,9 @@ const styles = StyleSheet.create({
     minWidth: 240,
     gap: 2,
     justifyContent: "flex-start",
+  },
+  pageTitlePressable: {
+    alignSelf: "flex-start",
   },
   pageTitle: {
     color: colors.textStrong,
