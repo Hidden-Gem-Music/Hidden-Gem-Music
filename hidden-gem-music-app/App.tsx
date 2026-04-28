@@ -80,6 +80,10 @@ function areRouteParamsEqual(currentParams?: RouteParams, nextParams?: RoutePara
   return currentParams?.year === nextParams?.year && currentParams?.country === nextParams?.country;
 }
 
+function getDefaultComparisonIds(): string[] {
+  return [];
+}
+
 /* ---------------- ERROR BOUNDARY ---------------- */
 
 class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -173,7 +177,7 @@ export default function App() {
     () =>
       comparisonIds
         .map((countryId) => countries.find((country) => country.id === countryId))
-        .filter((country): country is Country => Boolean(country)),
+        .filter((country): country is NonNullable<typeof country> => Boolean(country)),
     [comparisonIds, countries]
   );
 
@@ -321,6 +325,14 @@ export default function App() {
     }
 
     navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
+  };
+
+  const openHiddenGemsForCountry = (countryId: string) => {
+    setSelectedCountryId(countryId);
+
+    if (!navigationRef.isReady()) return;
+
+    navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, countryId));
   };
 
   const openCountry = (countryId: string) => {

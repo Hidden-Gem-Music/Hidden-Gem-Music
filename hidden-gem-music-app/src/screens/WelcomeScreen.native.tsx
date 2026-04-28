@@ -1,115 +1,100 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-
-type Props = {
-  countries: any[];
-  onNavigate: (route: any) => void;
-  onSelectCountry: (id: string) => void;
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+ 
+import { ActionButton } from "../components/ActionButton";
+import { DiscoveryBlurb } from "../components/DiscoveryBlurb";
+import { Panel } from "../components/Panel";
+import { ScreenScaffold } from "../components/ScreenScaffold";
+import { ScreenRoute } from "../types/navigation";
+import { Country } from "../types/content";
+import { colors } from "../theme/colors";
+import { typefaces } from "../theme/typography";
+ 
+export type Props = {
+  countries: Country[];
+  onNavigate: (route: ScreenRoute) => void;
+  onSelectCountry: (countryId: string) => void;
   selectedYear: number;
   onChangeYear: (year: number) => void;
 };
-
-export function WelcomeScreen({
-  onNavigate,
-  countries,
-  onSelectCountry,
-  selectedYear,
-  onChangeYear,
-}: Props) {
+ 
+export function WelcomeScreen({ countries, onNavigate }: Props) {
   return (
-    <LinearGradient
-  colors={["#24293e", "#1b1f33", "#75526B"]}
-  style={styles.container}
->
-      <Text style={styles.title}>Hidden Gem Music</Text>
-
-      <Text style={styles.subtitle}>
-        Insert a semi long description of the app here. Maybe something about how it can help you discover new music and artists from around the world, and how it uses data to find hidden gems that you might not have heard of before.
-      </Text>
-
-      <View style={{ flex: 1 }} />
-
-      <View style={styles.buttonContainer}>
-  <TouchableOpacity style={styles.button} onPress={() => onNavigate("discovery")}>
-    <MaterialCommunityIcons name="earth" size={22} color="#afcbff" />
-    <Text style={styles.buttonText}>Discovery Globe</Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity style={styles.button} onPress={() => onNavigate("filters")}>
-    <Feather name="filter" size={22} color="#afcbff" />
-    <Text style={styles.buttonText}>Filters</Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity style={styles.button} onPress={() => onNavigate("comparisonSelect")}>
-    <MaterialCommunityIcons name="compare" size={22} color="#afcbff" />
-    <Text style={styles.buttonText}>Comparison Mode</Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity style={styles.button} onPress={() => onNavigate("hiddenGems")}>
-    <MaterialCommunityIcons name="music" size={22} color="#afcbff" />
-    <Text style={styles.buttonText}>Hidden Gems</Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity style={styles.button} onPress={() => onNavigate("dashboard")}>
-    <MaterialCommunityIcons name="view-dashboard" size={22} color="#afcbff" />
-    <Text style={styles.buttonText}>Dashboard</Text>
-  </TouchableOpacity>
-
-  <TouchableOpacity style={styles.button} onPress={() => onNavigate("credits")}>
-    <Feather name="info" size={22} color="#afcbff" />
-    <Text style={styles.buttonText}>Credits</Text>
-  </TouchableOpacity>
-                </View>
-      
-    </LinearGradient>
+    <ScreenScaffold alwaysScrollableOnWeb>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <DiscoveryBlurb
+          heading="Hidden Gem Music"
+          body="Discover the songs that are loved locally but missed globally. Explore charts by country, compare music scenes, and uncover hidden gems from around the world."
+        />
+ 
+        <Panel style={styles.modal}>
+          <LinearGradient
+            colors={[colors.surfaceSecondary, "#27293B", "rgba(66,72,101,0.42)", "rgba(66,72,101,0.72)"]}
+            locations={[0, 0.42, 0.78, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={styles.modalFill}
+          />
+          <View style={styles.modalContent}>
+            <Text style={styles.brand}>Hidden Gem Music</Text>
+            <Text style={styles.summary}>
+              Insert somewhat long text about the project and the problem and the solution
+            </Text>
+            <View style={styles.buttonStack}>
+              <ActionButton label="Discovery Globe" size="compact" onPress={() => onNavigate("discovery")} />
+              <ActionButton label="Comparison Mode" size="compact" onPress={() => onNavigate("comparisonSelect")} />
+              <ActionButton label="Hidden Songs" size="compact" onPress={() => onNavigate("hiddenGems")} />
+              <ActionButton label="Dashboard" size="compact" onPress={() => onNavigate("dashboard")} />
+              <ActionButton label="Credits" size="compact" onPress={() => onNavigate("credits")} />
+            </View>
+          </View>
+        </Panel>
+      </ScrollView>
+    </ScreenScaffold>
   );
 }
-
+ 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  scrollContent: {
+    gap: 20,
+    paddingBottom: 32,
+  },
+  modal: {
+    overflow: "hidden",
+    padding: 0,
+    backgroundColor: "transparent",
+  },
+  modalFill: {
+    position: "absolute" as const, top: 0, left: 0, bottom: 0, right: 0,
+    borderRadius: 22,
+  },
+  modalContent: {
     padding: 24,
+    alignItems: "center",
+    gap: 22,
   },
-
-  title: {
-    fontSize: 32,
-    color: "#afcbff",
-    textAlign: "center",
-    marginTop: 80,
+  brand: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 38,
     
-    fontFamily: "NyghtSerif-MediumItalic",
+    textAlign: "center",
+    lineHeight: 44,
   },
-
-  subtitle: {
+  summary: {
+    color: colors.text,
+    fontFamily: typefaces.condensed,
     fontSize: 16,
-    color: "#afcbff",
+    fontWeight: "700",
+    lineHeight: 24,
     textAlign: "center",
-    marginTop: 150,
-    fontFamily: "Tanklager-Kompakt",
-    
   },
-
-  buttonContainer: {
-  flexDirection: "row",
-  flexWrap: "wrap",   
-  gap: 12,
-  marginBottom: 40,
-},
-
-  button: {
-  width: "48%",       
-  backgroundColor: "#3a4161",
-  padding: 14,
-  borderRadius: 10,
-  alignItems: "center",
-},
-
-  buttonText: {
-    color: "#afcbff",
-    marginTop: 6,
-    fontSize: 14,
-    fontFamily: "Tanklager-Kompakt",
+  buttonStack: {
+    gap: 14,
+    alignItems: "center",
+    width: "100%",
   },
 });
