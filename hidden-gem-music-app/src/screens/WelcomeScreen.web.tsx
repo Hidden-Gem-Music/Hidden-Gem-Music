@@ -53,7 +53,7 @@ export function WelcomeScreen({ countries, onNavigate, onSelectCountry, selected
   );
 
   return (
-    <ScreenScaffold>
+    <ScreenScaffold alwaysScrollableOnWeb>
       <View style={styles.previewStack}>
         <DiscoveryBlurb />
         <View style={[styles.previewLayout, isStacked ? styles.previewLayoutStacked : null]}>

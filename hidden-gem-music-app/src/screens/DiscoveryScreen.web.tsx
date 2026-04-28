@@ -33,9 +33,8 @@ export function DiscoveryScreen({
 }: Props) {
   // Issue #6 shell: this screen owns the core Discovery Globe layout,
   // including globe rendering, country selection, panel structure, and dummy-data wiring.
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const isStacked = width < 980;
-  const allowShortViewportHorizontalScroll = Platform.OS === "web" && !isStacked && height < 860;
   const [allFiltersOpen, setAllFiltersOpen] = useState(false);
   const [listAutoScrollSignal, setListAutoScrollSignal] = useState(0);
 
@@ -72,7 +71,13 @@ export function DiscoveryScreen({
   );
 
   const discoveryContent = (
-    <View style={[styles.discoveryStack, allowShortViewportHorizontalScroll ? styles.discoveryStackScrollable : null]}>
+    <ScrollView
+      nativeID="discovery-page-scroll"
+      style={styles.pageScroll}
+      contentContainerStyle={styles.discoveryStack}
+      showsVerticalScrollIndicator={false}
+      alwaysBounceVertical={false}
+    >
       {/*
       <FilterBar
         activeFilter={activeFilter}
@@ -84,34 +89,16 @@ export function DiscoveryScreen({
       />
       */}
       <DiscoveryBlurb />
-      <View
-        style={[
-          styles.layout,
-          isStacked ? styles.layoutStacked : null,
-          allowShortViewportHorizontalScroll ? styles.layoutScrollable : null,
-        ]}
-      >
+      <View style={[styles.layout, isStacked ? styles.layoutStacked : null]}>
         {isStacked ? globeColumn : listColumn}
         {isStacked ? listColumn : globeColumn}
       </View>
-    </View>
+    </ScrollView>
   );
 
   return (
-    <ScreenScaffold>
-      {allowShortViewportHorizontalScroll ? (
-        <ScrollView
-          horizontal
-          style={styles.horizontalScroll}
-          contentContainerStyle={styles.horizontalScrollContent}
-          showsHorizontalScrollIndicator={false}
-          alwaysBounceHorizontal={false}
-        >
-          {discoveryContent}
-        </ScrollView>
-      ) : (
-        discoveryContent
-      )}
+    <ScreenScaffold contentStyle={styles.scaffoldContent}>
+      {discoveryContent}
 
       {/* Issue #6 follow-up area: this modal shell is in place now and will take the
           chart/filter-related UI refinements discussed after the April 21 meeting. */}
@@ -152,25 +139,28 @@ export function DiscoveryScreen({
 }
 
 const styles = StyleSheet.create({
-  horizontalScroll: {
-    width: "100%",
+  pageScroll: {
+    flex: 1,
+    backgroundColor: "transparent",
+    borderWidth: 0,
     ...(Platform.OS === "web"
       ? ({
-          overflowX: "auto",
-          overflowY: "visible",
+          overflowY: "scroll",
           scrollbarWidth: "none",
-        } as ViewStyle)
+          outlineStyle: "none",
+          outlineWidth: 0,
+        } as unknown as ViewStyle)
       : null),
   },
-  horizontalScrollContent: {
-    minWidth: "100%",
+  scaffoldContent: {
+    padding: 0,
+    gap: 0,
   },
   discoveryStack: {
     gap: 16,
-    marginTop: -8,
-  },
-  discoveryStackScrollable: {
-    minWidth: 1040,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
   },
   layout: {
     flexDirection: "row",
@@ -179,9 +169,6 @@ const styles = StyleSheet.create({
   },
   layoutStacked: {
     flexDirection: "column",
-  },
-  layoutScrollable: {
-    flexWrap: "nowrap",
   },
   leftColumn: {
     flex: 1,

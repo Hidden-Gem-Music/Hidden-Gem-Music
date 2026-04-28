@@ -1,0 +1,371 @@
+mp3li's Feature Implementation Timeline for Hidden Gem Music
+
+Updated: April 26, 2026
+
+All Web Screens Completed with Placeholder Data (April 26, 2026)
+- All planned web UI screens are now completed in a styled and functional placeholder-data state:
+  - Welcome
+  - Discovery Globe
+  - Country
+  - Hidden Gems
+  - Comparison Mode
+  - Comparison View
+  - Dashboard
+  - Credits
+- This means the frontend is no longer in the earlier mixed state where only Discovery Globe was more complete and the rest were still mostly shell-level placeholders.
+- The April 21 meeting feedback tied to the web UI issue has now been carried through the completed screen set:
+  - Discovery Globe adjustments were applied
+  - Comparison flow screens were completed and wired together
+  - Dashboard was built out as a styled scrolling placeholder-chart screen using multiple secondary backgrounds
+  - Credits was rebuilt into a styled completed page instead of remaining a stripped placeholder shell
+  - Shared web-screen styling patterns were reused across screens so the app reads as one cohesive UI system
+- Current remaining frontend follow-up is smaller in scope than the issue itself:
+  - A handful of screens still need minor responsive cleanup for some browser window sizes
+  - That work is polishing / refinement, not unfinished screen implementation
+- The web UI is now ready for the next major phase:
+  - Replacing placeholder/mock content with project data
+  - Plugging screen flows into the database
+  - Connecting any needed external API-backed data
+
+Comparison View Screen Completion and Final Layout Refinement (April 26, 2026)
+- Comparison View is now completed as a core web screen implementation rather than remaining a placeholder-style results page.
+- The results layout is now built as two full comparison panes shown side by side:
+  - Left country pane
+  - Right country pane
+  - Shared back action returning to Comparison Mode
+- Each comparison pane now includes completed top-area controls and identity:
+  - Large country name and region header
+  - A `Select Country` dropdown at the top right of the panel
+  - A `Select Year` dropdown directly under it
+  - The dropdown buttons now show the currently selected country for that pane and the currently active comparison year instead of generic placeholder text
+- The country/year controls are wired into live comparison state rather than being decorative:
+  - Changing the year from either pane updates the shared comparison year
+  - Changing a country from a pane swaps only that panel's selected country while preserving the two-country comparison structure
+  - Country options avoid duplicating the country already assigned to the opposite panel
+- Each pane now includes a fuller completed comparison-content stack:
+  - `Country Summary`
+  - `Favorite Artists`
+  - Stats strip
+  - Genre and language sections
+  - Hidden-gems preview carousel
+  - Main comparison lists
+- Hidden-gems routing in Comparison View was completed across the pane interactions:
+  - Clicking featured artists opens the related hidden-gems view for that country
+  - Clicking main comparison rows opens the related hidden-gems view for that country
+  - Clicking the center hidden-gems preview CD opens the hidden-gems view, while off-center CDs recenter first
+- Several layout regressions introduced during comparison-page iteration were corrected before completion:
+  - The missing top-right dropdown controls were restored
+  - The divider line between the two main comparison sections was added back in
+  - Carousel arrow buttons were reduced in size
+  - Featured-artist arrow buttons were resized smaller than the carousel arrows
+  - The carousel spacing / overflow treatment was adjusted so the outer CD edges are no longer clipped off as harshly
+- Overall problem / solution pattern during this round:
+  - Problem: Comparison View had lost key interface pieces during iteration, including its per-panel dropdown controls and section divider treatment
+  - Solution: The results screen was rewired so those controls are part of the screen's actual live comparison state again rather than being absent or placeholder-like
+  - Problem: Shared button sizing created visual mismatch between the hidden-gems preview carousel and featured-artist controls
+  - Solution: The shared arrow-button pattern was split so featured-artist controls could use a smaller variant without undoing carousel sizing
+
+Hidden Gems Screen Completion, Interaction System, and Dropdown / Playback Iteration (April 26, 2026)
+- Hidden Gems is now completed as a core web screen implementation rather than remaining in placeholder status.
+- Hidden Gems moved from an earlier placeholder-style detail layout into a full two-panel web implementation aligned to the newer mockup direction:
+  - A top blurb section with title/body copy and stat square
+  - A left hidden-song listing panel
+  - A right playing-side panel centered around a large CD case and selected-song details
+- The route labeling/navigation context for Hidden Gems was aligned to country-specific naming:
+  - Browser tab / route title and breadcrumb naming now use `{Country Name}'s Hidden Gems` wording instead of generic `Hidden Gems`
+- Hidden-song data presentation was expanded:
+  - Additional generated hidden-gem mock entries were added beyond the base country-year songs
+  - List rendering now starts with a batch and loads more as the user scrolls instead of rendering the entire set immediately
+  - Song rows include left-side ranked numbering and compacted row density
+- The right-side playing area went through substantial interaction and typography work:
+  - Main CD was resized and vertically repositioned with matching art-backdrop coverage relative to country-page carousel CD ratios
+  - Song title/artist line under the CD was converted to mixed-font styling with repeated spacing refinements
+  - A nav-style underline was added beneath the song title/artist line
+  - Metadata blocks below were converted into slightly transparent card rows and resized for readability tuning
+- Hover-based playback control behaviors were added and repeatedly refined:
+  - Hovering the main CD shows previous/play-pause/next controls
+  - Hovering small list CDs shows a play button overlay
+  - Clicking list-CD play updates selection and marks preview playback state as active (audio stream hookup remains future work)
+  - Button styling was iterated to match selected-filter visual language and then adjusted so gradients run vertically with pink at the bottom
+- Hidden Gems blurb controls were redesigned from a single simple year selector to stacked custom dropdowns:
+  - Top dropdown: `Country` with `Select Country` as the first option, then all countries
+  - Bottom dropdown: `Select Year` with `Select Year` as the first option, then full global app years
+  - Both dropdowns share the same width and panel-styled option menus
+  - Multiple z-index and placement passes were required to avoid one dropdown blocking the other
+- Custom scrollbar behavior was maintained and then tuned:
+  - Both left and right secondary panels keep custom scrollbar tracks/thumbs
+  - Scrollbar colors were adjusted to semi-transparent styling
+- Additions / removals / changes during this Hidden Gems round:
+  - Added local helper copy in the blurb explaining CD hover/play preview behavior
+  - Removed older separate helper-line treatment by folding that instruction into the main blurb paragraph flow
+  - Replaced simpler native/select year control with custom panel-based dropdown interaction
+  - Reworked repeated spacing/color/position values across stat square, song rows, metadata cards, and control overlays
+- Overall problem / solution pattern during this round:
+  - Problem: Clicking rows in the hidden-song list could glitch or appear to revert the main CD selection
+  - Solution: Introduced Hidden-Gems-local active song selection state and guarded parent sync so generated list items no longer fight parent song-state reconciliation
+  - Problem: Hover controls on the main CD disappeared while moving across the CD/button region
+  - Solution: Main CD hover detection was moved to full-case hover-target logic so controls persist until pointer actually leaves the CD area
+  - Problem: Mock album-art backdrops on Hidden Gems CDs did not match the carousel visual footprint
+  - Solution: Backdrop sizes were resized to align with the same relative coverage ratio used on the country-page carousel CD component
+
+Country Screen Completion, Hidden Gems Preview Routing, and Navigation Updates (April 25, 2026)
+- The Country screen moved out of placeholder status and into a much more complete mockup-driven web implementation:
+  - A comparison-blue `Country Summary` section was built out with headline summary copy, `General Description`, and `Genre + Language Mix`
+  - `Favorite Artists` was repositioned to sit directly under the summary before the stats / genre / language row
+  - The stats area, genre breakdown, and language breakdown now live together as a more intentional lower information row
+  - The previous horizontal divider in the main comparison area was removed
+- The hidden-gems preview area went through several rounds of layout and interaction work:
+  - Helper text under `Preview {Country}'s Hidden Gems` was repositioned and expanded rather than replaced
+  - An additional helper link for viewing all hidden gems was added into the same secondary background treatment
+  - The preview was expanded to show more CD cases at once
+  - The CD overlap system was rebuilt so the preview stack uses a more uniform center-anchored spacing model instead of inconsistent edge spacing
+  - CD stacks were re-centered vertically so background discs sit centered behind the larger disc instead of aligning only by their upper edges
+- Hidden-gems routing behavior was expanded well beyond the original placeholder state:
+  - Main comparison song rows, preview carousel items, and featured-artist CDs / names now all route toward the hidden-gems view
+  - Routing prefers the exact song first, then falls back to the first song by that artist, then the first hidden-gems item if the precise row does not exist yet
+  - In the preview carousel specifically, clicking a non-center CD now recenters it first; only clicking it again once centered opens the hidden-gems page
+- Additional country-page visual polish and navigation updates were completed:
+  - Breadcrumb wording was revised so `Home` now reads `Welcome`
+  - The earlier hash-based route handling was replaced by the current React Navigation-based web routing flow
+  - Browser titles / route titles were clarified so the current page names are more readable in the browser
+  - The year selector and hidden-gems preview arrows were rebuilt around gem-based controls, with repeated size / centering adjustments
+  - The bottom-of-page `Comparison Mode` link was turned into a larger stylized call-to-action block with custom typography, hover / pressed states, spacing refinements, and then later a quieter resting background so it no longer looked like floating text
+- Additions / removals / changes during this country-screen round:
+  - Added a centered footer link that opens `Comparison Mode`
+  - Added many more generated rows into the main comparison area so the lists can scroll much further through available mock data
+  - Removed the temporary hidden-gems stat-card shortcut idea after it was replaced by preview-helper-driven navigation
+  - Reworked several summary labels to use smaller `Nyght Serif` styling and then later resized them again based on readability feedback
+- Overall problem / solution pattern during this round:
+  - Problem: The hidden-gems preview CDs overlapped unevenly and did not read as one coherent stack
+  - Solution: The preview layout was changed from looser margin-based spacing to explicit center-out overlap math
+  - Problem: The hidden-gems preview arrows and non-center CD interactions repeatedly crashed the page
+  - Solution: The carousel indexing and click behavior were rewritten around wrapped indexing, safer selection flow, and recenter-first interaction
+  - Problem: Several top-area experiments created extra button concepts or placement that did not match the requested layout
+  - Solution: Those experiments were stripped back out, and the actions were folded into the preview section instead of adding a separate summary-side shortcut card
+
+Comparison Mode Screen Completion, Filter / Selection Rebuild, and Interaction Debugging (April 25, 2026)
+- Comparison Mode was substantially redesigned so it no longer behaves like a lightly modified Discovery placeholder:
+  - The browser / route title now clearly reads `Comparison Mode`
+  - The top blurb was rebuilt around `Comparison View` copy with a year selector and `Done` action aligned into the same top-right area
+  - The timeline was removed from this page, and the globe area was stretched taller to use that reclaimed space
+  - The left / right layout was revised so the globe sits on the left and the collapsible control area sits on the right
+- The old single country-picking treatment was replaced and then reintroduced as two discovery-style stacked collapsible regions:
+  - `Add Your Filters`
+  - `Select Two Countries`
+  - Filters were moved above country selection
+  - Filters start collapsed
+  - Country selection starts expanded
+- Country selection behavior was tightened significantly:
+  - No countries are preselected when entering Comparison Mode
+  - Selection is capped at 2 countries instead of the earlier 3-country placeholder behavior
+  - The helper text now reports the live counter as `0 out of 2 countries selected.` and updates from there
+  - Clicking a country in the list toggles it on / off
+  - Clicking the globe card in comparison mode now toggles the matching country too
+  - Hovering globe gems no longer selects countries
+- The `Done` flow was rebuilt around stricter required input:
+  - A dedicated year dropdown was added to the blurb
+  - Selecting a year and exactly two countries is now mandatory before proceeding
+  - If that requirement is not met, a welcome-style modal appears with a `Comparison Mode` header and a validation message
+- The filter area moved away from backend-style wording and toward simpler user-facing language:
+  - `Popularity` uses options such as `Biggest Hits`, `Fast Rising Songs`, and `All Songs`
+  - `Region`, `Language`, and `Genre` were added into inline chip-style rows instead of dropdowns
+  - `Region` now includes all continents except Antarctica
+  - The filter chips now support multi-select behavior within each row rather than a single selected option only
+  - Hover / pressed styling was aligned more closely with the discovery pre-selected filter treatment
+- Additions / removals / changes during this comparison round:
+  - Removed `List View` / `Globe View` label text from the earlier placeholder layout
+  - Removed the globe-area `Filters` button after the page shifted back to dedicated collapsible filter controls
+  - Added collapsible-panel-specific scrollbar handling for the country list and filters area
+  - Added explicit route-title cleanup so browser tabs use clearer screen names
+  - Replaced the previous auto-hover selection behavior with click-only selection in comparison mode
+- Overall problem / solution pattern during this round:
+  - Problem: Hovering globe gems was selecting countries when the intended interaction was click-only
+  - Solution: Comparison-mode globe behavior now disables hover-based selection and uses click / tooltip-card toggle handling instead
+  - Problem: Comparison Mode kept inheriting placeholder assumptions, including preselected countries and looser selection limits
+  - Solution: Comparison state is cleared when entering the route, and the page now enforces a year-plus-two-country requirement before `Done`
+  - Problem: Several attempts to force custom wide-screen scrolling introduced an unwanted frame / overlap effect around the content area
+  - Solution: The extra comparison-page wrapper behavior was ultimately stripped back out so the screen renders more directly under the shared scaffold again
+  - Problem: Filter language and interaction were too backend-driven for a country-picking screen
+  - Solution: The screen now presents more user-facing labels and chip-based filtering, while heavier data-logic filters were treated as follow-up work for later results behavior
+
+Discovery / Welcome UI Continuation, Timeline Gap Handling, and Iteration Notes (April 23, 2026)
+- Discovery and Welcome were brought back into a matched visual structure so the user sees the same core layout language before and after leaving the welcome overlay:
+  - A shared discovery blurb component was added above the secondary content area
+  - Shared left-side stacked panel behavior was introduced so both screens use the same expandable / collapsible shell treatment
+  - The previous discovery filter row and the extra `Globe View` / `List View` helper-label treatment were removed from active use
+- The new discovery blurb went through multiple refinement passes based on mockup feedback:
+  - Secondary background sizing and spacing were adjusted so the blurb fills the reclaimed space cleanly without disturbing the globe / list panel placements
+  - Typography was split between `Nyght Serif` for the title and `Tanklager` for the body
+  - A gem separator was added between the title and body copy
+  - Gradient behavior was revised so the blurb uses a lighter version of the app-background lower color treatment instead of a harsher blocky finish
+  - The text block still needs additional centering polish, since visual centering inside the blurb remains slightly off compared with the intended mockup
+- The old single list-view panel was replaced, within the same overall footprint, by two stacked sections with their own secondary backgrounds:
+  - `Pre-Selected Filters`
+  - `List View`
+- Those left-side sections were built as mutually exclusive expand / collapse regions:
+  - `Pre-Selected Filters` opens by default
+  - `List View` starts collapsed
+  - Clicking the currently open section swaps expansion to the other section so both panels cannot end up collapsed at the same time
+- `Pre-Selected Filters` was repurposed from the earlier horizontal filter-row work instead of throwing that code away:
+  - The filter controls were preserved and reused as a vertical full-width button stack
+  - Each row now includes a short right-side explanatory note
+  - The filter rows, Welcome buttons, and `All Filters` control were visually aligned around the same hover and pressed-state behavior
+- The globe panel and list interactions were iterated heavily to solve regressions introduced during the sidebar redesign:
+  - The `All Filters` control was moved into the upper-right area of the globe panel
+  - The globe itself was scaled up slightly inside the same secondary panel footprint
+  - Hovering globe gems once again jumps the list to the matching country
+  - A prior regression caused the list to scroll while hovering directly inside the list itself; that behavior was corrected so list scrolling is once again manual unless the globe triggers the focus change
+- Persistent custom scrollbar behavior was extended to both stacked left-side sections:
+  - `List View` keeps an always-visible custom scrollbar
+  - `Pre-Selected Filters` now uses the same scrollbar treatment
+  - Extra lower padding was added so the final filter row does not sit flush against the end of the panel
+- Secondary background styling was consolidated into a shared gradient fill system so the blurb, left-side panels, and globe panel all use a more consistent layered surface treatment.
+- The discovery timeline control was updated to represent a dataset gap in the later historical range:
+  - A dark blocked section was added onto the slider track
+  - The thumb cannot stop inside the unavailable-year segment
+  - A centered Tanklager disclaimer was added below the timeline and then repositioned upward for better spacing balance
+- Welcome routing and entry-point actions were revised:
+  - Welcome buttons now route to `Discovery Globe`, `Comparison Mode`, `Hidden Songs`, `Dashboard`, and `Credits`
+  - The `Exit` button was removed
+  - Welcome button hover / click states were updated to visually match the discovery filter-button interaction language
+- The Credits screen text content was stripped back out entirely after placeholder copy was deemed inappropriate for the intended page state.
+- Additional responsive header work was attempted on the `Hidden` wordmark so the `i` and gem dot keep their intended appearance on narrower layouts.
+  - This area remains unresolved after several passes, and still needs a better mobile-width solution that preserves the large-layout look more faithfully.
+- Overall problem / solution pattern during this round:
+  - Problem: Discovery and Welcome had drifted apart visually, making the transition between them feel inconsistent
+  - Solution: Shared blurb and shared sidebar panel components were introduced so both screens now inherit the same structure and can be tuned together
+  - Problem: Replacing the list panel introduced list-hover auto-scrolling and broke globe-to-list focus behavior
+  - Solution: Auto-scroll was restricted to globe-driven selection changes only, while list-hover behavior was returned to manual-scroll-only interaction
+  - Problem: Secondary panel gradients initially looked too short and blocky
+  - Solution: Gradient fills were smoothed, spread vertically, and consolidated into a reusable secondary-surface treatment
+  - Problem: Several UI passes added placeholder or extra behavior the user did not want
+  - Solution: Those elements were stripped back out, and the screen was repeatedly re-aligned toward the requested mockup-driven layout rather than speculative additions
+
+Issue 5 Completion and Issue 6 Shell Clarification (April 22, 2026)
+- Issue #5 work was finalized and organized into the project documentation area:
+  - Frontend architecture document completed
+  - Feature implementation timeline updated
+  - Tracked backend `.NET` `obj` files removed so the existing ignore rules work correctly going forward
+- That issue-5 work was committed and pushed on its own issue branch for pull request review.
+- Issue #6 branch setup was completed from the current frontend workbase so the next shell-focused changes could be tracked separately.
+- Targeted code comments were added in the issue-6 branch to mark where the current shell work and follow-up work belong:
+  - Discovery Globe shell ownership and follow-up filter/modal area
+  - Dashboard shell area where chart placeholders and overlap-specific visuals will be added
+  - Hidden Songs detail area where the planned transparent CD case component will be implemented
+- The issue-6 comments also clarify that the CD case asset itself will only contain album art, while supporting metadata will remain in the app UI and later be filled from dataset-backed sources as needed.
+
+Architecture Documentation and Repo Tracking Cleanup (April 21, 2026)
+- A frontend architecture document was added to record the scaffold deliverables for issue #5:
+  - Navigation structure
+  - Folder architecture
+  - Dark mode base stylesheet
+  - Component architecture
+- The documentation reflects the current React Native scaffold already present in the codebase rather than proposing a separate future structure.
+- The document was organized into the project-level `Documents/by mp3li/` area so additional frontend planning and architecture notes can be grouped together as more issue work is completed.
+- Repository cleanup work was also prepared for tracked backend `.NET` `obj` files:
+  - The existing `.gitignore` already covered `obj/`
+  - The tracked generated files were removed from Git tracking so the ignore rules can work as intended going forward
+- This cleanup is being treated as an additional repo-maintenance improvement attached to the same general setup work, since it removes machine-specific generated files from future frontend/backend collaboration noise.
+
+Project Foundation and Screen Architecture (April 17, 2026)
+- React Native project structure was created in `hidden-gem-music-app`.
+- Shared theme primitives were established:
+  - Color tokens
+  - Typography setup
+  - Shared spacing
+  - Reusable panel / button styling
+- Uploaded Nyght Serif and Tanklager font files were wired into the app.
+- Initial route structure was built for:
+  - Welcome
+  - Discovery Globe
+  - Country
+  - Hidden Songs / Hidden Gems
+  - Comparison Select
+  - Comparison Results
+  - Dashboard
+  - Credits
+- Mock data and yearly data helpers were set up so major screens could respond to selected-year changes.
+- A loading overlay pattern was added for year-switching interactions.
+
+Core Discovery Flow and Shared UI Systems (April 18, 2026)
+- The discovery experience was split into globe and list-view panels so the app background remains visually stable while secondary content scrolls independently.
+- Search was moved into the main navigation flow instead of remaining the primary planned standalone screen.
+- Shared screen scaffolding and gradient background treatments were added to support a more polished mockup-driven layout direction.
+- The placeholder globe was separated behind platform-specific components so the app can transition to real Mapbox integration later without rewriting the higher-level discovery layout.
+- Country and comparison data views were connected to the existing year-aware mock-data structure.
+
+Visual Theme Revision and Navigation Restyling (April 19, 2026)
+- The full app palette was reworked to match the mockup art more accurately:
+  - Header gradient and nav colors
+  - Main vertical background gradient
+  - Secondary panel surfaces for globe and list views
+  - Timeline colors
+  - Scrollbar colors
+  - Globe-card top / bottom color split
+- Dark text usage was standardized away from pure black, and light text usage was standardized away from pure white.
+- Country listing outlines, list-view cards, button fills, and globe-card surfaces were updated to match the new palette.
+- The display-face usage was updated so the project now uses `NyghtSerif-MediumItalic` for the intended serif styling.
+- The top navigation was restyled with wider desktop spacing and a more responsive condensed behavior for narrower web widths.
+
+Responsive Header, Routing, and Interaction Polish (April 20, 2026)
+- The header wordmark was customized so the `i` in `Hidden` uses the gem asset as its dot, with the glyph itself adjusted to support that styling.
+- `Hidden Songs` was added to the main navigation between `Comparison Mode` and `Dashboard`.
+- Desktop navigation hover behavior was refined so inactive items show a hover underline without replacing the active-page underline state.
+- The mobile / narrow-width header now switches to a `Menu` button pattern instead of compressing the full nav row indefinitely.
+- A smaller nav-attached country search popup was implemented beneath the header:
+  - It filters countries as the user types.
+  - It returns a direct "not included" message when the typed country does not exist in the current app dataset.
+- URL hash-based route handling was added so the main screens map to browser hash state on web.
+- A breadcrumb trail was added near the bottom of the viewport so the current route hierarchy remains visible.
+- Discovery, comparison, and welcome preview layouts were all adjusted for smaller browser widths so globe-over-list stacking behaves more intentionally.
+
+Discovery Screen and Globe / List Behavior (April 20, 2026)
+- The discovery filter controls were moved out of the globe panel and into a dedicated second-row header treatment so they behave more like a floating secondary navigation row.
+- Preset filter buttons now support active and hover states, and an `All Filters` entry opens a modal shell.
+- The discovery layout supports two linked interaction modes:
+  - Hovering or selecting a globe marker focuses the related country
+  - Globe-driven focus changes can auto-scroll the list to the active country
+- List-view scrolling behavior was refined:
+  - The list no longer auto-scrolls during normal list hovering
+  - Auto-jump behavior is limited to globe-driven focus changes
+  - A persistent custom scrollbar treatment was added for the list panel
+- Globe interaction behavior was refined so hover cards, gem markers, connector styling, and hit areas better support the intended exploration flow.
+- The globe remains a styled placeholder illustration on web and native, not a real map rendering yet.
+
+Secondary Screen Implementation State (April 20, 2026)
+- Welcome screen:
+  - Includes a centered intro modal overlay with entry-point buttons for Discovery, filters, Dashboard, and Credits
+  - Reuses the same preview globe / list layout behind the intro overlay
+- Country screen:
+  - Now includes a much more complete web implementation with summary sections, favorite artists, stat squares, genre / language breakdowns, a hidden-gems preview carousel, and comparison-mode routing entry points
+- Hidden Songs screen:
+  - Shows a year selector, a selectable song list, a selected-song detail panel, and previous / next controls
+- Comparison Mode:
+  - Now enforces selecting exactly 2 countries plus a year before proceeding
+  - Uses discovery-style collapsible filter / country-selection sections alongside the globe
+  - Still feeds into a simpler comparison-results placeholder view after the improved selection flow
+- Dashboard:
+  - Displays derived yearly summary metrics from the mock dataset
+  - Lists the countries present in the current year slice
+- Credits screen exists in the route flow
+
+Current Data and Integration Status (April 20, 2026)
+- The app currently runs on generated mock data rather than backend-connected data.
+- Country data changes by year across the `1975-2021` range.
+- Discovery Globe, Welcome, Country, and Comparison Mode now all have substantial web-specific styling and interaction work completed, although backend-connected data and some downstream screens still remain unfinished.
+- Norway has a custom hidden-song template set, while other countries use generated song variants.
+- A Mapbox config helper exists and reads `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN`, but the live globe is not yet wired to Mapbox.
+- The backend in `backend/Capstone.API` has not been integrated into the frontend flow yet.
+
+Known Placeholders and Incomplete Areas
+- Preset discovery filters currently change UI state only; they are not yet wired to actual filtering logic.
+- The `All Filters` modal is currently just a shell with a title and close action.
+- The welcome-screen project summary text is still placeholder copy.
+- The globe is still a visual placeholder instead of the planned Mapbox-backed implementation.
+- The comparison-results screen is still a simpler placeholder compared with the more heavily iterated Comparison Mode selection screen.
+
+Current Follow-up Work
+- Wire the preset filter buttons and `All Filters` buttons to real discovery filtering behavior.
+- Replace the placeholder welcome-screen summary copy with final project language.
+- Continue screen-by-screen visual alignment against the finalized mockups, especially for secondary screens.
+- Recheck narrow-width web behavior after the remaining feature screens fully adopt the updated header and filter-row patterns.

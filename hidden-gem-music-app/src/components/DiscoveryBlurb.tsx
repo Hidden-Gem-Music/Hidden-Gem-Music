@@ -6,7 +6,15 @@ import { typefaces } from "../theme/typography";
 import { GemIcon } from "./GemIcon";
 import { Panel } from "./Panel";
 
-export function DiscoveryBlurb() {
+type Props = {
+  heading?: string;
+  body?: string;
+};
+
+export function DiscoveryBlurb({
+  heading = "This is the Blurb",
+  body = "this is the text inside the blurb that will say things about the page you're on and will guide users through the experience. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+}: Props) {
   return (
     <Panel style={styles.panel}>
       <LinearGradient
@@ -18,15 +26,11 @@ export function DiscoveryBlurb() {
       />
       <View style={styles.content}>
         <Text style={styles.text}>
-          <Text style={styles.heading}>This is the Blurb</Text>
+          <Text style={styles.heading}>{heading}</Text>
           {"  "}
           <GemIcon size={16} style={styles.separatorIcon} />
           {"  "}
-          <Text style={styles.body}>
-            this is the text inside the blurb that will say things about the page you're on and will guide users through
-            the experience. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut
-            labore et dolore magna aliqua.
-          </Text>
+          <Text style={styles.body}>{body}</Text>
         </Text>
       </View>
     </Panel>

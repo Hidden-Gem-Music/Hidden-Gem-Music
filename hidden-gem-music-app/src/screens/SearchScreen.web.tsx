@@ -35,7 +35,7 @@ export function SearchScreen({
   const results = useMemo(() => searchLibrary(query, selectedYear), [query, searchLibrary, selectedYear]);
 
   return (
-    <ScreenScaffold>
+    <ScreenScaffold alwaysScrollableOnWeb>
       <Text style={styles.title}>Search</Text>
       <TextInput
         value={query}
