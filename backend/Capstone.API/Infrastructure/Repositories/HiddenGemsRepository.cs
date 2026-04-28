@@ -47,13 +47,13 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new HiddenGem
             {
-                SongName = AsString(row, "song_name"),
+                SongName = AsString(row, "song_title"),
                 AlbumName = AsString(row, "album_name"),
                 ArtistName = AsString(row, "artist_name"),
                 Genre = AsString(row, "genre"),
                 PreviewUrl = AsString(row, "preview_url"),
                 TrendScore = AsDecimal(row, "trend_score"),
-                CountriesChartingCount = AsInt(row, "countries_charting_count")
+                CountriesChartingCount = AsInt(row, "countries_charting")
             };
         }
 

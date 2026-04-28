@@ -4,15 +4,16 @@ using Capstone.API.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-// CORS — required for the React Native / Expo web frontend (default port 8081).
-// If the frontend dev port changes, update WithOrigins here and notify the team.
+// CORS — allows any localhost origin during development.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:8081")
+        policy.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")
               .AllowAnyHeader()
               .AllowAnyMethod());
 });

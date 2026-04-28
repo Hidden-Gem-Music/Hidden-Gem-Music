@@ -1,7 +1,6 @@
 import { LinkingOptions } from "@react-navigation/native";
 import * as ExpoLinking from "expo-linking";
 
-import { availableYears } from "../data/mockData";
 import { ScreenRoute } from "../types/navigation";
 
 export type RootStackParamList = {
@@ -35,7 +34,7 @@ const routeByPath: Record<string, ScreenRoute> = {
 
 function parseYearValue(value: string | null | undefined) {
   const parsedYear = Number(value);
-  return availableYears.includes(parsedYear) ? parsedYear : undefined;
+  return Number.isInteger(parsedYear) && parsedYear > 1000 && parsedYear < 3000 ? parsedYear : undefined;
 }
 
 export const linking: LinkingOptions<RootStackParamList> = {

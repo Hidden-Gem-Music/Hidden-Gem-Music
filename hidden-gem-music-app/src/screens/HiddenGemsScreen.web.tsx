@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Image,
   NativeScrollEvent,
@@ -15,11 +15,11 @@ import {
 } from "react-native";
 
 import { Country, Song } from "../types/content";
+import Api from "../config/api";
 import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
-import { availableYears as allAvailableYears } from "../data/mockData";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
@@ -31,8 +31,26 @@ export type Props = {
   selectedSong: Song;
   onSelectSong: (songId: string) => void;
   onSelectCountry: (countryId: string) => void;
+  onCountryNameChange?: (name: string) => void;
   selectedYear: number;
   onChangeYear: (year: number) => void;
+  onSetLoading?: (loading: boolean) => void;
+};
+
+type HiddenGemApiItem = {
+  songName: string | null;
+  albumName: string | null;
+  artistName: string | null;
+  genre: string | null;
+  previewUrl: string | null;
+  trendScore: number;
+  countriesChartingCount: number;
+};
+
+type HiddenGemApiResponse = {
+  items: HiddenGemApiItem[];
+  page: number;
+  pageSize: number;
 };
 
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
@@ -41,39 +59,6 @@ const controlButtonGradient = [colors.backgroundRaised, colors.backgroundRaised,
 const cdCaseSource = require("../assets/images/CD-Case-Transparent-Image.png");
 const rowBackdropColors = ["#B86A72", "#8B9BC0", "#8B5E7A", "#627F8A", "#C28C5E", "#7A7EB0"];
 const SONG_BATCH_SIZE = 25;
-const hiddenGemTitleTerms = ["Afterlight", "Glassroom", "Signal", "Static", "Midnight", "Echo", "Receiver", "Velvet"];
-const hiddenGemAlbumTerms = ["Circuit", "Atlas", "Bloom", "Relay", "Theatre", "Horizon", "Current", "Transit"];
-const hiddenGemDescriptionTerms = [
-  "A quieter cut with strong late-night energy and a more country-specific pull.",
-  "Feels like a buried standout that never got the same wider reach as the bigger songs.",
-  "Built around the same scene textures, but with a more hidden-gem kind of appeal.",
-  "Carries the same mood as the most-loved songs, but lands more like a personal discovery.",
-];
-
-function buildGeneratedHiddenGemSongs(country: Country, songs: Song[]) {
-  return Array.from({ length: 25 }, (_, index) => {
-    const leadArtist = country.featuredArtists[index % country.featuredArtists.length] ?? country.albumArtist;
-    const titleLead = hiddenGemTitleTerms[index % hiddenGemTitleTerms.length];
-    const titleTail = hiddenGemTitleTerms[(index + 3) % hiddenGemTitleTerms.length];
-    const albumTail = hiddenGemAlbumTerms[index % hiddenGemAlbumTerms.length];
-    const baseSong = songs[index % Math.max(songs.length, 1)];
-
-    return {
-      id: `${country.id}-generated-hidden-gem-${index + 1}`,
-      title: `${country.name} ${titleLead} ${titleTail}`,
-      artist: leadArtist,
-      album: baseSong?.album ?? `${country.album} ${albumTail}`,
-      genres: baseSong?.genres?.length ? baseSong.genres : country.genres.slice(0, 2),
-      languages: baseSong?.languages?.length ? baseSong.languages : country.languages.slice(0, 2),
-      year: baseSong?.year ?? 2021,
-      duration: baseSong?.duration ?? "3:42",
-      description: hiddenGemDescriptionTerms[index % hiddenGemDescriptionTerms.length],
-      spotifySearchUrl:
-        baseSong?.spotifySearchUrl ??
-        `https://open.spotify.com/search/${encodeURIComponent(`${leadArtist} ${country.name} ${titleLead} ${titleTail}`)}`,
-    } satisfies Song;
-  });
-}
 
 function useCustomScrollbar() {
   const scrollRef = useRef<ScrollView>(null);
@@ -466,26 +451,96 @@ function PlayingSidePanel({
 
 export function HiddenGemsScreen({
   country,
-  countries,
-  songs,
   selectedSongId,
-  selectedSong,
-  onSelectSong,
   onSelectCountry,
+  onCountryNameChange,
   selectedYear,
   onChangeYear,
+  onSetLoading,
 }: Props) {
   const { width } = useWindowDimensions();
   const isStacked = width < 1120;
-  const hiddenGemSongs = useMemo(() => [...songs, ...buildGeneratedHiddenGemSongs(country, songs)], [country, songs]);
-  const [activeSongId, setActiveSongId] = useState<string>(
-    () => selectedSongId || selectedSong?.id || hiddenGemSongs[0]?.id || ""
-  );
+  const [apiSongs, setApiSongs] = useState<Song[]>([]);
+  const [dbYears, setDbYears] = useState<number[]>([]);
+  const [dbCountries, setDbCountries] = useState<{ code: string; name: string; hiddenGemCount: number }[]>([]);
+
+  useEffect(() => {
+    Api.get<number[]>("/api/globe/years")
+      .then(setDbYears)
+      .catch(() => setDbYears([]));
+  }, []);
+
+  useEffect(() => {
+    Api.get<{ countryCode: string | null; countryName: string | null; hiddenGemCount: number }[]>(`/api/globe?year=${selectedYear}`)
+      .then((rows) =>
+        setDbCountries(
+          rows
+            .filter((r) => r.countryCode && r.countryName && r.hiddenGemCount > 0)
+            .map((r) => ({ code: r.countryCode!, name: r.countryName!, hiddenGemCount: r.hiddenGemCount }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        )
+      )
+      .catch(() => setDbCountries([]));
+  }, [selectedYear]);
+
+  useEffect(() => {
+    onSetLoading?.(true);
+    Api.get<HiddenGemApiResponse>(`/api/hidden-gems/${country.code}?year=${selectedYear}`)
+      .then((response) => {
+        setApiSongs(
+          response.items.map((item, index) => ({
+            id: `${country.code}-hg-api-${index + 1}`,
+            title: item.songName ?? "Unknown Song",
+            artist: item.artistName ?? "Unknown Artist",
+            album: item.albumName ?? "",
+            genres: item.genre ? [item.genre] : [],
+            languages: [],
+            year: selectedYear,
+            duration: "",
+            description: `Trending in ${item.countriesChartingCount} countries · Score: ${item.trendScore.toFixed(2)}`,
+            spotifySearchUrl: `https://open.spotify.com/search/${encodeURIComponent(
+              `${item.artistName ?? ""} ${item.songName ?? ""}`
+            )}`,
+          }))
+        );
+        onSetLoading?.(false);
+      })
+      .catch((err) => {
+        console.error("[HiddenGems] fetch failed", err);
+        onSetLoading?.(false);
+      });
+  }, [country.code, selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hasInitializedRef = useRef(false);
+
+  // On first load with no URL country/year param, always start at most recent API year + first API country.
+  // When the URL already has params (direct link or in-app nav), skip and respect them.
+  useEffect(() => {
+    if (hasInitializedRef.current || !dbYears.length || !dbCountries.length) return;
+    hasInitializedRef.current = true;
+    const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    if (!urlParams?.has("year")) onChangeYear(dbYears[0]);
+    if (!urlParams?.has("country")) {
+      const first = dbCountries[0];
+      onSelectCountry(first.code);
+      onCountryNameChange?.(first.name);
+    }
+  }, [dbYears, dbCountries]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // After a year change, if the current country has no data in the new year, fall back to first.
+  useEffect(() => {
+    if (!hasInitializedRef.current || !dbCountries.length || dbCountries.some((c) => c.code === country.code)) return;
+    const first = dbCountries[0];
+    onSelectCountry(first.code);
+    onCountryNameChange?.(first.name);
+  }, [dbCountries]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hiddenGemSongs = apiSongs;
+  const [activeSongId, setActiveSongId] = useState<string>(() => selectedSongId || "");
+  const activeSongIdRef = useRef(activeSongId);
+  activeSongIdRef.current = activeSongId;
   const safeSelectedSong =
-    hiddenGemSongs.find((song) => song.id === activeSongId) ??
-    hiddenGemSongs.find((song) => song.id === selectedSongId) ??
-    selectedSong ??
-    hiddenGemSongs[0];
+    hiddenGemSongs.find((song) => song.id === activeSongId) ?? hiddenGemSongs[0];
   const [previewSongId, setPreviewSongId] = useState<string>(safeSelectedSong?.id ?? "");
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
@@ -496,33 +551,26 @@ export function HiddenGemsScreen({
   const [hoveredYear, setHoveredYear] = useState<number | null>(null);
   const [isYearDropdownHovered, setIsYearDropdownHovered] = useState(false);
   const [isYearDropdownPressed, setIsYearDropdownPressed] = useState(false);
-  const yearOptions = useMemo(() => allAvailableYears.slice().reverse(), []);
-  const countryOptions = useMemo(() => countries.slice().sort((left, right) => left.name.localeCompare(right.name)), [countries]);
+  const yearOptions = dbYears;
+  const countryOptions = dbCountries;
+  const activeCountryData = dbCountries.find((c) => c.code === country.code);
+  const displayCountryName = activeCountryData?.name ?? country.code;
+  const displayHiddenGemCount = activeCountryData?.hiddenGemCount ?? 0;
   const showCountryDropdownGradient = isCountryDropdownHovered || isCountryDropdownPressed || isCountryDropdownOpen;
   const showYearDropdownGradient = isYearDropdownHovered || isYearDropdownPressed || isYearDropdownOpen;
 
   useEffect(() => {
-    if (!selectedSongId) {
-      return;
-    }
-    if (!hiddenGemSongs.some((song) => song.id === selectedSongId)) {
-      return;
-    }
-    setActiveSongId(selectedSongId);
-  }, [hiddenGemSongs, selectedSongId]);
-
-  useEffect(() => {
     if (!hiddenGemSongs.length) {
-      if (activeSongId !== "") {
+      if (activeSongIdRef.current !== "") {
         setActiveSongId("");
       }
       return;
     }
-    if (hiddenGemSongs.some((song) => song.id === activeSongId)) {
+    if (hiddenGemSongs.some((song: Song) => song.id === activeSongIdRef.current)) {
       return;
     }
     setActiveSongId(hiddenGemSongs[0].id);
-  }, [activeSongId, hiddenGemSongs]);
+  }, [hiddenGemSongs]);
 
   if (!safeSelectedSong) {
     return (
@@ -536,9 +584,6 @@ export function HiddenGemsScreen({
 
   const setSongSelection = (songId: string) => {
     setActiveSongId(songId);
-    if (songs.some((song) => song.id === songId)) {
-      onSelectSong(songId);
-    }
   };
 
   const selectSongAndAutoPlay = (songId: string) => {
@@ -584,7 +629,7 @@ export function HiddenGemsScreen({
           <View style={styles.blurbContent}>
             <View style={styles.blurbCopy}>
               <Text style={styles.blurbText}>
-                <Text style={styles.blurbHeading}>{country.name}&apos;s Hidden Gems</Text>
+                <Text style={styles.blurbHeading}>{displayCountryName}&apos;s Hidden Gems</Text>
                 {"  "}
                 <GemIcon size={16} style={styles.blurbIcon} />
                 {"  "}
@@ -665,17 +710,18 @@ export function HiddenGemsScreen({
                           </View>
                         </Pressable>
                         {countryOptions.map((countryOption) => {
-                          const selected = countryOption.id === country.id;
-                          const hovered = hoveredCountryId === countryOption.id;
+                          const selected = countryOption.code === country.code;
+                          const hovered = hoveredCountryId === countryOption.code;
                           const showOptionGradient = selected || hovered;
 
                           return (
                             <Pressable
-                              key={countryOption.id}
-                              onHoverIn={() => setHoveredCountryId(countryOption.id)}
-                              onHoverOut={() => setHoveredCountryId((current) => (current === countryOption.id ? null : current))}
+                              key={countryOption.code}
+                              onHoverIn={() => setHoveredCountryId(countryOption.code)}
+                              onHoverOut={() => setHoveredCountryId((current) => (current === countryOption.code ? null : current))}
                               onPress={() => {
-                                onSelectCountry(countryOption.id);
+                                onSelectCountry(countryOption.code);
+                                onCountryNameChange?.(countryOption.name);
                                 setIsCountryDropdownOpen(false);
                               }}
                               style={styles.blurbYearDropdownOptionShell}
@@ -821,7 +867,7 @@ export function HiddenGemsScreen({
                   end={{ x: 0.5, y: 1 }}
                   style={styles.blurbStatCardFill}
                 />
-                <Text style={styles.blurbStatValue}>{country.hiddenSongs}</Text>
+                <Text style={styles.blurbStatValue}>{displayHiddenGemCount}</Text>
                 <Text style={styles.blurbStatLabel}>Hidden Gems</Text>
               </View>
             </View>

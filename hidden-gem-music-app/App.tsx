@@ -16,9 +16,7 @@ import { DiscoveryScreen } from "./src/screens/DiscoveryScreen";
 import { HiddenGemsScreen } from "./src/screens/HiddenGemsScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import {
-  availableYears,
   getCountriesForYear,
-  getCountryByYear,
   getDashboardMetrics,
   getFeaturedCountry,
   getSongsForCountryYear,
@@ -58,7 +56,10 @@ function readPersistedAppState(): PersistedAppState {
 
     const parsedValue = JSON.parse(rawValue) as PersistedAppState;
     const persistedYear =
-      typeof parsedValue.selectedYear === "number" && availableYears.includes(parsedValue.selectedYear)
+      typeof parsedValue.selectedYear === "number" &&
+      Number.isInteger(parsedValue.selectedYear) &&
+      parsedValue.selectedYear > 1000 &&
+      parsedValue.selectedYear < 3000
         ? parsedValue.selectedYear
         : undefined;
     const persistedComparisonIds = Array.isArray(parsedValue.comparisonIds)
@@ -153,15 +154,25 @@ export default function App() {
   );
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [apiCountryName, setApiCountryName] = useState<string | null>(null);
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
   const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
   const songs = useMemo(() => getSongsForCountryYear(selectedCountryId, selectedYear), [selectedCountryId, selectedYear]);
 
-  const selectedCountry = useMemo(
-    () => getCountryByYear(selectedCountryId, selectedYear) ?? featuredCountry,
-    [selectedCountryId, selectedYear, featuredCountry]
-  );
+  const selectedCountry = useMemo(() => {
+    // Use explicit null-safe lookups — getCountryByYear has an internal fallback that always
+    // returns a non-null value, which would mask code-based lookups and the API stub.
+    const byId = countries.find((c) => c.id === selectedCountryId);
+    if (byId) return byId;
+    const byCode = countries.find((c) => c.code === selectedCountryId);
+    if (byCode) return byCode;
+    // API-only country code not in mock data — stub with correct code/name so screens fetch correctly
+    if (/^[A-Z]{2}$/.test(selectedCountryId)) {
+      return { ...featuredCountry, id: selectedCountryId, code: selectedCountryId, name: apiCountryName ?? selectedCountryId };
+    }
+    return featuredCountry;
+  }, [selectedCountryId, featuredCountry, countries, apiCountryName]);
 
   const selectedSong = useMemo(
     () => songs.find((song) => song.id === selectedSongId) ?? songs[0],
@@ -239,7 +250,7 @@ export default function App() {
 
     setCurrentRoute(nextRoute);
 
-    if (typeof params.year === "number" && availableYears.includes(params.year)) {
+    if (typeof params.year === "number" && Number.isInteger(params.year) && params.year > 1000 && params.year < 3000) {
       setSelectedYear((current) => (current === params.year ? current : params.year!));
     }
 
@@ -364,7 +375,8 @@ export default function App() {
   }, [songs, selectedSongId]);
 
   useEffect(() => {
-    if (!countries.some((country) => country.id === selectedCountryId)) {
+    if (/^[A-Z]{2}$/.test(selectedCountryId)) return;
+    if (!countries.some((country) => country.id === selectedCountryId || country.code === selectedCountryId)) {
       setSelectedCountryId(featuredCountry.id);
     }
   }, [countries, featuredCountry.id, selectedCountryId]);
@@ -643,8 +655,14 @@ export default function App() {
                     selectedSong={selectedSong}
                     onSelectSong={setSelectedSongId}
                     onSelectCountry={(countryId) => setSelectedCountryId(countryId)}
+                    onCountryNameChange={(name) => setApiCountryName(name)}
                     selectedYear={selectedYear}
-                    onChangeYear={(year) => handleYearChange(year, `${selectedCountry.name} hidden gems`)}
+                    onChangeYear={(year) => {
+                      if (year === selectedYear) return;
+                      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+                      setSelectedYear(year);
+                    }}
+                    onSetLoading={(loading) => setLoadingMessage(loading ? "Loading hidden gems..." : null)}
                   />
                 )}
               </Stack.Screen>

@@ -30,6 +30,13 @@ namespace Capstone.API.Infrastructure.Repositories
             return rows.Select(MapRow);
         }
 
+        /// <inheritdoc/>
+        public async Task<IEnumerable<int>> GetAvailableYearsAsync()
+        {
+            var rows = await _db.GetDataAsync("sp_GetAvailableYears");
+            return rows.Select(row => AsInt(row, "year")).Where(y => y > 0);
+        }
+
         private static CountryGlobeSummary MapRow(IDictionary<string, object?> row)
         {
             return new CountryGlobeSummary

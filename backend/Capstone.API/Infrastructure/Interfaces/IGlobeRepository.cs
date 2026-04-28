@@ -13,5 +13,11 @@ namespace Capstone.API.Infrastructure.Interfaces
         /// </summary>
         /// <param name="year">The chart year to filter by.</param>
         Task<IEnumerable<CountryGlobeSummary>> GetGlobeSummaryAsync(int year);
+
+        /// <summary>
+        /// Returns every distinct chart year present in the HiddenGems table, newest first.
+        /// Calls sp_GetAvailableYears.
+        /// </summary>
+        Task<IEnumerable<int>> GetAvailableYearsAsync();
     }
 }

@@ -31,5 +31,16 @@ namespace Capstone.API.Controllers
             var result = await _repo.GetGlobeSummaryAsync(year);
             return Ok(result);
         }
+
+        /// <summary>
+        /// Returns every distinct chart year present in the database, newest first.
+        /// GET /api/globe/years
+        /// </summary>
+        [HttpGet("years")]
+        public async Task<IActionResult> GetAvailableYears()
+        {
+            var result = await _repo.GetAvailableYearsAsync();
+            return Ok(result);
+        }
     }
 }
