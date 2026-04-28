@@ -1,6 +1,9 @@
 -- =============================================
 -- Author:      Leena Komenski
 -- Create date: 04/23/2026
+-- Updated:     04/26/2026 — Star schema rewrite
+-- Changes:     Song → DIM_Song, ArtistSong → Bridge_SongArtist (artist_order=1),
+--              Artist → DIM_Artist, Album join removed (album_name on DIM_Song)
 -- Description: Songs trending in surrounding regions but absent from BOTH selected countries.
 -- Most powerful data point on the comparison page.
 -- EXEC sp_GetComparisonHiddenGems @CountryCodeA = 'US', @CountryCodeB = 'GB', @Year = 2021;
@@ -20,12 +23,11 @@ BEGIN
     DECLARE @CountryIdA INT = (SELECT country_id FROM Country WHERE iso_code = @CountryCodeA);
     DECLARE @CountryIdB INT = (SELECT country_id FROM Country WHERE iso_code = @CountryCodeB);
 
-    -- Songs that are hidden gems for BOTH Country A and Country B
     SELECT TOP 20
         s.song_id,
         s.title             AS song_title,
-        a.name              AS artist_name,
-        alb.name            AS album_name,
+        a.artist_name,
+        s.album_name,
         hgA.countries_charting,
         hgA.trend_score
     FROM HiddenGems hgA
@@ -33,12 +35,11 @@ BEGIN
         ON hgB.song_id    = hgA.song_id
        AND hgB.country_id = @CountryIdB
        AND hgB.chart_year = @Year
-    JOIN Song s    ON s.song_id    = hgA.song_id
-    LEFT JOIN ArtistSong asng
-        ON asng.song_id    = s.song_id
-       AND asng.is_primary = 1
-    LEFT JOIN Artist a   ON a.artist_id  = asng.artist_id
-    LEFT JOIN Album  alb ON alb.album_id = s.album_id
+    JOIN DIM_Song s ON s.song_id = hgA.song_id
+    LEFT JOIN Bridge_SongArtist bsa
+        ON bsa.song_id      = s.song_id
+       AND bsa.artist_order = 1
+    LEFT JOIN DIM_Artist a ON a.artist_id = bsa.artist_id
     WHERE hgA.country_id = @CountryIdA
       AND hgA.chart_year = @Year
     ORDER BY hgA.trend_score DESC;

@@ -1,6 +1,9 @@
 -- =============================================
 -- Author:      Leena Komenski
 -- Create date: 04/23/2026
+-- Updated:     04/26/2026 — Star schema rewrite
+-- Changes:     Song → DIM_Song, ArtistSong → Bridge_SongArtist (artist_order=1),
+--              Artist → DIM_Artist, Album join removed (album_name on DIM_Song)
 -- Description: Side-by-side KPIs and song lists for two countries. Returns five result sets:
 -- (1) Country A stats, (2) Country B stats, (3) shared songs,
 -- (4) unique to A, (5) unique to B.
@@ -27,8 +30,8 @@ BEGIN
         cys.total_charted, cys.shared_count, cys.unique_count, cys.overlap_pct
     FROM CountryYearStats cys
     JOIN Country c ON c.country_id = cys.country_id
-    WHERE cys.country_id  = @CountryIdA
-      AND cys.chart_year  = @Year;
+    WHERE cys.country_id = @CountryIdA
+      AND cys.chart_year = @Year;
 
     -- ── Result Set 2: Country B Stats ───────────────────────
     SELECT
@@ -36,13 +39,8 @@ BEGIN
         cys.total_charted, cys.shared_count, cys.unique_count, cys.overlap_pct
     FROM CountryYearStats cys
     JOIN Country c ON c.country_id = cys.country_id
-    WHERE cys.country_id  = @CountryIdB
-      AND cys.chart_year  = @Year;
-
-    -- CTE: songs in Country A this year (not hidden gems for A = charting in A)
-    -- We infer presence from HiddenGems absence:
-    --   song IS in country X this year <=> NOT in HiddenGems for country X this year
-    -- Use SongCountryPresence as the universe, HiddenGems as the exclusion filter.
+    WHERE cys.country_id = @CountryIdB
+      AND cys.chart_year = @Year;
 
     -- ── Result Set 3: Songs in BOTH countries ───────────────
     WITH InA AS (
@@ -70,15 +68,15 @@ BEGIN
     SELECT
         s.song_id,
         s.title             AS song_title,
-        a.name              AS artist_name,
+        a.artist_name,
         scp.country_count   AS global_presence
     FROM InA
-    JOIN InB   ON InB.song_id   = InA.song_id
-    JOIN Song s ON s.song_id    = InA.song_id
-    LEFT JOIN ArtistSong asng
-        ON asng.song_id    = s.song_id
-       AND asng.is_primary = 1
-    LEFT JOIN Artist a ON a.artist_id = asng.artist_id
+    JOIN InB ON InB.song_id = InA.song_id
+    JOIN DIM_Song s ON s.song_id = InA.song_id
+    LEFT JOIN Bridge_SongArtist bsa
+        ON bsa.song_id      = s.song_id
+       AND bsa.artist_order = 1
+    LEFT JOIN DIM_Artist a ON a.artist_id = bsa.artist_id
     JOIN SongCountryPresence scp
         ON scp.song_id    = InA.song_id
        AND scp.chart_year = @Year
@@ -105,14 +103,14 @@ BEGIN
     SELECT TOP 20
         s.song_id,
         s.title         AS song_title,
-        a.name          AS artist_name
+        a.artist_name
     FROM InA
     JOIN NotInB ON NotInB.song_id = InA.song_id
-    JOIN Song s ON s.song_id      = InA.song_id
-    LEFT JOIN ArtistSong asng
-        ON asng.song_id    = s.song_id
-       AND asng.is_primary = 1
-    LEFT JOIN Artist a ON a.artist_id = asng.artist_id
+    JOIN DIM_Song s ON s.song_id = InA.song_id
+    LEFT JOIN Bridge_SongArtist bsa
+        ON bsa.song_id      = s.song_id
+       AND bsa.artist_order = 1
+    LEFT JOIN DIM_Artist a ON a.artist_id = bsa.artist_id
     ORDER BY s.title;
 
     -- ── Result Set 5: Songs unique to Country B ─────────────
@@ -136,14 +134,14 @@ BEGIN
     SELECT TOP 20
         s.song_id,
         s.title         AS song_title,
-        a.name          AS artist_name
+        a.artist_name
     FROM InB
     JOIN NotInA ON NotInA.song_id = InB.song_id
-    JOIN Song s ON s.song_id      = InB.song_id
-    LEFT JOIN ArtistSong asng
-        ON asng.song_id    = s.song_id
-       AND asng.is_primary = 1
-    LEFT JOIN Artist a ON a.artist_id = asng.artist_id
+    JOIN DIM_Song s ON s.song_id = InB.song_id
+    LEFT JOIN Bridge_SongArtist bsa
+        ON bsa.song_id      = s.song_id
+       AND bsa.artist_order = 1
+    LEFT JOIN DIM_Artist a ON a.artist_id = bsa.artist_id
     ORDER BY s.title;
 END;
 GO

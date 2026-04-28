@@ -1,6 +1,9 @@
 -- =============================================
 -- Author:      Leena Komenski
 -- Create date: 04/23/2026
+-- Updated:     04/26/2026 — Star schema rewrite
+-- Changes:     Song → DIM_Song, ArtistSong → Bridge_SongArtist (artist_order=1),
+--              Artist → DIM_Artist, Album join removed (album_name on DIM_Song)
 -- Description: Full summary stats for one country and year. Returns three result sets:
 -- (1) KPI summary, (2) top 10 shared songs, (3) top 10 unique songs.
 -- EXEC sp_GetCountryProfile @CountryCode = 'US', @Year = 2021;
@@ -28,51 +31,46 @@ BEGIN
         cys.overlap_pct
     FROM CountryYearStats cys
     JOIN Country c ON c.country_id = cys.country_id
-    WHERE c.iso_code    = @CountryCode
+    WHERE c.iso_code     = @CountryCode
       AND cys.chart_year = @Year;
 
-    -- ── Top 10 Shared Songs (charted in this country AND others) ──
+    -- ── Top 10 Shared Songs ──────────────────────────────────
     SELECT TOP 10
         s.song_id,
-        s.title                 AS song_title,
-        a.name                  AS artist_name,
-        alb.name                AS album_name,
-        scp.country_count       AS countries_charted_in
+        s.title             AS song_title,
+        a.artist_name,
+        s.album_name,
+        scp.country_count   AS countries_charted_in
     FROM SongCountryPresence scp
-    JOIN Song s    ON s.song_id    = scp.song_id
-    LEFT JOIN ArtistSong asng
-        ON asng.song_id    = s.song_id
-       AND asng.is_primary = 1
-    LEFT JOIN Artist a   ON a.artist_id  = asng.artist_id
-    LEFT JOIN Album  alb ON alb.album_id = s.album_id
+    JOIN DIM_Song s ON s.song_id = scp.song_id
+    LEFT JOIN Bridge_SongArtist bsa
+        ON bsa.song_id      = s.song_id
+       AND bsa.artist_order = 1
+    LEFT JOIN DIM_Artist a ON a.artist_id = bsa.artist_id
     WHERE scp.chart_year  = @Year
       AND scp.country_count > 1
-      -- song IS charting locally = NOT a hidden gem for this country
       AND NOT EXISTS (
           SELECT 1 FROM HiddenGems hg2
-          WHERE hg2.country_id  = (SELECT country_id FROM Country WHERE iso_code = @CountryCode)
-            AND hg2.song_id     = scp.song_id
-            AND hg2.chart_year  = @Year
+          WHERE hg2.country_id = (SELECT country_id FROM Country WHERE iso_code = @CountryCode)
+            AND hg2.song_id    = scp.song_id
+            AND hg2.chart_year = @Year
       )
     ORDER BY scp.country_count DESC;
 
-    -- ── Top 10 Unique Songs (charted ONLY in this country) ──
+    -- ── Top 10 Unique Songs ──────────────────────────────────
     SELECT TOP 10
         s.song_id,
-        s.title                 AS song_title,
-        a.name                  AS artist_name,
-        alb.name                AS album_name
+        s.title         AS song_title,
+        a.artist_name,
+        s.album_name
     FROM SongCountryPresence scp
-    JOIN Song s    ON s.song_id    = scp.song_id
-    LEFT JOIN ArtistSong asng
-        ON asng.song_id    = s.song_id
-       AND asng.is_primary = 1
-    LEFT JOIN Artist a   ON a.artist_id  = asng.artist_id
-    LEFT JOIN Album  alb ON alb.album_id = s.album_id
-    WHERE scp.chart_year   = @Year
+    JOIN DIM_Song s ON s.song_id = scp.song_id
+    LEFT JOIN Bridge_SongArtist bsa
+        ON bsa.song_id      = s.song_id
+       AND bsa.artist_order = 1
+    LEFT JOIN DIM_Artist a ON a.artist_id = bsa.artist_id
+    WHERE scp.chart_year    = @Year
       AND scp.country_count = 1
-      -- confirm this is the country in question by checking it's not a hidden gem
-      -- for any other country (i.e. it only appears for this country)
       AND NOT EXISTS (
           SELECT 1 FROM HiddenGems hg3
           WHERE hg3.song_id    = scp.song_id
