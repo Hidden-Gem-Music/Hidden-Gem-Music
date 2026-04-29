@@ -511,7 +511,7 @@ export default function App() {
                     onToggleCountry={(countryId) => {
                       setComparisonIds((current) => {
                         if (current.includes(countryId)) return current.filter((id) => id !== countryId);
-                        if (current.length >= 3) return current;
+                        if (current.length >= 2) return current;
                         return [...current, countryId];
                       });
                     }}
