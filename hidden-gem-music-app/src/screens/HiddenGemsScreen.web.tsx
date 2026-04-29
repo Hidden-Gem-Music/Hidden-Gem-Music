@@ -15,6 +15,8 @@ import {
 } from "react-native";
 
 import { Country, Song } from "../types/content";
+import type { ApiHiddenGemResponse } from "../types/api";
+import { mapApiHiddenGemPage } from "../data/apiMappers";
 import Api from "../config/api";
 import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
@@ -37,21 +39,6 @@ export type Props = {
   onSetLoading?: (loading: boolean) => void;
 };
 
-type HiddenGemApiItem = {
-  songName: string | null;
-  albumName: string | null;
-  artistName: string | null;
-  genre: string | null;
-  previewUrl: string | null;
-  trendScore: number;
-  countriesChartingCount: number;
-};
-
-type HiddenGemApiResponse = {
-  items: HiddenGemApiItem[];
-  page: number;
-  pageSize: number;
-};
 
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
 const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
@@ -485,21 +472,22 @@ export function HiddenGemsScreen({
 
   useEffect(() => {
     onSetLoading?.(true);
-    Api.get<HiddenGemApiResponse>(`/api/hidden-gems/${country.code}?year=${selectedYear}`)
+    Api.get<ApiHiddenGemResponse>(`/api/hidden-gems/${country.code}?year=${selectedYear}`)
       .then((response) => {
+        const page = mapApiHiddenGemPage(response);
         setApiSongs(
-          response.items.map((item, index) => ({
+          page.items.map((item, index) => ({
             id: `${country.code}-hg-api-${index + 1}`,
-            title: item.songName ?? "Unknown Song",
-            artist: item.artistName ?? "Unknown Artist",
-            album: item.albumName ?? "",
-            genres: item.genre ? [item.genre] : [],
+            title: item.title,
+            artist: item.artist,
+            album: item.album,
+            genres: [item.genre],
             languages: [],
             year: selectedYear,
             duration: "",
             description: `Trending in ${item.countriesChartingCount} countries · Score: ${item.trendScore.toFixed(2)}`,
             spotifySearchUrl: `https://open.spotify.com/search/${encodeURIComponent(
-              `${item.artistName ?? ""} ${item.songName ?? ""}`
+              `${item.artist} ${item.title}`
             )}`,
           }))
         );
