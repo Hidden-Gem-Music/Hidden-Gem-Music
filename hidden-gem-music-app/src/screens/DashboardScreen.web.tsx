@@ -25,6 +25,15 @@ import {
 } from "recharts";
 
 import Api from "../config/api";
+import type {
+  ApiDiscoveryGap,
+  ApiGapBucket,
+  ApiIsolationEntry,
+  ApiIsolationLeader,
+  ApiOverlapRate,
+  ApiPeakReach,
+  ApiTrendPoint,
+} from "../types/api";
 import { DiscoveryBlurb } from "../components/DiscoveryBlurb";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
@@ -32,58 +41,6 @@ import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
-// ---------------------------------------------------------------------------
-// API response types — camelCase matches ASP.NET Core JSON serialization
-// ---------------------------------------------------------------------------
-
-type ApiOverlapRate = {
-  overlapPct: number;
-  totalUniqueSongs: number;
-  songsIn2Plus: number;
-};
-
-type ApiDiscoveryGap = {
-  avgGapDays: number;
-  medianGapDays: number;
-  sampleSize: number;
-};
-
-type ApiIsolationLeader = {
-  countryName: string;
-  isoCode: string;
-  isolationScore: number;
-};
-
-type ApiPeakReach = {
-  peakCountryCount: number;
-  songTitle: string;
-  artistName: string;
-  peakDate: string;
-};
-
-type ApiTrendPoint = {
-  periodLabel: string;
-  periodYear: number;
-  periodMonth: number | null;
-  overlapPct: number;
-  avgCountries: number;
-  totalUniqueSongs: number;
-  songsIn2Plus: number;
-  isGap: boolean;
-};
-
-type ApiIsolationEntry = {
-  countryName: string;
-  isoCode: string;
-  isolationScore: number;
-  isolationTier: "high" | "mid" | "low";
-};
-
-type ApiGapBucket = {
-  bucketLabel: string;
-  bucketOrder: number;
-  songCount: number;
-};
 
 export type Props = Record<string, never>;
 

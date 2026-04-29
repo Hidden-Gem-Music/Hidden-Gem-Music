@@ -287,7 +287,7 @@ export default function App() {
         navigationRef.navigate("comparisonResults", getRouteParams("comparisonResults", selectedYear, selectedCountryId));
         break;
       case "dashboard":
-        navigationRef.navigate("dashboard", getRouteParams("dashboard", selectedYear, selectedCountryId));
+        navigationRef.navigate("dashboard");
         break;
       case "credits":
         navigationRef.navigate("credits");
