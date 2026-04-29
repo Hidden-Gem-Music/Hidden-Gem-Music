@@ -10,7 +10,7 @@ namespace Capstone.API.Infrastructure.Interfaces
         /// <summary>
         /// Creates a data repository instance for the specified database.
         /// </summary>
-        /// <param name="connectionString">The connection string identifier (e.g., "MyGuitarShop", "AP").</param>
+        /// <param name="connectionString">The connection string identifier (e.g., "HiddenGemMusic").</param>
         /// <returns>An IDataRepository instance configured for the specified database.</returns>
         IDataRepository Create(string connectionString);
     }

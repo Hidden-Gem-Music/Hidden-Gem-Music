@@ -2,7 +2,12 @@ using Capstone.API.Infrastructure.Interfaces;
 using Capstone.API.Infrastructure.Interfaces.Repositories;
 using Capstone.API.Infrastructure.Repositories;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    // Ensure config files are resolved from the app output directory even when launched from a parent folder.
+    ContentRootPath = AppContext.BaseDirectory
+});
 
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
