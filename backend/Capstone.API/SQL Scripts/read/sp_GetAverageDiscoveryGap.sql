@@ -18,23 +18,30 @@ BEGIN
     SET NOCOUNT ON;
 
     -- Only include songs that spread to N+ countries within the date range
-    WITH Filtered AS (
+       WITH SongFirstCrossing AS (
         SELECT
-            dgd.song_id,
-            dgd.days_to_spread
-        FROM DiscoveryGapByDay dgd
-        WHERE dgd.days_to_spread >= 0
-        AND EXISTS (
+            song_id,
+            MIN(days_to_spread) AS days_to_spread
+        FROM DiscoveryGapByDay
+        WHERE days_to_spread > 0 --was >= 0, excludes same-day left-censored artifacts        
+        GROUP BY song_id
+    ),
+    Filtered AS (
+        SELECT
+            sfc.song_id,
+            sfc.days_to_spread
+        FROM SongFirstCrossing sfc
+        WHERE EXISTS (
             SELECT 1
             FROM SongCountryPresence scp
-            WHERE scp.song_id      = dgd.song_id
+            WHERE scp.song_id      = sfc.song_id
               AND scp.chart_year   BETWEEN YEAR(@DateStart) AND YEAR(@DateEnd)
               AND scp.country_count >= @MinCountries
         )
     ),
     MedianCalc AS (
         SELECT
-            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY days_to_spread) 
+            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY days_to_spread)
                 OVER () AS median_gap_days
         FROM Filtered
     )
@@ -45,4 +52,3 @@ BEGIN
     FROM Filtered f
     CROSS JOIN (SELECT TOP 1 median_gap_days FROM MedianCalc) mc;
 END;
-GO

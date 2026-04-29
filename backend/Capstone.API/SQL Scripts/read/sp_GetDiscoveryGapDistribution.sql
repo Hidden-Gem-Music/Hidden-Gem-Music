@@ -18,11 +18,16 @@ BEGIN
 
     SELECT
         bucket_label,
-        MIN(bucket_order)           AS bucket_order,
-        COUNT(DISTINCT song_id)     AS song_count
-    FROM DiscoveryGapByDay
-    WHERE days_to_spread >= 0
+        MIN(bucket_order)       AS bucket_order,
+        COUNT(DISTINCT song_id) AS song_count
+    FROM DiscoveryGapByDay dgd
+    WHERE days_to_spread > 0
+      AND EXISTS (
+          SELECT 1
+          FROM SongCountryPresence scp
+          WHERE scp.song_id    = dgd.song_id
+            AND scp.chart_year BETWEEN YEAR(@DateStart) AND YEAR(@DateEnd)
+      )
     GROUP BY bucket_label
     ORDER BY MIN(bucket_order);
 END;
-GO

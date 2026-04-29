@@ -217,8 +217,8 @@ function KpiDiscoveryGapCard({ data }: { data: ApiDiscoveryGap }) {
       </View>
       <Text style={styles.kpiExplainer}>
         When a song first charts somewhere, it takes an average of {data.avgGapDays} days before it
-        appears in a second country. The median of {data.medianGapDays} days tells a different story —
-        a long-tail of songs that never cross over at all skews the average significantly upward.
+        appears in a second country. The median of {data.medianGapDays} days reveals the story —
+        most crossovers happen fast, but a long tail of slow-traveling songs pulls the mean up significantly.
       </Text>
     </DashboardSection>
   );
@@ -497,13 +497,34 @@ function GapDistributionChart({ data }: { data: ApiGapBucket[] }) {
 function GlobalReachChart({ data }: { data: ApiTrendPoint[] }) {
   const nonGapData = data.filter((p) => !p.isGap);
 
+  const CustomXTick = ({ x, y, payload }: any) => {
+    const isPartial = payload.value === 2023;
+    return (
+      <text
+        x={x}
+        y={y + 10}
+        textAnchor="middle"
+        fill={isPartial ? "#fb923c" : "rgba(117,130,160,0.7)"}
+        fontSize={11}
+        fontFamily={typefaces.body}
+      >
+        {payload.value}{isPartial ? "*" : ""}
+      </text>
+    );
+  };
+
   return (
     <View style={styles.lineChartShell}>
       <View style={styles.chartContainer}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={nonGapData} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(117,130,160,0.15)" vertical={false} />
-            <XAxis dataKey="periodYear" tick={smallTickStyle} axisLine={false} tickLine={false} />
+            <XAxis
+              dataKey="periodYear"
+              tick={<CustomXTick />}
+              axisLine={false}
+              tickLine={false}
+            />
             <YAxis
               tickFormatter={(v) => Number(v).toFixed(1)}
               tick={tickStyle}
@@ -516,8 +537,19 @@ function GlobalReachChart({ data }: { data: ApiTrendPoint[] }) {
               contentStyle={tooltipStyle}
               labelStyle={tooltipLabelStyle}
               itemStyle={tooltipItemStyle}
+              labelFormatter={(label) =>
+                label === 2023 ? `${label} (Oct–Dec only)` : `${label}`
+              }
             />
-            <Bar dataKey="avgCountries" fill="#34d399" fillOpacity={0.75} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="avgCountries" fill="#34d399" fillOpacity={0.75} radius={[4, 4, 0, 0]}>
+              {nonGapData.map((entry) => (
+                <Cell
+                  key={entry.periodYear}
+                  fill="#34d399"
+                  fillOpacity={entry.periodYear === 2023 ? 0.45 : 0.75}
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </View>
@@ -526,7 +558,14 @@ function GlobalReachChart({ data }: { data: ApiTrendPoint[] }) {
           <View style={[styles.chartLegendSwatch, { backgroundColor: "#34d399", opacity: 0.75 }]} />
           <Text style={styles.chartLegendText}>Avg countries per song</Text>
         </View>
+        <View style={styles.chartLegendItem}>
+          <View style={[styles.chartLegendSwatch, { backgroundColor: "#34d399", opacity: 0.45 }]} />
+          <Text style={styles.chartLegendText}>Partial year (Oct–Dec only)</Text>
+        </View>
       </View>
+      <Text style={styles.chartFootnote}>
+        * 2023 reflects Oct–Dec data only. DS2 years (2023–2025) use Top 50 charts vs DS1's Top 200 — averages are not directly comparable across the gap.
+      </Text>
     </View>
   );
 }
@@ -730,9 +769,14 @@ function DashboardScreenContent() {
               />
               <Text style={styles.chartExplainer}>
                 Each bar shows how many songs took that long to appear in a second country after their
-                debut chart entry. The tall peak at 15–30 days represents the most common crossing window.
-                Songs in the "90d+" bucket either took a very long time to travel or only barely made it
-                to one other market before dropping off entirely.
+                debut chart entry. Most songs that cross a border do so within the first week — the 0-7 
+                day bucket reflects how quickly streaming-era music spreads when it gains momentum, and 
+                is partly driven by Viral 50 chart entries which capture simultaneous cross-market momentum 
+                by design. The average of 38 days is pulled higher by a long tail of songs that took months 
+                to travel or barely reached a second market. The gap between the median (4 days) and mean
+                (38 days) is itself a finding: crossover is either fast or it doesn't happen. Songs in the 
+                "90d+" bucket either took a very long time to travel or only barely made it to one other market
+                before dropping off entirely.
               </Text>
               {gapDistribution.length > 0 ? <GapDistributionChart data={gapDistribution} /> : null}
             </DashboardSection>
@@ -740,13 +784,17 @@ function DashboardScreenContent() {
             <DashboardSection style={styles.chartCardHalf}>
               <SectionTitle
                 title="Global Reach Over Time"
-                subtitle="Avg countries per charting song — annual"
+                subtitle="Avg countries per charting song — annual, 2017–2025"
               />
               <Text style={styles.chartExplainer}>
-                On average, how many countries did a charting song appear in during that year? This is the
-                macro view of the Discovery Gap: if the number stays low, most music stays local regardless
-                of global streaming access. Gap years (2022) are omitted rather than shown as zero bars —
-                their absence from the data would distort the visual.
+                On average, how many countries did a charting song appear in that year? This is the
+                macro view of the Discovery Gap: if the number stays low, most music stays local
+                regardless of global streaming access.{"\n\n"}
+                Two important caveats: DS1 years (2017–2021) draw from the Top 200 and Viral 50
+                charts across 70+ countries, while DS2 years (2023–2025) draw from a Top 50 chart
+                only — the smaller chart pool naturally produces lower averages and is not directly
+                comparable. Additionally, 2023 reflects only Oct–Dec data, so its bar represents
+                a partial year. Gap year 2022 is omitted entirely rather than shown as zero.
               </Text>
               {trendData.length > 0 ? <GlobalReachChart data={trendData} /> : null}
             </DashboardSection>
@@ -1089,6 +1137,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     opacity: 0.75,
+  },
+  
+  // —— Footnote text in chart cards ——
+  chartFootnote: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 11,
+    lineHeight: 15,
+    opacity: 0.55,
+    paddingTop: 6,
   },
 
   // —— Legend ——
