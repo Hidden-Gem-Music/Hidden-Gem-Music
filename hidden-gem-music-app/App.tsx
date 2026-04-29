@@ -16,6 +16,8 @@ import { DiscoveryScreen } from "./src/screens/DiscoveryScreen";
 import { HiddenGemsScreen } from "./src/screens/HiddenGemsScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { FiltersScreen } from "./src/screens/FiltersScreen.native";
+// ── ADDED: Search screen ──────────────────────────────────────────────────────
+import { SearchScreen } from "./src/screens/SearchScreen";
 
 import {
   availableYears,
@@ -24,6 +26,7 @@ import {
   getDashboardMetrics,
   getFeaturedCountry,
   getSongsForCountryYear,
+  searchLibrary,  // ← make sure this is exported from mockData
 } from "./src/data/mockData";
 import { getInitialNavigationSeed, getRouteParams, linking, RootStackParamList } from "./src/navigation/linking";
 import { ScreenRoute } from "./src/types/navigation";
@@ -130,10 +133,9 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     "NyghtSerif-MediumItalic": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-MediumItalic.ttf"),
     "NyghtSerif-Regular": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-Regular.ttf"),
-  "Tanklager-Kompakt": require("./src/assets/fonts/tanklager/fonts/TTF/Tanklager-Kompakt.ttf"),
-  "Tanklager-Original": require("./src/assets/fonts/tanklager/fonts/TTF/Tanklager-Original.ttf"),
-});
-  
+    "Tanklager-Kompakt": require("./src/assets/fonts/tanklager/fonts/TTF/Tanklager-Kompakt.ttf"),
+    "Tanklager-Original": require("./src/assets/fonts/tanklager/fonts/TTF/Tanklager-Original.ttf"),
+  });
 
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -149,30 +151,20 @@ export default function App() {
   const [selectedSongId, setSelectedSongId] = useState("");
   const [comparisonIds, setComparisonIds] = useState<string[]>(getDefaultComparisonIds());
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
+
+  // ── REMOVED: searchOpen state — search is now a full screen, not an overlay
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
-
-  const featuredCountry = useMemo(
-    () => getFeaturedCountry(selectedYear),
-    [selectedYear]
-  );
-
-  const songs = useMemo(
-    () => getSongsForCountryYear(selectedCountryId, selectedYear),
-    [selectedCountryId, selectedYear]
-  );
-
+  const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
+  const songs = useMemo(() => getSongsForCountryYear(selectedCountryId, selectedYear), [selectedCountryId, selectedYear]);
   const selectedCountry = useMemo(
     () => getCountryByYear(selectedCountryId, selectedYear) ?? featuredCountry,
     [selectedCountryId, selectedYear, featuredCountry]
   );
-
   const selectedSong = useMemo(
     () => songs.find((song) => song.id === selectedSongId) ?? songs[0],
     [selectedSongId, songs]
   );
-
   const selectedComparisonCountries = useMemo(
     () =>
       comparisonIds
@@ -180,8 +172,8 @@ export default function App() {
         .filter((country): country is NonNullable<typeof country> => Boolean(country)),
     [comparisonIds, countries]
   );
-
   const dashboardMetrics = useMemo(() => getDashboardMetrics(selectedYear, countries), [countries, selectedYear]);
+
   const breadcrumbs = useMemo(() => {
     switch (currentRoute) {
       case "welcome":
@@ -224,20 +216,22 @@ export default function App() {
           { label: "Home", route: "welcome" as ScreenRoute },
           { label: "Credits", route: "credits" as ScreenRoute },
         ];
+      // ── ADDED: breadcrumb for search screen
+      case "search":
+        return [
+          { label: "Home", route: "welcome" as ScreenRoute },
+          { label: "Search", route: null },
+        ];
       default:
         return [{ label: "Home", route: "welcome" as ScreenRoute }];
     }
   }, [currentRoute, selectedCountry.name]);
 
   const syncStateFromNavigation = () => {
-    if (!navigationRef.isReady()) {
-      return;
-    }
+    if (!navigationRef.isReady()) return;
 
     const activeRoute = navigationRef.getCurrentRoute();
-    if (!activeRoute) {
-      return;
-    }
+    if (!activeRoute) return;
 
     const nextRoute = activeRoute.name as ScreenRoute;
     const params = (activeRoute.params ?? {}) as RouteParams;
@@ -260,44 +254,34 @@ export default function App() {
       case "welcome":
         navigationRef.navigate("welcome");
         break;
-
       case "discovery":
         navigationRef.navigate("discovery", { year: selectedYear });
         break;
-
       case "country":
-        navigationRef.navigate("country", {
-          country: selectedCountryId,
-          year: selectedYear,
-        });
+        navigationRef.navigate("country", { country: selectedCountryId, year: selectedYear });
         break;
-
       case "hiddenGems":
-        navigationRef.navigate("hiddenGems", {
-          country: selectedCountryId,
-          year: selectedYear,
-        });
+        navigationRef.navigate("hiddenGems", { country: selectedCountryId, year: selectedYear });
         break;
-
       case "comparisonSelect":
         navigationRef.navigate("comparisonSelect", getRouteParams("comparisonSelect", selectedYear, selectedCountryId));
         break;
-
       case "comparisonResults":
         navigationRef.navigate("comparisonResults", { year: selectedYear });
         break;
-
       case "dashboard":
         navigationRef.navigate("dashboard", { year: selectedYear });
         break;
-
       case "credits":
         navigationRef.navigate("credits");
         break;
-        
-        case "filters":
-  navigationRef.navigate("filters");
-  break;  
+      case "filters":
+        navigationRef.navigate("filters");
+        break;
+      // ── ADDED: navigate to search screen
+      case "search":
+        navigationRef.navigate("search");
+        break;
     }
   };
 
@@ -316,34 +300,21 @@ export default function App() {
       songs.find((song) => normalizedArtist && normalize(song.artist) === normalizedArtist) ??
       songs[0];
 
-    if (matchedSong) {
-      setSelectedSongId(matchedSong.id);
-    }
-
-    if (!navigationRef.isReady()) {
-      return;
-    }
-
+    if (matchedSong) setSelectedSongId(matchedSong.id);
+    if (!navigationRef.isReady()) return;
     navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
   };
 
   const openHiddenGemsForCountry = (countryId: string) => {
     setSelectedCountryId(countryId);
-
     if (!navigationRef.isReady()) return;
-
     navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, countryId));
   };
 
   const openCountry = (countryId: string) => {
     setSelectedCountryId(countryId);
-
     if (!navigationRef.isReady()) return;
-
-    navigationRef.navigate("country", {
-      country: countryId,
-      year: selectedYear,
-    });
+    navigationRef.navigate("country", { country: countryId, year: selectedYear });
   };
 
   useEffect(() => {
@@ -360,21 +331,15 @@ export default function App() {
 
   useEffect(() => {
     return () => {
-      if (loadingTimerRef.current) {
-        clearTimeout(loadingTimerRef.current);
-      }
+      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
     };
   }, []);
 
   useEffect(() => {
-    if (!navigationReady || !navigationRef.isReady()) {
-      return;
-    }
+    if (!navigationReady || !navigationRef.isReady()) return;
 
     const activeRoute = navigationRef.getCurrentRoute();
-    if (!activeRoute) {
-      return;
-    }
+    if (!activeRoute) return;
 
     const routeName = activeRoute.name as ScreenRoute;
     const nextParams = getRouteParams(routeName, selectedYear, selectedCountryId);
@@ -386,52 +351,19 @@ export default function App() {
   }, [currentRoute, navigationReady, navigationRef, selectedCountryId, selectedYear]);
 
   useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
+    if (typeof document === "undefined") return;
 
     const styleTag = document.createElement("style");
     styleTag.setAttribute("data-hidden-gem-scrollbars", "true");
     styleTag.textContent = `
-      * {
-        scrollbar-color: ${colors.scrollbarThumb} ${colors.scrollbarTrack};
-      }
-
-      *::-webkit-scrollbar {
-        width: 14px;
-        height: 14px;
-      }
-
-      *::-webkit-scrollbar-track {
-        background: ${colors.scrollbarTrack};
-        border-radius: 999px;
-      }
-
-      *::-webkit-scrollbar-thumb {
-        background: ${colors.scrollbarThumb};
-        border-radius: 999px;
-        border: 2px solid ${colors.scrollbarTrack};
-      }
-
-      #list-view-scroll {
-        scrollbar-width: none;
-      }
-
-      #list-view-scroll::-webkit-scrollbar {
-        display: none;
-        width: 0;
-        height: 0;
-      }
-
-      #screen-scaffold-scroll {
-        scrollbar-width: none;
-      }
-
-      #screen-scaffold-scroll::-webkit-scrollbar {
-        display: none;
-        width: 0;
-        height: 0;
-      }
+      * { scrollbar-color: ${colors.scrollbarThumb} ${colors.scrollbarTrack}; }
+      *::-webkit-scrollbar { width: 14px; height: 14px; }
+      *::-webkit-scrollbar-track { background: ${colors.scrollbarTrack}; border-radius: 999px; }
+      *::-webkit-scrollbar-thumb { background: ${colors.scrollbarThumb}; border-radius: 999px; border: 2px solid ${colors.scrollbarTrack}; }
+      #list-view-scroll { scrollbar-width: none; }
+      #list-view-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
+      #screen-scaffold-scroll { scrollbar-width: none; }
+      #screen-scaffold-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
     `;
 
     document.head.appendChild(styleTag);
@@ -440,11 +372,8 @@ export default function App() {
 
   const handleYearChange = (nextYear: number, context: string) => {
     if (nextYear === selectedYear) return;
-
     setLoadingMessage(`Refreshing ${context} for ${nextYear}...`);
-
     if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
-
     loadingTimerRef.current = setTimeout(() => {
       setSelectedYear(nextYear);
       setLoadingMessage(null);
@@ -458,23 +387,25 @@ export default function App() {
       <NavigationContainer
         ref={navigationRef}
         linking={linking}
-        onReady={() => setNavigationReady(true)}
+        onReady={() => {
+          setNavigationReady(true);
+          syncStateFromNavigation();
+        }}
+        onStateChange={syncStateFromNavigation}
       >
         <View style={styles.appShell}>
           <StatusBar style="light" />
 
-          {!(currentRoute === "welcome" && Platform.OS !== "web") && (
-            <AppHeader
-              currentRoute={currentRoute}
-              onNavigate={navigateToRoute}
-              breadcrumbs={[]}
-              searchOpen={searchOpen}
-              onToggleSearch={() => setSearchOpen((o) => !o)}
-              onCloseSearch={() => setSearchOpen(false)}
-              countries={countries}
-              onOpenCountry={openCountry}
-            />
-          )}
+          <AppHeader
+            currentRoute={currentRoute}
+            onNavigate={navigateToRoute}
+            breadcrumbs={breadcrumbs}
+            searchOpen={false}
+            onToggleSearch={() => navigateToRoute("search")}
+            onCloseSearch={() => {}}
+            countries={countries}
+            onOpenCountry={openCountry}
+          />
 
           <View style={styles.screenArea}>
             <Stack.Navigator
@@ -511,14 +442,36 @@ export default function App() {
               </Stack.Screen>
 
               <Stack.Screen name="filters">
-               {() =>
-               Platform.OS !== "web" ? (
-                <FiltersScreen onNavigate={navigateToRoute} />
-               ) : (
-                     <View />
-                   )
-                    }
-                  </Stack.Screen>
+                {() =>
+                  Platform.OS !== "web" ? (
+                    <FiltersScreen onNavigate={navigateToRoute} />
+                  ) : (
+                    <View />
+                  )
+                }
+              </Stack.Screen>
+
+              {/* ── ADDED: Search as a full stack screen ───────────────────── */}
+              <Stack.Screen name="search" options={{ title: "Search" }}>
+                {() => (
+                  <SearchScreen
+                    countries={countries}
+                    selectedYear={selectedYear}
+                    searchLibrary={searchLibrary}
+                    onOpenCountry={(countryId) => {
+                      openCountry(countryId);
+                    }}
+                    onOpenSong={(countryId, songId) => {
+                      setSelectedCountryId(countryId);
+                      setSelectedSongId(songId);
+                      navigationRef.navigate("hiddenGems", {
+                        country: countryId,
+                        year: selectedYear,
+                      });
+                    }}
+                  />
+                )}
+              </Stack.Screen>
 
               <Stack.Screen name="country" options={{ title: `${selectedCountry.name} Detail Page` }}>
                 {() => (
@@ -557,12 +510,8 @@ export default function App() {
                     selectedCountryIds={comparisonIds}
                     onToggleCountry={(countryId) => {
                       setComparisonIds((current) => {
-                        if (current.includes(countryId)) {
-                          return current.filter((id) => id !== countryId);
-                        }
-                        if (current.length >= 3) {
-                          return current;
-                        }
+                        if (current.includes(countryId)) return current.filter((id) => id !== countryId);
+                        if (current.length >= 3) return current;
                         return [...current, countryId];
                       });
                     }}

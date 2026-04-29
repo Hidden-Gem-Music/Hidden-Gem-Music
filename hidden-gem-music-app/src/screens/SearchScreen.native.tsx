@@ -1,14 +1,24 @@
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
- 
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+
 import { Country } from "../types/content";
+import { GemIcon } from "../components/GemIcon";
 import { DiscoveryBlurb } from "../components/DiscoveryBlurb";
+import { MobileSearchBar } from "../components/MobileSearchBar";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
- 
+
 export type Props = {
   countries: Country[];
   selectedYear: number;
@@ -28,7 +38,32 @@ export type Props = {
   onOpenCountry: (countryId: string) => void;
   onOpenSong: (countryId: string, songId: string) => void;
 };
- 
+
+function ResultRow({
+  title,
+  meta,
+  onPress,
+}: {
+  title: string;
+  meta: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.resultRow, pressed ? styles.resultRowPressed : null]}
+    >
+      <View style={styles.resultRowInner}>
+        <GemIcon size={12} />
+        <View style={styles.resultRowText}>
+          <Text style={styles.resultTitle} numberOfLines={1}>{title}</Text>
+          <Text style={styles.resultMeta} numberOfLines={1}>{meta}</Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 export function SearchScreen({
   countries,
   selectedYear,
@@ -41,144 +76,172 @@ export function SearchScreen({
     () => searchLibrary(query, selectedYear),
     [query, searchLibrary, selectedYear]
   );
- 
+
+  const hasQuery = query.trim().length > 0;
+  const countryResults = (hasQuery ? results.countries : countries).slice(0, 8);
+  const songResults = results.songs.slice(0, 8);
+
   return (
-    <ScreenScaffold alwaysScrollableOnWeb>
-      <DiscoveryBlurb heading="Search" body="Search countries, albums, artists, songs, or genres." />
- 
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search countries, albums, artists, songs, or genres"
-        placeholderTextColor={colors.textMuted}
-        style={styles.input}
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="search"
-      />
- 
-      <Panel style={styles.panel}>
-        <SecondarySurfaceFill />
-        <View style={styles.panelContent}>
-          <Text style={styles.sectionHeading}>Country Matches</Text>
-          <View style={styles.resultGroup}>
-            {(query ? results.countries : countries).slice(0, 8).map((country) => (
-              <Pressable
-                key={country.id}
-                onPress={() => onOpenCountry(country.id)}
-                style={({ pressed }) => [styles.resultRow, pressed ? styles.resultRowPressed : null]}
-              >
-                <View style={styles.resultRowInner}>
-                  <Text style={styles.resultTitle}>{country.name}</Text>
-                  <Text style={styles.resultMeta}>{country.region}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
- 
-          <View style={styles.divider} />
- 
-          <Text style={styles.sectionHeading}>Song Matches</Text>
-          <View style={styles.resultGroup}>
-            {results.songs.length === 0 ? (
-              <Text style={styles.copy}>
-                {query.trim()
-                  ? "No songs found for that query."
-                  : "Type a query to search hidden songs and related metadata."}
-              </Text>
-            ) : (
-              results.songs.slice(0, 8).map((song) => (
-                <Pressable
-                  key={song.id}
-                  onPress={() => onOpenSong(song.countryId, song.id)}
-                  style={({ pressed }) => [styles.resultRow, pressed ? styles.resultRowPressed : null]}
-                >
-                  <View style={styles.resultRowInner}>
-                    <Text style={styles.resultTitle}>{song.title}</Text>
-                    <Text style={styles.resultMeta}>
-                      {song.artist} · {song.countryName}
-                    </Text>
+    <ScreenScaffold contentStyle={styles.scaffold}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        {/* Always a ScrollView so the whole screen scrolls on native */}
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            !hasQuery ? styles.scrollContentIdle : null,
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Info blurb — only shown in idle state */}
+          {!hasQuery && (
+            <DiscoveryBlurb
+              heading="Search"
+              body="Search countries, albums, artists, songs, or genres to explore hidden gems from around the world."
+            />
+          )}
+
+          <MobileSearchBar
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search countries, albums, artists..."
+            onClear={() => setQuery("")}
+          />
+
+          {/* Results — only shown when there is a query */}
+          {hasQuery && (
+            <>
+              {/* Country results */}
+              <Panel style={styles.section}>
+                <SecondarySurfaceFill />
+                <View style={styles.sectionContent}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Country Matches</Text>
+                    <Text style={styles.sectionCount}>{countryResults.length}</Text>
                   </View>
-                </Pressable>
-              ))
-            )}
-          </View>
-        </View>
-      </Panel>
+                  <View style={styles.resultGroup}>
+                    {countryResults.length === 0 ? (
+                      <Text style={styles.emptyText}>No countries matched your search.</Text>
+                    ) : (
+                      countryResults.map((country) => (
+                        <ResultRow
+                          key={country.id}
+                          title={country.name}
+                          meta={country.region}
+                          onPress={() => onOpenCountry(country.id)}
+                        />
+                      ))
+                    )}
+                  </View>
+                </View>
+              </Panel>
+
+              {/* Song results */}
+              <Panel style={styles.section}>
+                <SecondarySurfaceFill />
+                <View style={styles.sectionContent}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Song Matches</Text>
+                    <Text style={styles.sectionCount}>{songResults.length}</Text>
+                  </View>
+                  <View style={styles.resultGroup}>
+                    {songResults.length === 0 ? (
+                      <Text style={styles.emptyText}>No songs found for that query.</Text>
+                    ) : (
+                      songResults.map((song) => (
+                        <ResultRow
+                          key={song.id}
+                          title={song.title}
+                          meta={`${song.artist} · ${song.countryName}`}
+                          onPress={() => onOpenSong(song.countryId, song.id)}
+                        />
+                      ))
+                    )}
+                  </View>
+                </View>
+              </Panel>
+            </>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ScreenScaffold>
   );
 }
- 
+
 const styles = StyleSheet.create({
-  input: {
-    borderRadius: 18,
-    borderWidth: 3,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceSecondary,
-    color: colors.textStrong,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontFamily: typefaces.body,
-    fontSize: 17,
+  scaffold: { padding: 0, gap: 0 },
+  keyboardAvoid: { flex: 1 },
+
+  // Single scroll container used for both idle and results states
+  scrollContent: {
+    padding: 20,
+    gap: 16,
+    paddingBottom: 48,
   },
-  panel: {
+  // Idle: normal top-down layout with blurb + search bar
+  scrollContentIdle: {
+    paddingBottom: 80,
+  },
+  section: {
     backgroundColor: "transparent",
     padding: 0,
     overflow: "hidden",
   },
-  panelContent: {
-    padding: 18,
-    gap: 12,
+  sectionContent: { padding: 16, gap: 12 },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  sectionHeading: {
+  sectionTitle: {
     color: colors.textStrong,
     fontFamily: typefaces.display,
     fontSize: 20,
     lineHeight: 24,
   },
-  resultGroup: {
-    gap: 6,
-  },
-  resultRow: {
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  resultRowPressed: {
-    opacity: 0.7,
-  },
-  resultRowInner: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.button,
-    gap: 2,
-  },
-  resultTitle: {
-    color: colors.textStrong,
-    fontFamily: typefaces.display,
-    fontSize: 17,
-    lineHeight: 20,
-  },
-  resultMeta: {
+  sectionCount: {
     color: colors.text,
     fontFamily: typefaces.condensed,
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 16,
   },
-  divider: {
-    height: 2,
-    borderRadius: 999,
-    backgroundColor: colors.border,
-    opacity: 0.24,
-    marginVertical: 4,
+  resultGroup: { gap: 8 },
+  resultRow: { borderRadius: 14, overflow: "hidden" },
+  resultRowPressed: { opacity: 0.7 },
+  resultRowInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  copy: {
+  resultRowText: { flex: 1, gap: 2 },
+  resultTitle: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  resultMeta: {
+    color: colors.text,
+    fontFamily: typefaces.condensed,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 15,
+  },
+  emptyText: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
+    paddingVertical: 4,
   },
 });

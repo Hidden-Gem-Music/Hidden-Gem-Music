@@ -14,6 +14,7 @@ export type RootStackParamList = {
   dashboard: { year?: number } | undefined;
   credits: undefined;
   filters: undefined;
+  search: undefined; // ← ADDED
 };
 
 type NavigationSeed = {
@@ -32,6 +33,7 @@ const routeByPath: Record<string, ScreenRoute> = {
   "compare/results": "comparisonResults",
   dashboard: "dashboard",
   credits: "credits",
+  search: "search", // ← ADDED
 };
 
 function parseYearValue(value: string | null | undefined) {
@@ -39,9 +41,6 @@ function parseYearValue(value: string | null | undefined) {
   return availableYears.includes(parsedYear) ? parsedYear : undefined;
 }
 
-/**
- * SAFE helper: only runs on web
- */
 function getWebURL() {
   try {
     if (typeof window === "undefined") return null;
@@ -65,19 +64,14 @@ export const linking: LinkingOptions<RootStackParamList> = {
       comparisonResults: "compare/results",
       dashboard: "dashboard",
       credits: "credits",
-      
+      search: "search", // ← ADDED
     },
   },
 };
 
-/**
- * SAFE FOR MOBILE + WEB
- * (no direct window access outside guard)
- */
 export function getInitialNavigationSeed(): NavigationSeed {
   const url = getWebURL();
 
-  // MOBILE SAFE DEFAULT
   if (!url) {
     return { route: "welcome" };
   }
