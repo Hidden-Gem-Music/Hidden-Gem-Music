@@ -10,7 +10,6 @@ import {
 } from "react-native";
 
 import { Country } from "../types/content";
-import { GemIcon } from "../components/GemIcon";
 import { DiscoveryBlurb } from "../components/DiscoveryBlurb";
 import { MobileSearchBar } from "../components/MobileSearchBar";
 import { Panel } from "../components/Panel";
@@ -39,47 +38,32 @@ export type Props = {
   onOpenSong: (countryId: string, songId: string) => void;
 };
 
-function ResultRow({
-  title,
-  meta,
-  onPress,
-}: {
-  title: string;
-  meta: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.resultRow, pressed ? styles.resultRowPressed : null]}
-    >
-      <View style={styles.resultRowInner}>
-        <GemIcon size={12} />
-        <View style={styles.resultRowText}>
-          <Text style={styles.resultTitle} numberOfLines={1}>{title}</Text>
-          <Text style={styles.resultMeta} numberOfLines={1}>{meta}</Text>
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
 export function SearchScreen({
   countries,
-  selectedYear,
-  searchLibrary,
   onOpenCountry,
-  onOpenSong,
 }: Props) {
   const [query, setQuery] = useState("");
-  const results = useMemo(
-    () => searchLibrary(query, selectedYear),
-    [query, searchLibrary, selectedYear]
-  );
 
-  const hasQuery = query.trim().length > 0;
-  const countryResults = (hasQuery ? results.countries : countries).slice(0, 8);
-  const songResults = results.songs.slice(0, 8);
+  const normalized = query.trim().toLowerCase();
+
+  // All countries shown when no query, filtered by name as user types
+  const results = useMemo(() => {
+    if (!normalized) return countries;
+    return countries.filter((c) =>
+      c.name.toLowerCase().includes(normalized)
+    );
+  }, [countries, normalized]);
+
+  // Only show "not found" message when user has typed something
+  // and no countries match at all
+  const hasQuery = normalized.length > 0;
+  const noResults = hasQuery && results.length === 0;
+
+  // Try to find an exact or close match to show the "not in our data" message
+  // e.g. user typed "Narnia" — no match at all
+  const notFoundName = noResults
+    ? query.trim().replace(/\b\w/g, (c) => c.toUpperCase()) // title case the query
+    : null;
 
   return (
     <ScreenScaffold contentStyle={styles.scaffold}>
@@ -87,7 +71,6 @@ export function SearchScreen({
         style={styles.keyboardAvoid}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* Always a ScrollView so the whole screen scrolls on native */}
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
@@ -96,74 +79,65 @@ export function SearchScreen({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Info blurb — only shown in idle state */}
+          {/* Info blurb — only shown when idle */}
           {!hasQuery && (
             <DiscoveryBlurb
               heading="Search"
-              body="Search countries, albums, artists, songs, or genres to explore hidden gems from around the world."
+              body="Type a country name to find it in our library. Results narrow down as you type."
             />
           )}
 
           <MobileSearchBar
             value={query}
             onChangeText={setQuery}
-            placeholder="Search countries, albums, artists..."
+            placeholder="Search for a country..."
             onClear={() => setQuery("")}
           />
 
-          {/* Results — only shown when there is a query */}
+          {/* Results panel — shown once user starts typing */}
           {hasQuery && (
-            <>
-              {/* Country results */}
-              <Panel style={styles.section}>
-                <SecondarySurfaceFill />
-                <View style={styles.sectionContent}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Country Matches</Text>
-                    <Text style={styles.sectionCount}>{countryResults.length}</Text>
-                  </View>
-                  <View style={styles.resultGroup}>
-                    {countryResults.length === 0 ? (
-                      <Text style={styles.emptyText}>No countries matched your search.</Text>
-                    ) : (
-                      countryResults.map((country) => (
-                        <ResultRow
-                          key={country.id}
-                          title={country.name}
-                          meta={country.region}
-                          onPress={() => onOpenCountry(country.id)}
-                        />
-                      ))
-                    )}
-                  </View>
+            <Panel style={styles.section}>
+              <SecondarySurfaceFill />
+              <View style={styles.sectionContent}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Countries</Text>
+                  <Text style={styles.sectionCount}>
+                    {noResults ? "0" : results.length}
+                  </Text>
                 </View>
-              </Panel>
 
-              {/* Song results */}
-              <Panel style={styles.section}>
-                <SecondarySurfaceFill />
-                <View style={styles.sectionContent}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Song Matches</Text>
-                    <Text style={styles.sectionCount}>{songResults.length}</Text>
-                  </View>
+                {noResults ? (
+                  // "Not in our data" message — matches web SearchOverlay behaviour
+                  <Text style={styles.notFoundText}>
+                    {notFoundName} is not included in our data at this time.
+                  </Text>
+                ) : (
                   <View style={styles.resultGroup}>
-                    {songResults.length === 0 ? (
-                      <Text style={styles.emptyText}>No songs found for that query.</Text>
-                    ) : (
-                      songResults.map((song) => (
-                        <ResultRow
-                          key={song.id}
-                          title={song.title}
-                          meta={`${song.artist} · ${song.countryName}`}
-                          onPress={() => onOpenSong(song.countryId, song.id)}
-                        />
-                      ))
-                    )}
+                    {results.map((country) => (
+                      <Pressable
+                        key={country.id}
+                        onPress={() => onOpenCountry(country.id)}
+                        style={({ pressed }) => [
+                          styles.resultRow,
+                          pressed ? styles.resultRowPressed : null,
+                        ]}
+                      >
+                        <View style={styles.resultRowInner}>
+                          <View style={styles.resultRowText}>
+                            <Text style={styles.resultTitle} numberOfLines={1}>
+                              {country.name}
+                            </Text>
+                            <Text style={styles.resultMeta} numberOfLines={1}>
+                              {country.region}
+                            </Text>
+                          </View>
+                        </View>
+                      </Pressable>
+                    ))}
                   </View>
-                </View>
-              </Panel>
-            </>
+                )}
+              </View>
+            </Panel>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -175,22 +149,24 @@ const styles = StyleSheet.create({
   scaffold: { padding: 0, gap: 0 },
   keyboardAvoid: { flex: 1 },
 
-  // Single scroll container used for both idle and results states
   scrollContent: {
     padding: 20,
     gap: 16,
     paddingBottom: 48,
   },
-  // Idle: normal top-down layout with blurb + search bar
   scrollContentIdle: {
     paddingBottom: 80,
   },
+
   section: {
     backgroundColor: "transparent",
     padding: 0,
     overflow: "hidden",
   },
-  sectionContent: { padding: 16, gap: 12 },
+  sectionContent: {
+    padding: 16,
+    gap: 12,
+  },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -209,13 +185,19 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 16,
   },
-  resultGroup: { gap: 8 },
-  resultRow: { borderRadius: 14, overflow: "hidden" },
-  resultRowPressed: { opacity: 0.7 },
+  resultGroup: {
+    gap: 8,
+  },
+  resultRow: {
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  resultRowPressed: {
+    opacity: 0.7,
+  },
   resultRowInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
     borderRadius: 14,
     borderWidth: 2,
     borderColor: colors.border,
@@ -223,7 +205,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  resultRowText: { flex: 1, gap: 2 },
+  resultRowText: {
+    flex: 1,
+    gap: 2,
+  },
   resultTitle: {
     color: colors.textStrong,
     fontFamily: typefaces.display,
@@ -237,11 +222,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 15,
   },
-  emptyText: {
+  notFoundText: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
     paddingVertical: 4,
   },
 });

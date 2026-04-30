@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
- 
+
 import { ActionButton } from "../components/ActionButton";
 import { DiscoveryBlurb } from "../components/DiscoveryBlurb";
 import { Panel } from "../components/Panel";
@@ -9,7 +9,7 @@ import { ScreenRoute } from "../types/navigation";
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
- 
+
 export type Props = {
   countries: Country[];
   onNavigate: (route: ScreenRoute) => void;
@@ -17,7 +17,7 @@ export type Props = {
   selectedYear: number;
   onChangeYear: (year: number) => void;
 };
- 
+
 export function WelcomeScreen({ countries, onNavigate }: Props) {
   return (
     <ScreenScaffold alwaysScrollableOnWeb>
@@ -29,7 +29,7 @@ export function WelcomeScreen({ countries, onNavigate }: Props) {
           heading="Hidden Gem Music"
           body="Discover the songs that are loved locally but missed globally. Explore charts by country, compare music scenes, and uncover hidden gems from around the world."
         />
- 
+
         <Panel style={styles.modal}>
           <LinearGradient
             colors={[colors.surfaceSecondary, "#27293B", "rgba(66,72,101,0.42)", "rgba(66,72,101,0.72)"]}
@@ -56,7 +56,7 @@ export function WelcomeScreen({ countries, onNavigate }: Props) {
     </ScreenScaffold>
   );
 }
- 
+
 const styles = StyleSheet.create({
   scrollContent: {
     gap: 20,
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   modalFill: {
-    position: "absolute" as const, top: 0, left: 0, bottom: 0, right: 0,
+    ...StyleSheet.absoluteFillObject,
     borderRadius: 22,
   },
   modalContent: {
@@ -80,7 +80,6 @@ const styles = StyleSheet.create({
     color: colors.textStrong,
     fontFamily: typefaces.display,
     fontSize: 38,
-    
     textAlign: "center",
     lineHeight: 44,
   },
@@ -88,7 +87,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontFamily: typefaces.condensed,
     fontSize: 16,
-    fontWeight: "700",
     lineHeight: 24,
     textAlign: "center",
   },

@@ -244,6 +244,7 @@ export function HiddenGemsScreen({
     [country, songs]
   );
 
+  const [isPlaying, setIsPlaying] = useState(false);
   const [activeSongId, setActiveSongId] = useState(
     () => selectedSongId || selectedSong?.id || hiddenGemSongs[0]?.id || ""
   );
@@ -266,7 +267,10 @@ export function HiddenGemsScreen({
     if (!hiddenGemSongs.length || selectedIndex < 0) return;
     const next =
       hiddenGemSongs[(selectedIndex + dir + hiddenGemSongs.length) % hiddenGemSongs.length];
-    if (next) setActiveSongId(next.id);
+    if (next) {
+      setActiveSongId(next.id);
+      setIsPlaying(false); // reset play state on song change — audio engine will hook in here
+    }
   };
 
   if (!safeSelectedSong) {
@@ -361,11 +365,37 @@ export function HiddenGemsScreen({
               </View>
             ))}
 
-            {safeSelectedSong.spotifySearchUrl ? (
-              <Pressable style={styles.spotifyBtn}>
-                <Text style={styles.spotifyBtnText}>Open in Spotify ↗</Text>
+            {/* ── Transport controls: Prev / Play / Next ── */}
+            <View style={styles.transport}>
+              {/* Previous */}
+              <Pressable
+                onPress={() => stepSong(-1)}
+                style={styles.transportBtn}
+                hitSlop={8}
+              >
+                <Text style={styles.transportIcon}>⏮</Text>
               </Pressable>
-            ) : null}
+
+              {/* Play / Pause — placeholder until audio engine is wired in */}
+              <Pressable
+                onPress={() => setIsPlaying((p) => !p)}
+                style={styles.transportPlayBtn}
+                hitSlop={8}
+              >
+                <Text style={styles.transportPlayIcon}>
+                  {isPlaying ? "■" : "▶"}
+                </Text>
+              </Pressable>
+
+              {/* Next */}
+              <Pressable
+                onPress={() => stepSong(1)}
+                style={styles.transportBtn}
+                hitSlop={8}
+              >
+                <Text style={styles.transportIcon}>⏭</Text>
+              </Pressable>
+            </View>
           </View>
         </Panel>
 
@@ -597,6 +627,46 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.condensed,
     fontSize: 15,
     fontWeight: "800",
+  },
+
+  // Transport controls
+  transport: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 20,
+    marginTop: 4,
+    width: "100%",
+  },
+  transportBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  transportIcon: {
+    color: colors.border,
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  transportPlayBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    borderColor: colors.accent,
+    backgroundColor: colors.button,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  transportPlayIcon: {
+    color: colors.accent,
+    fontSize: 26,
+    lineHeight: 30,
   },
 
   // Song list
