@@ -64,3 +64,52 @@ export type ApiCountryGlobeSummary = {
   hiddenGemCount: number;
   topAlbumName: string | null;
 };
+
+export type ApiOverlapRate = {
+  overlapPct: number;
+  totalUniqueSongs: number;
+  songsIn2Plus: number;
+};
+
+export type ApiDiscoveryGap = {
+  avgGapDays: number;
+  medianGapDays: number;
+  sampleSize: number;
+};
+
+export type ApiIsolationLeader = {
+  countryName: string;
+  isoCode: string;
+  isolationScore: number;
+};
+
+export type ApiPeakReach = {
+  peakCountryCount: number;
+  songTitle: string;
+  artistName: string;
+  peakDate: string;
+};
+
+export type ApiTrendPoint = {
+  periodLabel: string;
+  periodYear: number;
+  periodMonth: number | null;
+  overlapPct: number;
+  avgCountries: number;
+  totalUniqueSongs: number;
+  songsIn2Plus: number;
+  isGap: boolean;
+};
+
+export type ApiIsolationEntry = {
+  countryName: string;
+  isoCode: string;
+  isolationScore: number;
+  isolationTier: "high" | "mid" | "low";
+};
+
+export type ApiGapBucket = {
+  bucketLabel: string;
+  bucketOrder: number;
+  songCount: number;
+};

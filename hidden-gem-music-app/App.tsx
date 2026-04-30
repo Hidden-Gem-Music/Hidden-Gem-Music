@@ -287,7 +287,7 @@ export default function App() {
         navigationRef.navigate("comparisonResults", getRouteParams("comparisonResults", selectedYear, selectedCountryId));
         break;
       case "dashboard":
-        navigationRef.navigate("dashboard", getRouteParams("dashboard", selectedYear, selectedCountryId));
+        navigationRef.navigate("dashboard");
         break;
       case "credits":
         navigationRef.navigate("credits");
@@ -712,7 +712,7 @@ export default function App() {
               </Stack.Screen>
 
               <Stack.Screen name="dashboard" options={{ title: "Dashboard" }}>
-                {() => <DashboardScreen year={selectedYear} metrics={dashboardMetrics} countries={countries} />}
+                {() => <DashboardScreen />}
               </Stack.Screen>
 
               <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />

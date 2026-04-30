@@ -10,7 +10,7 @@ export type RootStackParamList = {
   hiddenGems: { country?: string; year?: number } | undefined;
   comparisonSelect: { year?: number } | undefined;
   comparisonResults: { year?: number } | undefined;
-  dashboard: { year?: number } | undefined;
+  dashboard: undefined;
   credits: undefined;
 };
 
@@ -75,7 +75,6 @@ export function getRouteParams(route: ScreenRoute, selectedYear: number, selecte
     case "discovery":
     case "comparisonSelect":
     case "comparisonResults":
-    case "dashboard":
       return { year: selectedYear };
     case "country":
     case "hiddenGems":

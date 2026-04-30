@@ -17,7 +17,7 @@ BEGIN
 
     TRUNCATE TABLE DiscoveryGapByDay;
 
-    -- CTE: first chart date per song per country
+        -- CTE: First chart date per song per country
     WITH FirstAppearance AS (
         SELECT
             song_id,
@@ -27,27 +27,30 @@ BEGIN
         WHERE country_id IS NOT NULL
         GROUP BY song_id, country_id
     ),
-    -- CTE: for each song, find the global first appearance (origin)
+
+    -- CTE: For each song, find the global first appearance (origin)
     Origin AS (
         SELECT
             song_id,
-            MIN(first_date)     AS origin_date,
-            MIN(country_id)     AS origin_country_id   -- arbitrary tiebreak for same-day origins
+            MIN(first_date)  AS origin_date,
+            MIN(country_id)  AS origin_country_id
         FROM FirstAppearance
         GROUP BY song_id
+        HAVING MIN(first_date) NOT BETWEEN '2017-01-01' AND '2017-01-07'
+           AND MIN(first_date) NOT BETWEEN '2023-10-17' AND '2023-10-23'
     ),
-    -- CTE: join origin back to all country appearances to compute spread gap
+
+    -- CTE: Join origin back to all country appearances to compute spread gaps
     Spread AS (
         SELECT
             fa.song_id,
             o.origin_country_id,
-            fa.country_id        AS spread_country_id,
+            fa.country_id                                    AS spread_country_id,
             o.origin_date,
-            fa.first_date        AS spread_date,
-            DATEDIFF(DAY, o.origin_date, fa.first_date) AS gap_days
+            fa.first_date                                    AS spread_date,
+            DATEDIFF(DAY, o.origin_date, fa.first_date)      AS gap_days
         FROM FirstAppearance fa
         JOIN Origin o ON o.song_id = fa.song_id
-        -- exclude the origin country itself (gap_days would be 0 for origin)
         WHERE fa.country_id <> o.origin_country_id
     )
     INSERT INTO DiscoveryGapByDay
@@ -56,24 +59,25 @@ BEGIN
         song_id,
         origin_country_id,
         spread_country_id,
-        gap_days                                           AS days_to_spread,
+        gap_days AS days_to_spread,
         CASE
-            WHEN gap_days <=   7 THEN N'0-7d'
+            WHEN gap_days <=  7  THEN N'0-7d'
             WHEN gap_days <=  14 THEN N'8-14d'
             WHEN gap_days <=  30 THEN N'15-30d'
             WHEN gap_days <=  60 THEN N'31-60d'
             WHEN gap_days <=  90 THEN N'61-90d'
             ELSE                      N'90d+'
-        END                                                AS bucket_label,
+        END AS bucket_label,
         CASE
-            WHEN gap_days <=   7 THEN 1
+            WHEN gap_days <=  7  THEN 1
             WHEN gap_days <=  14 THEN 2
             WHEN gap_days <=  30 THEN 3
             WHEN gap_days <=  60 THEN 4
             WHEN gap_days <=  90 THEN 5
             ELSE                      6
-        END                                                AS bucket_order
+        END AS bucket_order
     FROM Spread
-    WHERE gap_days >= 0;   -- exclude negative gaps (data artifacts)
+    WHERE gap_days > 0
+      AND origin_date NOT BETWEEN '2017-01-01' AND '2017-01-07'   -- DS1 boundary
+      AND origin_date NOT BETWEEN '2023-10-17' AND '2023-10-23';  -- DS2 boundary
 END;
-GO
