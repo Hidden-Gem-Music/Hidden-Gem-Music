@@ -2,6 +2,60 @@ mp3li implementation timeline document
 
 Updated: April 29, 2026
 
+Country + Preview Endpoint Verification, Failure Analysis, SQL Fix, and Repro Handoff (April 29, 2026)
+- Goal for this task:
+  - Verify both Country endpoints against my restored local DB, harden backend behavior, and document exactly what failed and how it was fixed so Leena can apply the same DB-side correction before future backup zips.
+- Environment/setup context:
+  - SQL Server running via Docker on macOS.
+  - DB restored and queried through SSMS in Windows 11 via Parallels.
+  - API run locally with `dotnet run --project backend/Capstone.API` on `http://localhost:5140`.
+- Browser endpoint tests run (initial pass) and outputs:
+  - `GET /api/country/US?year=2021` returned populated JSON (`countryCode`, `countryName`, chart stats, song lists).
+  - `GET /api/country/ZZ?year=2021` returned `404 Not Found`.
+  - `GET /api/country/US?year=1900` returned `404 Not Found` (this was later flagged for stricter validation behavior because year selectors are dataset-bounded).
+  - `GET /api/country/US/hidden-gems/preview?year=2021` returned `500` message: `An unexpected error occurred while retrieving hidden gems preview data.`
+  - `GET /api/country/ZZ/hidden-gems/preview?year=2021` returned same `500` message.
+- Failure encountered:
+  - Hidden-gems preview endpoint failed (`500`) for both valid and invalid country code inputs.
+- SSMS diagnostic queries run and exact error:
+  - Ran:
+    - `EXEC sp_GetCountryHiddenGemsPreview @CountryCode='US', @Year=2021;`
+    - `EXEC sp_GetCountryHiddenGemsPreview @CountryCode='ZZ', @Year=2021;`
+  - SQL Server error:
+    - `Msg 208, Level 16, State 1, Procedure sp_GetCountryHiddenGemsPreview, Line 8`
+    - `Invalid object name 'Song'.`
+- Root cause:
+  - Restored DB had an outdated procedure version of `sp_GetCountryHiddenGemsPreview` still referencing legacy table `Song` instead of current star schema tables.
+- Exact remediation SQL executed in SSMS:
+  - Applied `CREATE OR ALTER PROCEDURE dbo.sp_GetCountryHiddenGemsPreview` using:
+    - `HiddenGems` + `Country` core join
+    - `DIM_Song`
+    - `Bridge_SongArtist` with `artist_order = 1`
+    - `DIM_Artist`
+    - `TOP 5 ... ORDER BY hg.trend_score DESC`
+- Validation after fix:
+  - SSMS proc re-test returned rows for `US, 2021` (no SQL errors).
+  - Browser re-test:
+    - `GET /api/country/US/hidden-gems/preview?year=2021` returned expected JSON list of 5 hidden gems.
+    - `GET /api/country/ZZ/hidden-gems/preview?year=2021` returned empty behavior (no server error).
+- Backend hardening completed after verification:
+  - `CountryController` now validates:
+    - country code must be exactly 2 letters
+    - year must be in supported dataset window (`1975..2021`) and excludes unavailable gap years (`2007..2010`)
+  - Country endpoint response behavior now explicitly differentiates:
+    - `400` invalid code/year input
+    - `404` no profile row for valid profile lookup
+    - `503` SQL/database failures
+    - `500` unexpected failures
+- SP contract and mapper cross-check outcome:
+  - Confirmed Country repository bindings to:
+    - `sp_GetCountryProfile`
+    - `sp_GetCountryHiddenGemsPreview`
+  - Confirmed no additional SP was required for this task once preview proc was corrected in DB.
+- Repro/handoff note for Leena:
+  - Apply the same `CREATE OR ALTER PROCEDURE dbo.sp_GetCountryHiddenGemsPreview` star-schema version in source DB before producing future backup zips.
+  - Without this, restored environments can reproduce the same `Invalid object name 'Song'` failure on preview endpoint.
+
 Backend Database Connection + Endpoint Validation + Mapper Alignment (April 29, 2026)
 - Local SQL Server database restore was validated through SSMS in Windows 11 on Parallels, and API local hosting was confirmed in macOS Docker setup context.
 - API startup was confirmed working on local dev host:

@@ -7,6 +7,20 @@
 
 ---
 
+## April 29, 2026 Verification Addendum (Country Endpoints)
+
+- `CountryController` input validation now enforces:
+  - `code` must be exactly 2 letters (`400` on failure)
+  - `year` must be in dataset-supported range `1975..2021`, excluding known unavailable gap years `2007..2010` (`400` on failure)
+- Error handling for Country endpoints now distinguishes:
+  - `400` invalid input
+  - `404` valid input but no profile row for `/api/country/{code}`
+  - `503` SQL/database failures
+  - `500` unexpected failures
+- `sp_GetCountryHiddenGemsPreview` was cross-checked against a restored local DB that initially had an outdated procedure version referencing legacy table `Song`.
+  - Required/current version uses star schema joins: `DIM_Song`, `Bridge_SongArtist`, `DIM_Artist`.
+  - After applying `CREATE OR ALTER PROCEDURE` with star schema joins, preview endpoint returned valid JSON.
+
 ## Context
 
 This ADR documents the concrete implementation of the API surface: every route, controller action, repository method, stored procedure call, and DTO field mapping. It was written after the code compiled and built successfully, and reflects the actual state of the files — not the planning document.
@@ -83,7 +97,9 @@ All country codes are normalized to uppercase (`.ToUpper()`) at the controller b
 
 **Route params:** `code` (2-letter ISO, normalized to uppercase)
 **Query params:** `year` (int)
+**Input validation:** `code` must be 2 letters; `year` must be `1975..2021` excluding `2007..2010` (`400` on validation failure).
 **Returns 404** if `GetCountryProfileAsync` returns null (country/year combination not found).
+**Returns 503** for SQL/database failures; **500** for unexpected failures.
 
 ---
 
@@ -161,21 +177,21 @@ For each SP: the name as hard-coded in the repository, the parameter names as pa
 | 1 | Top shared songs | `CountryProfile.TopSharedSongs` |
 | 2 | Top unique songs | `CountryProfile.TopUniqueSongs` |
 
-**Set 0 expected columns:**
+**Set 0 expected columns (verified aliases):**
 | Column | C# property | Type |
 |--------|------------|------|
-| `country_code` | `CountryProfile.CountryCode` | string? |
-| `country_name` | `CountryProfile.CountryName` | string? |
+| `country_code` or `iso_code` | `CountryProfile.CountryCode` | string? |
+| `country_name` or `full_name` | `CountryProfile.CountryName` | string? |
 | `chart_year` | `CountryProfile.Year` | int |
 | `total_charted` | `CountryProfile.TotalCharted` | int |
 | `shared_count` | `CountryProfile.SharedCount` | int |
 | `unique_count` | `CountryProfile.UniqueCount` | int |
 | `overlap_pct` | `CountryProfile.OverlapPct` | decimal |
 
-**Sets 1 and 2 expected columns (Song):**
+**Sets 1 and 2 expected columns (Song, verified aliases):**
 | Column | C# property | Type |
 |--------|------------|------|
-| `song_name` | `Song.SongName` | string? |
+| `song_name` or `song_title` | `Song.SongName` | string? |
 | `artist_name` | `Song.ArtistName` | string? |
 | `album_name` | `Song.AlbumName` | string? |
 
@@ -184,7 +200,15 @@ For each SP: the name as hard-coded in the repository, the parameter names as pa
 ### 3.3 `sp_GetCountryHiddenGemsPreview`
 **Repository:** `CountryRepository.GetHiddenGemsPreviewAsync`
 **Params:** `@CountryCode CHAR(2)`, `@Year INT`
-**Expected output columns:** Same as Section 3.5 (HiddenGem shape).
+**Expected output columns (verified aliases):**
+- `song_name` or `song_title` → `HiddenGem.SongName`
+- `album_name` → `HiddenGem.AlbumName`
+- `artist_name` → `HiddenGem.ArtistName`
+- `trend_score` → `HiddenGem.TrendScore`
+- `countries_charting_count` or `countries_charting` → `HiddenGem.CountriesChartingCount`
+
+**Required stored procedure version note:**
+- Procedure must reference star-schema tables (`DIM_Song`, `Bridge_SongArtist`, `DIM_Artist`), not legacy `Song`.
 
 ---
 
