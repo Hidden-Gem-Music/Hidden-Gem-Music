@@ -2,6 +2,58 @@ mp3li implementation timeline document
 
 Updated: April 29, 2026
 
+Comparison Endpoint Verification + Hardening + SP Contract Cross-Check (April 29, 2026)
+- Goal for this task:
+  - Validate the Country Comparison endpoint behavior, add robust error handling, cross-check backend mapper contracts against comparison SP outputs, confirm whether additional SPs are needed, and document implementation details for team handoff.
+- Endpoint status and initial validation context:
+  - Existing comparison route implementation is present and wired:
+    - `GET /api/comparison?countryA={code}&countryB={code}&year={year}`
+    - `GET /api/comparison/hidden-gems?countryA={code}&countryB={code}&year={year}`
+  - User-reported browser validation confirms the main comparison endpoint returns payload data for:
+    - `http://localhost:5140/api/comparison?countryA=US&countryB=GB&year=2021`
+- SP and mapper cross-check findings:
+  - Comparison repository calls:
+    - `sp_GetCountryComparison`
+    - `sp_GetComparisonHiddenGems`
+  - SQL script outputs currently include aliases such as:
+    - `iso_code`, `full_name`, `song_title`, `countries_charting`
+  - Existing repository mappers were still expecting older alias names in several properties:
+    - `country_code`, `country_name`, `song_name`, `countries_charting_count`
+  - Impact:
+    - Endpoint could still return `200 OK`, but selected DTO fields could be null/default when alias keys do not match.
+- Backend hardening added in this task:
+  - `ComparisonController` now validates:
+    - `countryA` is exactly 2 letters
+    - `countryB` is exactly 2 letters
+    - `countryA` and `countryB` are not the same code
+    - year must be between `1975..2021`
+    - year excludes unavailable gap years `2007..2010`
+  - `ComparisonController` now applies structured exception handling on both comparison endpoints:
+    - `503` for `SqlException` with logging
+    - `500` for unexpected exceptions with logging
+    - `400` for invalid input
+    - `404` retained for no comparison result row set on primary compare endpoint
+- Mapper compatibility fixes completed:
+  - Comparison repository mapping now supports both legacy and current SP aliases:
+    - country code: `country_code` or `iso_code`
+    - country name: `country_name` or `full_name`
+    - song name: `song_name` or `song_title`
+    - countries charting count: `countries_charting_count` or `countries_charting`
+  - This ensures DTO population remains stable while DB/SP aliases evolve.
+- Additional SP requirement outcome:
+  - No additional stored procedures were required for this task.
+  - Existing procedures already cover required comparison data paths once mapper alias compatibility is enforced.
+- Runtime verification completion (final pass):
+  - Initial 500 failures were traced to environment config, not endpoint logic:
+    - API was running in `Production`, while `DefaultConnection` existed only in `appsettings.Development.json`.
+    - Added `ConnectionStrings:DefaultConnection` to `appsettings.json` so default run path resolves the DB connection consistently.
+  - Final endpoint checks after restart:
+    - `GET /api/comparison?countryA=US&countryB=GB&year=2021` -> returns large populated JSON payload (`countryA`, `countryB`, `sharedSongs`, `uniqueToA`, `uniqueToB`).
+    - `GET /api/comparison/hidden-gems?countryA=US&countryB=GB&year=2021` -> `200` with populated `songName`, `artistName`, `trendScore`, and non-zero `countriesChartingCount`.
+    - `GET /api/comparison?countryA=U1&countryB=GB&year=2021` -> `400` with ISO-format validation message.
+    - `GET /api/comparison?countryA=US&countryB=US&year=2021` -> `400` with same-country validation message.
+    - `GET /api/comparison?countryA=US&countryB=GB&year=1900` -> `400` with supported-year-range validation message.
+
 Country + Preview Endpoint Verification, Failure Analysis, SQL Fix, and Repro Handoff (April 29, 2026)
 - Goal for this task:
   - Verify both Country endpoints against my restored local DB, harden backend behavior, and document exactly what failed and how it was fixed so Leena can apply the same DB-side correction before future backup zips.

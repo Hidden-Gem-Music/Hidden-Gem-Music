@@ -1,5 +1,7 @@
 using Capstone.API.Infrastructure.Interfaces;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.RegularExpressions;
 
 namespace Capstone.API.Controllers
 {
@@ -10,14 +12,22 @@ namespace Capstone.API.Controllers
     [Route("api/comparison")]
     public class ComparisonController : ControllerBase
     {
+        private static readonly Regex CountryCodeRegex = new("^[A-Za-z]{2}$", RegexOptions.Compiled);
+        private const int MinSupportedYear = 1975;
+        private const int MaxSupportedYear = 2021;
+        private const int UnavailableGapStartYear = 2007;
+        private const int UnavailableGapEndYear = 2010;
+
         private readonly IComparisonRepository _repo;
+        private readonly ILogger<ComparisonController> _logger;
 
         /// <summary>
         /// Initializes a new instance of ComparisonController.
         /// </summary>
-        public ComparisonController(IComparisonRepository repo)
+        public ComparisonController(IComparisonRepository repo, ILogger<ComparisonController> logger)
         {
             _repo = repo;
+            _logger = logger;
         }
 
         /// <summary>
@@ -33,11 +43,41 @@ namespace Capstone.API.Controllers
             [FromQuery] string countryB,
             [FromQuery] int year = 2021)
         {
-            var result = await _repo.GetCountryComparisonAsync(countryA.ToUpper(), countryB.ToUpper(), year);
-            if (result == null)
-                return NotFound();
+            if (!TryValidateInputs(countryA, countryB, year, out var validationError))
+                return BadRequest(new { message = validationError });
 
-            return Ok(result);
+            try
+            {
+                var result = await _repo.GetCountryComparisonAsync(
+                    countryA.ToUpperInvariant(),
+                    countryB.ToUpperInvariant(),
+                    year);
+
+                if (result == null)
+                    return NotFound();
+
+                return Ok(result);
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "SQL error getting country comparison for {CountryA} vs {CountryB} year {Year}",
+                    countryA,
+                    countryB,
+                    year);
+                return StatusCode(503, new { message = "Database temporarily unavailable while retrieving country comparison data." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error getting country comparison for {CountryA} vs {CountryB} year {Year}",
+                    countryA,
+                    countryB,
+                    year);
+                return StatusCode(500, new { message = "An unexpected error occurred while retrieving country comparison data." });
+            }
         }
 
         /// <summary>
@@ -53,8 +93,73 @@ namespace Capstone.API.Controllers
             [FromQuery] string countryB,
             [FromQuery] int year = 2021)
         {
-            var result = await _repo.GetComparisonHiddenGemsAsync(countryA.ToUpper(), countryB.ToUpper(), year);
-            return Ok(result);
+            if (!TryValidateInputs(countryA, countryB, year, out var validationError))
+                return BadRequest(new { message = validationError });
+
+            try
+            {
+                var result = await _repo.GetComparisonHiddenGemsAsync(
+                    countryA.ToUpperInvariant(),
+                    countryB.ToUpperInvariant(),
+                    year);
+                return Ok(result);
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "SQL error getting comparison hidden gems for {CountryA} vs {CountryB} year {Year}",
+                    countryA,
+                    countryB,
+                    year);
+                return StatusCode(503, new { message = "Database temporarily unavailable while retrieving comparison hidden gems data." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error getting comparison hidden gems for {CountryA} vs {CountryB} year {Year}",
+                    countryA,
+                    countryB,
+                    year);
+                return StatusCode(500, new { message = "An unexpected error occurred while retrieving comparison hidden gems data." });
+            }
+        }
+
+        private static bool TryValidateInputs(string countryA, string countryB, int year, out string validationError)
+        {
+            if (string.IsNullOrWhiteSpace(countryA) || !CountryCodeRegex.IsMatch(countryA))
+            {
+                validationError = "countryA must be exactly 2 letters (ISO format, e.g. 'US').";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(countryB) || !CountryCodeRegex.IsMatch(countryB))
+            {
+                validationError = "countryB must be exactly 2 letters (ISO format, e.g. 'GB').";
+                return false;
+            }
+
+            if (countryA.Equals(countryB, StringComparison.OrdinalIgnoreCase))
+            {
+                validationError = "countryA and countryB must be different countries.";
+                return false;
+            }
+
+            if (year < MinSupportedYear || year > MaxSupportedYear)
+            {
+                validationError = $"Year must be between {MinSupportedYear} and {MaxSupportedYear}.";
+                return false;
+            }
+
+            if (year >= UnavailableGapStartYear && year <= UnavailableGapEndYear)
+            {
+                validationError = $"Year {year} is unavailable in this dataset window.";
+                return false;
+            }
+
+            validationError = string.Empty;
+            return true;
         }
     }
 }
