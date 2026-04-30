@@ -4,7 +4,7 @@ using Capstone.API.Models.Globe;
 namespace Capstone.API.Infrastructure.Repositories
 {
     /// <summary>
-    /// Retrieves globe summary data by calling sp_GetGlobeSummary on the pre-computed summary tables.
+    /// Retrieves discovery country data by calling sp_GetDiscoverPageInfo on the pre-computed summary tables.
     /// Never touches ChartEntry directly.
     /// </summary>
     public class GlobeRepository : IGlobeRepository
@@ -22,7 +22,7 @@ namespace Capstone.API.Infrastructure.Repositories
         /// <inheritdoc/>
         public async Task<IEnumerable<CountryGlobeSummary>> GetGlobeSummaryAsync(int year)
         {
-            var rows = await _db.GetDataAsync("sp_GetGlobeSummary", new Dictionary<string, object?>
+            var rows = await _db.GetDataAsync("sp_GetDiscoverPageInfo", new Dictionary<string, object?>
             {
                 { "@Year", year }
             });
@@ -34,22 +34,48 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new CountryGlobeSummary
             {
-                CountryCode = AsString(row, "country_code"),
-                CountryName = AsString(row, "country_name"),
-                Lat = AsDouble(row, "lat"),
-                Long = AsDouble(row, "long"),
-                HiddenGemCount = AsInt(row, "hidden_gem_count"),
-                TopAlbumName = AsString(row, "top_album_name")
+                CountryCode = AsStringAny(row, "country_code", "countryCode", "CountryCode", "iso_code"),
+                CountryName = AsStringAny(row, "country_name", "countryName", "CountryName", "full_name"),
+                Region = AsStringAny(row, "region", "Region"),
+                Lat = AsDoubleAny(row, "latitude", "lat", "Latitude", "Lat"),
+                Long = AsDoubleAny(row, "longitude", "long", "Longitude", "Long"),
+                HiddenGemCount = AsIntAny(row, "hidden_gem_count", "hiddenGemCount", "HiddenGemCount"),
+                TopAlbumName = AsStringAny(row, "top_album_name", "topAlbumName", "TopAlbumName"),
+                TopArtistName = AsStringAny(row, "top_artist_name", "topArtistName", "TopArtistName")
             };
         }
 
-        private static string? AsString(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) ? v?.ToString() : null;
+        private static string? AsStringAny(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var v) && v != null)
+                    return v.ToString();
+            }
 
-        private static int AsInt(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) && v != null ? Convert.ToInt32(v) : 0;
+            return null;
+        }
 
-        private static double AsDouble(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) && v != null ? Convert.ToDouble(v) : 0.0;
+        private static int AsIntAny(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var v) && v != null)
+                    return Convert.ToInt32(v);
+            }
+
+            return 0;
+        }
+
+        private static double AsDoubleAny(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var v) && v != null)
+                    return Convert.ToDouble(v);
+            }
+
+            return 0.0;
+        }
     }
 }

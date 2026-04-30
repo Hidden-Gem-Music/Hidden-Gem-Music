@@ -65,10 +65,12 @@ export type UiHiddenGemPage = {
 export type UiCountryGlobeSummary = {
   countryCode: string;
   countryName: string;
+  region: string;
   lat: number;
   long: number;
   hiddenSongs: number;
   topAlbum: string;
+  topArtist: string;
 };
 
 const toNonEmpty = (value: string | null | undefined, fallback: string) => {
@@ -136,8 +138,10 @@ export const mapApiHiddenGemPage = (response: ApiHiddenGemResponse): UiHiddenGem
 export const mapApiCountryGlobeSummary = (item: ApiCountryGlobeSummary): UiCountryGlobeSummary => ({
   countryCode: toNonEmpty(item.countryCode, ""),
   countryName: toNonEmpty(item.countryName, "Unknown Country"),
+  region: toNonEmpty(item.region, "Continent info coming soon."),
   lat: item.lat,
   long: item.long,
   hiddenSongs: item.hiddenGemCount,
   topAlbum: toNonEmpty(item.topAlbumName, "Unknown Album"),
+  topArtist: toNonEmpty(item.topArtistName, "Unknown Artist"),
 });

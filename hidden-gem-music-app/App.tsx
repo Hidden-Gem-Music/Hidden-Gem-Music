@@ -15,6 +15,7 @@ import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { DiscoveryScreen } from "./src/screens/DiscoveryScreen";
 import { HiddenGemsScreen } from "./src/screens/HiddenGemsScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
+import { loadDiscoveryCountries } from "./src/data/discoveryApi";
 import {
   availableYears,
   getCountriesForYear,
@@ -155,6 +156,7 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
+  const [discoveryCountries, setDiscoveryCountries] = useState<Country[]>(countries);
   const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
   const songs = useMemo(() => getSongsForCountryYear(selectedCountryId, selectedYear), [selectedCountryId, selectedYear]);
 
@@ -326,6 +328,15 @@ export default function App() {
     });
   };
 
+  const openCountryFromDiscovery = (countryId: string) => {
+    if (countries.some((country) => country.id === countryId)) {
+      openCountry(countryId);
+      return;
+    }
+
+    setSelectedCountryId(countryId);
+  };
+
   const openHiddenGemsForCountry = (countryId: string, selection?: { songTitle?: string; artist?: string }) => {
     const countrySongs = getSongsForCountryYear(countryId, selectedYear);
     const normalize = (value?: string) => value?.trim().toLowerCase() ?? "";
@@ -364,10 +375,14 @@ export default function App() {
   }, [songs, selectedSongId]);
 
   useEffect(() => {
+    if (currentRoute === "discovery") {
+      return;
+    }
+
     if (!countries.some((country) => country.id === selectedCountryId)) {
       setSelectedCountryId(featuredCountry.id);
     }
-  }, [countries, featuredCountry.id, selectedCountryId]);
+  }, [countries, currentRoute, featuredCountry.id, selectedCountryId]);
 
   useEffect(() => {
     setComparisonIds((current) => current.filter((id) => countries.some((country) => country.id === id)).slice(0, 2));
@@ -399,6 +414,29 @@ export default function App() {
       navigationRef.dispatch(CommonActions.setParams(nextParams));
     }
   }, [currentRoute, navigationReady, navigationRef, selectedCountryId, selectedYear]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    setDiscoveryCountries(countries);
+
+    loadDiscoveryCountries(selectedYear, countries)
+      .then((apiCountries) => {
+        if (isCancelled || apiCountries.length === 0) {
+          return;
+        }
+
+        setDiscoveryCountries(apiCountries);
+      })
+      .catch((error) => {
+        if (!isCancelled) {
+          console.warn("Failed to load discovery countries from API; using local mock countries.", error);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [countries, selectedYear]);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -609,10 +647,10 @@ export default function App() {
               <Stack.Screen name="discovery" options={{ title: "Discovery Globe" }}>
                 {() => (
                   <DiscoveryScreen
-                    countries={countries}
+                    countries={discoveryCountries}
                     selectedCountryId={selectedCountryId}
                     onSelectCountry={(countryId) => setSelectedCountryId(countryId)}
-                    onOpenCountry={openCountry}
+                    onOpenCountry={openCountryFromDiscovery}
                     selectedYear={selectedYear}
                     onChangeYear={(year) => handleYearChange(year, "Discovery Globe")}
                   />

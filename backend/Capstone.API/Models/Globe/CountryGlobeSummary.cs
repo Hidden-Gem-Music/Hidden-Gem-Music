@@ -17,6 +17,11 @@ namespace Capstone.API.Models.Globe
         public string? CountryName { get; set; }
 
         /// <summary>
+        /// Gets or sets the geographic region/continent label for this country.
+        /// </summary>
+        public string? Region { get; set; }
+
+        /// <summary>
         /// Gets or sets the latitude for Mapbox dot placement.
         /// </summary>
         public double Lat { get; set; }
@@ -36,5 +41,11 @@ namespace Capstone.API.Models.Globe
         /// Nullable — may not be available for all countries.
         /// </summary>
         public string? TopAlbumName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the primary artist associated with the top discovery item.
+        /// Nullable — may not be available for all countries.
+        /// </summary>
+        public string? TopArtistName { get; set; }
     }
 }

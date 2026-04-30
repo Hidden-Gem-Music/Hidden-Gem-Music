@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { Country } from "../types/content";
 import { ActionButton } from "../components/ActionButton";
@@ -26,11 +26,13 @@ export function WelcomeScreen({ countries, onNavigate, onSelectCountry, selected
   const previewCountries = countries.slice(0, 5);
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
+  const [isWelcomeModalVisible, setIsWelcomeModalVisible] = useState(true);
 
   const listColumn = (
     <View style={[styles.leftColumn, isStacked ? styles.columnStacked : null]}>
       <DiscoverySidebarPanels
         countries={previewCountries}
+        selectedYear={selectedYear}
         selectedCountryId={previewCountries[0]?.id}
         onSelectCountry={onSelectCountry}
         onOpenCountry={onSelectCountry}
@@ -43,6 +45,7 @@ export function WelcomeScreen({ countries, onNavigate, onSelectCountry, selected
       <GlobePanel
         countries={countries}
         activeCountryId={countries[0].id}
+        selectedYear={selectedYear}
         onSelectCountry={onSelectCountry}
         onOpenCountry={onSelectCountry}
         title="Globe View"
@@ -62,41 +65,45 @@ export function WelcomeScreen({ countries, onNavigate, onSelectCountry, selected
         </View>
       </View>
 
-      <View style={styles.overlay}>
-        <View style={styles.overlayGradientWrap}>
-          <LinearGradient
-            colors={["rgba(22,26,38,0.62)", "rgba(22,26,38,0.36)", "rgba(66,72,101,0.18)"]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={styles.overlayGradient}
-          />
-          <LinearGradient
-            colors={["rgba(117,82,107,0.16)", "rgba(117,82,107,0.05)", "rgba(117,82,107,0.00)"]}
-            start={{ x: 0.0, y: 0.04 }}
-            end={{ x: 1.0, y: 0.72 }}
-            style={styles.overlayGradient}
-          />
-          <LinearGradient
-            colors={["rgba(108,119,142,0.16)", "rgba(108,119,142,0.05)", "rgba(108,119,142,0.00)"]}
-            start={{ x: 1.0, y: 0.0 }}
-            end={{ x: 0.08, y: 0.94 }}
-            style={styles.overlayGradient}
-          />
-        </View>
-        <Panel style={styles.modal}>
-          <Text style={styles.brand}>Hidden Gem Music</Text>
-          <Text style={styles.summary}>
-            Insert somewhat long text about the project and the problem and the solution
-          </Text>
-          <View style={styles.buttonStack}>
-            <ActionButton label="Discovery Globe" size="compact" onPress={() => onNavigate("discovery")} />
-            <ActionButton label="Comparison Mode" size="compact" onPress={() => onNavigate("comparisonSelect")} />
-            <ActionButton label="Hidden Songs" size="compact" onPress={() => onNavigate("hiddenGems")} />
-            <ActionButton label="Dashboard" size="compact" onPress={() => onNavigate("dashboard")} />
-            <ActionButton label="Credits" size="compact" onPress={() => onNavigate("credits")} />
+      {isWelcomeModalVisible ? (
+        <Pressable style={styles.overlay} onPress={() => setIsWelcomeModalVisible(false)}>
+          <View style={styles.overlayGradientWrap}>
+            <LinearGradient
+              colors={["rgba(22,26,38,0.62)", "rgba(22,26,38,0.36)", "rgba(66,72,101,0.18)"]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.overlayGradient}
+            />
+            <LinearGradient
+              colors={["rgba(117,82,107,0.16)", "rgba(117,82,107,0.05)", "rgba(117,82,107,0.00)"]}
+              start={{ x: 0.0, y: 0.04 }}
+              end={{ x: 1.0, y: 0.72 }}
+              style={styles.overlayGradient}
+            />
+            <LinearGradient
+              colors={["rgba(108,119,142,0.16)", "rgba(108,119,142,0.05)", "rgba(108,119,142,0.00)"]}
+              start={{ x: 1.0, y: 0.0 }}
+              end={{ x: 0.08, y: 0.94 }}
+              style={styles.overlayGradient}
+            />
           </View>
-        </Panel>
-      </View>
+          <Pressable style={styles.modalPressTarget} onPress={(event) => event.stopPropagation()}>
+            <Panel style={styles.modal}>
+              <Text style={styles.brand}>Hidden Gem Music</Text>
+              <Text style={styles.summary}>
+                Insert somewhat long text about the project and the problem and the solution
+              </Text>
+              <View style={styles.buttonStack}>
+                <ActionButton label="Discovery Globe" size="compact" onPress={() => onNavigate("discovery")} />
+                <ActionButton label="Comparison Mode" size="compact" onPress={() => onNavigate("comparisonSelect")} />
+                <ActionButton label="Hidden Gems" size="compact" onPress={() => onNavigate("hiddenGems")} />
+                <ActionButton label="Dashboard" size="compact" onPress={() => onNavigate("dashboard")} />
+                <ActionButton label="Credits" size="compact" onPress={() => onNavigate("credits")} />
+              </View>
+            </Panel>
+          </Pressable>
+        </Pressable>
+      ) : null}
     </ScreenScaffold>
   );
 }
@@ -149,6 +156,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     backgroundColor: colors.panel,
     gap: 22,
+  },
+  modalPressTarget: {
+    width: "100%",
+    maxWidth: 760,
   },
   brand: {
     color: colors.textStrong,

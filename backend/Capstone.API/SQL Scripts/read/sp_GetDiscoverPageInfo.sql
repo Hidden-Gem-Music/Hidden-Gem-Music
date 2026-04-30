@@ -7,13 +7,13 @@
 --              on DIM_Song, no album_id FK needed.
 -- Description: One lightweight row per country for globe dots and country list sidebar.
 -- Also feeds Mapbox tileset export. Reads only pre-computed tables.
--- EXEC sp_GetGlobeSummary @Year = 2021;
+-- EXEC sp_GetDiscoverPageInfo @Year = 2021;
 -- =============================================
 
 USE HiddenGemMusic;
 GO
 
-CREATE OR ALTER PROCEDURE sp_GetGlobeSummary
+CREATE OR ALTER PROCEDURE sp_GetDiscoverPageInfo
     @Year INT
 AS
 BEGIN
@@ -26,7 +26,8 @@ BEGIN
         c.longitude,
         c.region,
         ISNULL(hg_agg.hidden_gem_count, 0)  AS hidden_gem_count,
-        top_alb.album_name                  AS top_album_name
+        top_song.album_name                 AS top_album_name,
+        top_song.artist_name                AS top_artist_name
     FROM Country c
     -- hidden gem count per country
     LEFT JOIN (
@@ -37,22 +38,27 @@ BEGIN
         WHERE chart_year = @Year
         GROUP BY country_id
     ) hg_agg ON hg_agg.country_id = c.country_id
-    -- top album: album_name appearing most in this country's hidden gems this year
-    -- simplified from original — album_name is now a plain string on DIM_Song
+    -- top song detail: most frequent charted song in each country/year
+    -- this is independent from hidden gems and reflects overall country popularity
     LEFT JOIN (
         SELECT
-            hg_src.country_id,
+            ce.country_id,
             s_inner.album_name,
+            a_inner.artist_name,
             ROW_NUMBER() OVER (
-                PARTITION BY hg_src.country_id
-                ORDER BY COUNT(*) DESC
+                PARTITION BY ce.country_id
+                ORDER BY COUNT(*) DESC, ce.song_id ASC
             ) AS rn
-        FROM HiddenGems hg_src
-        JOIN DIM_Song s_inner ON s_inner.song_id = hg_src.song_id
-        WHERE hg_src.chart_year    = @Year
-          AND s_inner.album_name   IS NOT NULL
-        GROUP BY hg_src.country_id, s_inner.album_name
-    ) top_alb ON top_alb.country_id = c.country_id AND top_alb.rn = 1
+        FROM ChartEntry ce
+        JOIN DIM_Song s_inner ON s_inner.song_id = ce.song_id
+        LEFT JOIN Bridge_SongArtist bsa_inner
+            ON bsa_inner.song_id = s_inner.song_id
+           AND bsa_inner.artist_order = 1
+        LEFT JOIN DIM_Artist a_inner ON a_inner.artist_id = bsa_inner.artist_id
+        WHERE ce.country_id IS NOT NULL
+          AND YEAR(ce.snapshot_date) = @Year
+        GROUP BY ce.country_id, ce.song_id, s_inner.album_name, a_inner.artist_name
+    ) top_song ON top_song.country_id = c.country_id AND top_song.rn = 1
     WHERE c.latitude  IS NOT NULL
       AND c.longitude IS NOT NULL
     ORDER BY c.full_name;

@@ -17,6 +17,7 @@ type Props = {
   onSelectCountry: (countryId: string) => void;
   onOpenCountry: (countryId: string) => void;
   autoScrollSignal?: number;
+  selectedYear?: number;
 };
 
 type ExpandedPanel = "filters" | "list";
@@ -24,7 +25,7 @@ type ExpandedPanel = "filters" | "list";
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
 const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
 
-export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectCountry, onOpenCountry, autoScrollSignal }: Props) {
+export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectCountry, onOpenCountry, autoScrollSignal, selectedYear }: Props) {
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("filters");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
@@ -183,7 +184,7 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
 
     const y = positionsRef.current[selectedCountryId];
     if (typeof y === "number") {
-      listScrollRef.current?.scrollTo({ y: Math.max(y - 18, 0), animated: true });
+      listScrollRef.current?.scrollTo({ y: Math.max(y - 18, 0), animated: false });
     }
   }, [autoScrollSignal, expandedPanel]);
 
@@ -231,7 +232,9 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
         <Pressable style={styles.sectionHeader} onPress={() => handleSectionPress("filters")}>
           <View style={styles.sectionHeaderCopy}>
             <Text style={styles.sectionTitle}>Pre-Selected Filters</Text>
-            <Text style={styles.sectionHelper}>Lorem ipsum dolor{"\n"}sit amet elit magna nunc vel</Text>
+            <Text style={styles.sectionHelper}>
+              Select optional pre-selected filters here and use 'All Filters' button on the globe for more filters.
+            </Text>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "filters" ? "−" : "+"}</Text>
         </Pressable>
@@ -282,7 +285,9 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
         <Pressable style={styles.sectionHeader} onPress={() => handleSectionPress("list")}>
           <View style={styles.sectionHeaderCopy}>
             <Text style={styles.sectionTitle}>List View</Text>
-            <Text style={styles.sectionHelper}>Lorem ipsum dolor{"\n"}sit amet elit magna nunc vel</Text>
+            <Text style={styles.sectionHelper}>
+              Click a country to view its detail page and hear previews of hidden gem songs.
+            </Text>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "list" ? "−" : "+"}</Text>
         </Pressable>
@@ -308,6 +313,7 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
                 >
                   <CountryCard
                     country={country}
+                    selectedYear={selectedYear}
                     selected={country.id === selectedCountryId}
                     onHover={() => onSelectCountry(country.id)}
                     onTitlePress={() => onOpenCountry(country.id)}
@@ -392,7 +398,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 16,
     textAlign: "right",
-    maxWidth: 176,
+    maxWidth: 220,
   },
   sectionToggle: {
     color: colors.textStrong,

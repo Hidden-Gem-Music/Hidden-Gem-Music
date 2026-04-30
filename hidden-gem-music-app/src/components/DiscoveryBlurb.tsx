@@ -12,8 +12,8 @@ type Props = {
 };
 
 export function DiscoveryBlurb({
-  heading = "This is the Blurb",
-  body = "this is the text inside the blurb that will say things about the page you're on and will guide users through the experience. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+  heading = "Discovery Globe",
+  body = "Welcome to Hidden Gem Music's Discovery Globe. The purpose of this app is to find and display the 'discovery gap' -- What music is most loved in what country, and how far did that country's most loved music spread to be shared and loved by other countries? You can apply either Pre-Selected filters like Your Region vs. The World or The Biggest Crossover Years, or more in All Filters like sorting by region, A-Z or Z-A, and more. Navigate countries using the globe or list. Click a country to view it's detail page and to preview it's hidden songs. Also check out comparison mode to compare two countries, in the navigation above or also at the bottom of each country page.",
 }: Props) {
   return (
     <Panel style={styles.panel}>

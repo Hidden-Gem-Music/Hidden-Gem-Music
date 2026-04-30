@@ -59,8 +59,10 @@ export type ApiHiddenGemResponse = {
 export type ApiCountryGlobeSummary = {
   countryCode: string | null;
   countryName: string | null;
+  region: string | null;
   lat: number;
   long: number;
   hiddenGemCount: number;
   topAlbumName: string | null;
+  topArtistName: string | null;
 };
