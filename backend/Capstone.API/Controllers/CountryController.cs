@@ -8,17 +8,19 @@ namespace Capstone.API.Controllers
     /// </summary>
     [ApiController]
     [Route("api/country")]
-    public class CountryController : ControllerBase
-    {
-        private readonly ICountryRepository _repo;
+public class CountryController : ControllerBase
+{
+    private readonly ICountryRepository _repo;
+    private readonly ILogger<CountryController> _logger;
 
         /// <summary>
         /// Initializes a new instance of CountryController.
         /// </summary>
-        public CountryController(ICountryRepository repo)
-        {
-            _repo = repo;
-        }
+    public CountryController(ICountryRepository repo, ILogger<CountryController> logger)
+    {
+        _repo = repo;
+        _logger = logger;
+    }
 
         /// <summary>
         /// Returns full chart statistics and top song lists for a single country and year.
@@ -26,8 +28,10 @@ namespace Capstone.API.Controllers
         /// </summary>
         /// <param name="code">2-letter ISO country code (e.g. "US", "JP").</param>
         /// <param name="year">The chart year to display. Defaults to 2021.</param>
-        [HttpGet("{code}")]
-        public async Task<IActionResult> GetCountryProfile(string code, [FromQuery] int year = 2021)
+    [HttpGet("{code}")]
+    public async Task<IActionResult> GetCountryProfile(string code, [FromQuery] int year = 2021)
+    {
+        try
         {
             var result = await _repo.GetCountryProfileAsync(code.ToUpper(), year);
             if (result == null)
@@ -35,6 +39,12 @@ namespace Capstone.API.Controllers
 
             return Ok(result);
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting country profile for {CountryCode} year {Year}", code, year);
+            return StatusCode(500, new { message = "An unexpected error occurred while retrieving country profile data." });
+        }
+    }
 
         /// <summary>
         /// Returns the top 5 hidden gems for the teaser widget on the country profile page.
@@ -42,11 +52,19 @@ namespace Capstone.API.Controllers
         /// </summary>
         /// <param name="code">2-letter ISO country code.</param>
         /// <param name="year">The chart year to display. Defaults to 2021.</param>
-        [HttpGet("{code}/hidden-gems/preview")]
-        public async Task<IActionResult> GetHiddenGemsPreview(string code, [FromQuery] int year = 2021)
+    [HttpGet("{code}/hidden-gems/preview")]
+    public async Task<IActionResult> GetHiddenGemsPreview(string code, [FromQuery] int year = 2021)
+    {
+        try
         {
             var result = await _repo.GetHiddenGemsPreviewAsync(code.ToUpper(), year);
             return Ok(result);
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting hidden gems preview for {CountryCode} year {Year}", code, year);
+            return StatusCode(500, new { message = "An unexpected error occurred while retrieving hidden gems preview data." });
+        }
     }
+}
 }

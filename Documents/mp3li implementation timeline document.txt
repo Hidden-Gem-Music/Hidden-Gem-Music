@@ -1,6 +1,30 @@
-mp3li's Feature Implementation Timeline for Hidden Gem Music
+mp3li implementation timeline document
 
-Updated: April 26, 2026
+Updated: April 29, 2026
+
+Backend Database Connection + Endpoint Validation + Mapper Alignment (April 29, 2026)
+- Local SQL Server database restore was validated through SSMS in Windows 11 on Parallels, and API local hosting was confirmed in macOS Docker setup context.
+- API startup was confirmed working on local dev host:
+  - `dotnet run --project backend/Capstone.API`
+  - `Now listening on: http://localhost:5140`
+- Branch sync work was completed so current feature branch included latest `origin/main` updates:
+  - Local main was updated from origin
+  - `testing-endpoints` was merged forward with latest main
+  - Local uncommitted backend changes were preserved through stash/restore flow
+- Connection string in backend development settings was updated to active working SQL host credentials:
+  - `Server=192.168.111.9,1433;Database=HiddenGemMusic;User Id=sa;Password=Capstone123!;TrustServerCertificate=True;`
+- Endpoint validation exposed a schema-alias mismatch between stored procedure outputs and backend mapping keys:
+  - Stored procedures currently return fields such as `iso_code`, `full_name`, and `song_title`
+  - Existing mapper expected `country_code`, `country_name`, and `song_name`
+- Country repository mapping was updated to support both naming patterns for compatibility with current stored procedure outputs:
+  - Country fields now resolve across old/new alias variants
+  - Song name fields now resolve across `song_name` and `song_title`
+  - Hidden gems country count mapping now supports both `countries_charting_count` and `countries_charting`
+- Build verification succeeded after mapper updates:
+  - `dotnet build backend/Capstone.API` completed with 0 errors
+- Endpoint re-test confirmed successful populated response for country profile:
+  - `http://localhost:5140/api/country/US?year=2021`
+  - `countryCode`, `countryName`, and `songName` now return populated values instead of null
 
 All Web Screens Completed with Placeholder Data (April 26, 2026)
 - All planned web UI screens are now completed in a styled and functional placeholder-data state:
