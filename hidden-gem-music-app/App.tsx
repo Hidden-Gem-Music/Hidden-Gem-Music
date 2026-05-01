@@ -2,7 +2,7 @@ import { CommonActions, NavigationContainer, useNavigationContainerRef } from "@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { Component, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Component, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader } from "./src/components/AppHeader";
@@ -163,7 +163,10 @@ export default function App() {
   const songs = useMemo(() => getSongsForCountryYear(selectedCountryId, selectedYear), [selectedCountryId, selectedYear]);
 
   const selectedCountry = useMemo(
-    () => discoveryCountries.find((country) => country.id === selectedCountryId) ?? getCountryByYear(selectedCountryId, selectedYear) ?? featuredCountry,
+    () =>
+      discoveryCountries.find((country) => country.id === selectedCountryId || country.code === selectedCountryId) ??
+      getCountryByYear(selectedCountryId, selectedYear) ??
+      featuredCountry,
     [discoveryCountries, selectedCountryId, selectedYear, featuredCountry]
   );
 
@@ -403,10 +406,15 @@ export default function App() {
       return;
     }
 
-    if (!countries.some((country) => country.id === selectedCountryId)) {
+    const existsInStatic = countries.some((country) => country.id === selectedCountryId || country.code === selectedCountryId);
+    const existsInDiscovery = discoveryCountries.some(
+      (country) => country.id === selectedCountryId || country.code === selectedCountryId
+    );
+
+    if (!existsInStatic && !existsInDiscovery) {
       setSelectedCountryId(featuredCountry.id);
     }
-  }, [countries, currentRoute, featuredCountry.id, selectedCountryId]);
+  }, [countries, currentRoute, discoveryCountries, featuredCountry.id, selectedCountryId]);
 
   useEffect(() => {
     setComparisonIds((current) => current.filter((id) => discoveryCountries.some((country) => country.id === id)).slice(0, 2));
@@ -640,6 +648,10 @@ export default function App() {
     }, 500);
   };
 
+  const handleHiddenGemsLoading = useCallback((loading: boolean) => {
+    setLoadingMessage(loading ? "Loading hidden gems..." : null);
+  }, []);
+
   if (!fontsLoaded) {
     return <View style={styles.appShell} />;
   }
@@ -720,7 +732,7 @@ export default function App() {
                 {() => (
                   <HiddenGemsScreen
                     country={selectedCountry}
-                    countries={countries}
+                    countries={discoveryCountries}
                     songs={songs}
                     selectedSongId={selectedSongId}
                     selectedSong={selectedSong}
@@ -728,6 +740,7 @@ export default function App() {
                     onSelectCountry={(countryId) => setSelectedCountryId(countryId)}
                     selectedYear={selectedYear}
                     onChangeYear={(year) => handleYearChange(year, `${selectedCountry.name} hidden gems`)}
+                    onSetLoading={handleHiddenGemsLoading}
                   />
                 )}
               </Stack.Screen>

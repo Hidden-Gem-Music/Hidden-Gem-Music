@@ -47,23 +47,57 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new HiddenGem
             {
-                SongName = AsString(row, "song_name"),
-                AlbumName = AsString(row, "album_name"),
-                ArtistName = AsString(row, "artist_name"),
-                Genre = AsString(row, "genre"),
-                PreviewUrl = AsString(row, "preview_url"),
-                TrendScore = AsDecimal(row, "trend_score"),
-                CountriesChartingCount = AsInt(row, "countries_charting_count")
+                // Keep current preferred keys first, but accept star-schema aliases when present.
+                SongName = AsStringAny(row, "song_name", "song_title", "title"),
+                AlbumName = AsStringAny(row, "album_name"),
+                ArtistName = AsStringAny(row, "artist_name"),
+                Genre = AsStringAny(row, "genre"),
+                PreviewUrl = AsStringAny(row, "preview_url", "spotify_id"),
+                TrendScore = AsDecimalAny(row, "trend_score"),
+                CountriesChartingCount = AsIntAny(row, "countries_charting_count", "countries_charting", "country_count")
             };
         }
 
         private static string? AsString(IDictionary<string, object?> row, string key)
             => row.TryGetValue(key, out var v) ? v?.ToString() : null;
 
+        private static string? AsStringAny(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var v) && v != null)
+                    return v.ToString();
+            }
+
+            return null;
+        }
+
         private static int AsInt(IDictionary<string, object?> row, string key)
             => row.TryGetValue(key, out var v) && v != null ? Convert.ToInt32(v) : 0;
 
+        private static int AsIntAny(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var v) && v != null)
+                    return Convert.ToInt32(v);
+            }
+
+            return 0;
+        }
+
         private static decimal AsDecimal(IDictionary<string, object?> row, string key)
             => row.TryGetValue(key, out var v) && v != null ? Convert.ToDecimal(v) : 0m;
+
+        private static decimal AsDecimalAny(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var v) && v != null)
+                    return Convert.ToDecimal(v);
+            }
+
+            return 0m;
+        }
     }
 }

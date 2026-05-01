@@ -2,6 +2,60 @@ mp3li implementation timeline document
 
 Updated: April 30, 2026
 
+Hidden Gems Web Screen Data Implementation + Leena PR Reconciliation (Issue for Hidden Gems) (May 1, 2026)
+- Completed Hidden Gems web-screen data implementation scope with Genre/Language data-content expansion intentionally deferred.
+- Completed final pass after user-side runtime checks (navigation + refresh + screen interactions).
+
+Leena PR review and how it was used (respectful reconciliation):
+- Reviewed unmerged branch: `23-backend-hidden-gems-endpoint`.
+- Goal of this pass was to acknowledge and incorporate usable work while keeping implementation consistent with the established screen patterns already used across Discovery/Country/Comparison.
+- Work taken into account from Leena branch:
+  - Hidden Gems backend mapper/key direction and star-schema alias realities were reviewed and cross-checked.
+  - Years endpoint/SP additions in that branch were evaluated (`/api/globe/years`, `sp_GetAvailableYears`) but years flow was intentionally kept consistent with current app pattern (`/api/metadata/years`) to avoid duplicate route responsibility.
+- What was changed from Leena branch direction and why:
+  - Kept canonical years flow on existing metadata endpoint for consistency with current app architecture.
+  - Hidden Gems repository mapping was made robust to alias variance so data does not break when SP column aliases differ by environment.
+  - Hidden Gems frontend was implemented using the same interaction/lifecycle style already used on other screens (loading overlay behavior, dropdown patterns, popup patterns, and stable state transitions).
+
+Data implementation completed for Hidden Gems screen:
+- Song Name shown from live Hidden Gems endpoint data.
+- Artist Name shown from live Hidden Gems endpoint data.
+- Album Name shown from live Hidden Gems endpoint data.
+- Genre/Language broader data-content expansion deferred as intended by issue scope.
+- Release Date remained non-blocking/conditional and was not overbuilt beyond available current data path.
+- Album art data pass deferred as intended by issue scope.
+
+UI implementation completed:
+- Blurb text updated to final scope-aligned instructional copy and corrected hidden-gems definition.
+- Stat square numeric text adjusted to cleanly support 4-digit values.
+- Select Year dropdown now displays selected year instead of static placeholder label.
+- Select Country dropdown now displays selected country instead of static placeholder label.
+- Added Filters button and popup support for Hidden Gems:
+  - button styling aligned to existing Discovery visual language (scaled to fit Hidden Gems layout)
+  - popup includes Genre/Language placeholder lines for upcoming data expansion
+- Previous/Skip controls updated so Skip does not visually read as a second Play control.
+- Pagination added to Hidden Gems list panel (page navigation controls inside the same secondary panel background).
+- Reusable explicit-song indicator component added and applied as proof-of-use on first row for future explicit-data/SP integration.
+- Album-art square placement was tuned and then restored to preferred centered alignment after UX review iteration.
+
+Stability and runtime hardening completed:
+- Added Hidden Gems screen loading hookup to shared app loading overlay pattern.
+- Fixed loading-overlay loop/glitch by stabilizing callback identity and fetch lifecycle behavior.
+- Added defensive handling for malformed/empty API response shapes.
+- Hardened country-option handling and selection transitions to reduce crash paths.
+- Addressed immediate-crash regressions encountered during iterative UI updates with follow-up state/fetch cleanup.
+
+Files updated in this Hidden Gems delivery:
+- `hidden-gem-music-app/src/screens/HiddenGemsScreen.web.tsx`
+- `hidden-gem-music-app/src/data/countryApi.ts`
+- `hidden-gem-music-app/App.tsx`
+- `backend/Capstone.API/Infrastructure/Repositories/HiddenGemsRepository.cs`
+
+Verification:
+- `cd hidden-gem-music-app && npx tsc --noEmit` passed after final Hidden Gems changes.
+- `dotnet build backend/Capstone.API/Capstone.API.csproj` passed during backend mapping updates.
+- User-side runtime verification completed for screen behavior and navigation after final adjustments.
+
 Country Comparison Mode Page Web Screen Data Implementation (Issue 100) (May 1, 2026)
 - Completed the Country Comparison Mode web-screen data implementation scope and interaction polish for this issue.
 

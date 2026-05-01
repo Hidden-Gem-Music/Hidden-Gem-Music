@@ -1,4 +1,4 @@
-import type { ApiCountryProfile, ApiCountrySongsPage, ApiHiddenGem } from "../types/api";
+import type { ApiCountryProfile, ApiCountrySongsPage, ApiHiddenGem, ApiHiddenGemResponse } from "../types/api";
 
 const DEFAULT_API_BASE_URL = "http://localhost:5140";
 
@@ -27,6 +27,19 @@ export async function loadCountryHiddenGemsPreview(countryCode: string, year: nu
   const endpoint = `${baseUrl}/api/country/${countryCode}/hidden-gems/preview?year=${year}&limit=${limit}`;
   const response = await fetch(endpoint);
   return parseJsonResponse<ApiHiddenGem[]>(response, endpoint);
+}
+
+export async function loadHiddenGemsPage(
+  countryCode: string,
+  year: number,
+  minCountries = 2,
+  page = 1,
+  pageSize = 25
+): Promise<ApiHiddenGemResponse> {
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+  const endpoint = `${baseUrl}/api/hidden-gems/${countryCode}?year=${year}&minCountries=${minCountries}&page=${page}&pageSize=${pageSize}`;
+  const response = await fetch(endpoint);
+  return parseJsonResponse<ApiHiddenGemResponse>(response, endpoint);
 }
 
 export async function loadAvailableYears(): Promise<number[]> {
