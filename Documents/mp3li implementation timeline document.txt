@@ -815,3 +815,44 @@ Current Follow-up Work
 - Replace the placeholder welcome-screen summary copy with final project language.
 - Continue screen-by-screen visual alignment against the finalized mockups, especially for secondary screens.
 - Recheck narrow-width web behavior after the remaining feature screens fully adopt the updated header and filter-row patterns.
+
+Country Comparison View Page Web Screen Data Implementation (Issue 98) (April 30, 2026)
+- Comparison View was upgraded from mock-data behavior into API-backed country-detail parity on both panes.
+- Each pane now independently loads backend-backed country data using the same implementation pattern used on Country Page:
+  - `GET /api/metadata/years` for year options
+  - `GET /api/country/{code}?year={year}` for country profile stats
+  - `GET /api/country/{code}/hidden-gems/preview?year={year}&limit=13` for hidden-gems carousel preview
+  - `GET /api/country/{code}/songs?year={year}&listType=unique&page={page}&pageSize=50`
+  - `GET /api/country/{code}/songs?year={year}&listType=shared&page={page}&pageSize=50`
+- API mapper parity was added for comparison-pane data transformation:
+  - `mapApiCountryProfile`
+  - `mapApiHiddenGem`
+  - `mapApiSong`
+- Pane-level request lifecycle logic now mirrors Country Page behavior:
+  - reset lists / paging state on country or year change
+  - initial loading states for profile, preview, unique list, shared list
+  - guarded stale-request handling per pane via request id tracking
+  - graceful fallback to existing generated profile values when profile API data is unavailable
+- Both pane song columns now support paged load-more behavior tied to scroll position:
+  - unique list (`Most Loved in This Country`)
+  - shared list (`Loved Here and Elsewhere`)
+- Comparison-pane summary generation now follows the same implementation style used on Country Page:
+  - dynamic general-description text using loaded artists and songs when available
+  - loading-safe fallback copy while data is still resolving
+- Favorite Artists section on Comparison View was aligned to current implementation expectations:
+  - artist cards are sourced from API-derived top unique/shared songs
+  - cards now include artist name plus associated song title
+  - long artist / song text is clamped to 3 lines with ellipsis
+  - horizontal scrolling was enabled with persistent visible horizontal scrollbar treatment
+  - this behavior was implemented for Comparison View only (not Country Page)
+- Comparison-pane year dropdown behavior was corrected to be pane-local:
+  - changing year on left pane affects only left pane
+  - changing year on right pane affects only right pane
+  - shared-year coupling was removed for the comparison results screen
+- Stored procedure and SQL contract note:
+  - no new stored procedure edits were required in this round
+  - existing Country Page SP work was reused (`sp_GetAvailableYears`, `sp_GetCountryHiddenGemsPreview`, `sp_GetCountrySongsPaged`) through current API endpoints
+- Main implementation file updated:
+  - `hidden-gem-music-app/src/screens/ComparisonResultsScreen.web.tsx`
+- Verification completed:
+  - `npx tsc --noEmit` passed after changes
