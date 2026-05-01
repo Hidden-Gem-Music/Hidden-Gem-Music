@@ -856,3 +856,41 @@ Country Comparison View Page Web Screen Data Implementation (Issue 98) (April 30
   - `hidden-gem-music-app/src/screens/ComparisonResultsScreen.web.tsx`
 - Verification completed:
   - `npx tsc --noEmit` passed after changes
+
+Country Comparison Mode Page Web Screen Data Implementation (Issue 100) (May 1, 2026)
+- Completed the Country Comparison Mode web-screen data implementation scope and interaction polish for this issue.
+
+Implemented data behavior:
+- Country list behavior now requires song availability in app data for the currently selected year (not just hidden-gem availability).
+- Comparison Mode country source wiring was updated to use the broader discovery-backed country source in app state for selection/list availability.
+- Selected comparison-country mapping and available-country handoff were aligned with that same source so selection and result screens stay consistent.
+
+Implemented UI/interaction updates:
+- Select Year dropdown now uses strict available years from metadata API (`loadAvailableYears`) instead of static mock year options.
+- Select Year dropdown now closes when clicking outside of the dropdown.
+- Comparison blurb copy was updated to final issue-aligned usage guidance text.
+- Region filter options were corrected to include the intended continent set while removing non-user-facing placeholders:
+  - removed `Continent info coming soon.`
+  - removed `Other`
+- Language and Genre filter chips were preserved visually and functionally while broader genre/language dataset details remain deferred.
+- Unknown values were removed from Language and Genre filter option lists.
+- Filter changes now auto-clear current selected countries to avoid stale invalid selections under new filter states.
+- Added a `Clear Selections` control next to the selected-count summary in the Select Countries header:
+  - uses matching filter-chip style language
+  - semitransparent treatment in default/hover/press states
+  - only visible when the Select Countries panel is expanded
+- Country-selection helper text remains concise (`x out of 2 countries selected`) after follow-up cleanup.
+
+Filter behavior updates:
+- Region, Language, Genre, and Popularity filters all affect visible country results.
+- Popularity filters (`Biggest Hits`, `Fast Rising Songs`, `All Songs`) now apply concrete list behavior in the comparison-mode country list.
+
+Navigation/task integrity:
+- Existing comparison-mode route flow and button wiring were preserved while implementing these data/filter changes.
+
+Files updated in this issue implementation:
+- `hidden-gem-music-app/src/screens/ComparisonSelectScreen.web.tsx`
+- `hidden-gem-music-app/App.tsx`
+
+Verification:
+- `cd hidden-gem-music-app && npx tsc --noEmit` passed after the final set of issue-100 changes.

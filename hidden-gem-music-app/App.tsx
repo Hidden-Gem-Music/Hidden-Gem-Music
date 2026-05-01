@@ -175,9 +175,9 @@ export default function App() {
   const selectedComparisonCountries = useMemo(
     () =>
       comparisonIds
-        .map((countryId) => countries.find((country) => country.id === countryId))
+        .map((countryId) => discoveryCountries.find((country) => country.id === countryId))
         .filter((country): country is Country => Boolean(country)),
-    [comparisonIds, countries]
+    [comparisonIds, discoveryCountries]
   );
 
   const dashboardMetrics = useMemo(() => getDashboardMetrics(selectedYear, countries), [countries, selectedYear]);
@@ -409,8 +409,8 @@ export default function App() {
   }, [countries, currentRoute, featuredCountry.id, selectedCountryId]);
 
   useEffect(() => {
-    setComparisonIds((current) => current.filter((id) => countries.some((country) => country.id === id)).slice(0, 2));
-  }, [countries]);
+    setComparisonIds((current) => current.filter((id) => discoveryCountries.some((country) => country.id === id)).slice(0, 2));
+  }, [discoveryCountries]);
 
   useEffect(() => {
     return () => {
@@ -735,7 +735,7 @@ export default function App() {
               <Stack.Screen name="comparisonSelect" options={{ title: "Comparison Mode" }}>
                 {() => (
                   <ComparisonSelectScreen
-                    countries={countries}
+                    countries={discoveryCountries}
                     selectedCountryIds={comparisonIds}
                     onToggleCountry={(countryId) => {
                       setComparisonIds((current) => {
@@ -748,6 +748,7 @@ export default function App() {
                         return [...current, countryId];
                       });
                     }}
+                    onClearSelections={() => setComparisonIds([])}
                     onDone={() => navigateToRoute("comparisonResults")}
                     selectedYear={selectedYear}
                     onChangeYear={(year) => handleYearChange(year, "Comparison Mode")}
@@ -759,7 +760,7 @@ export default function App() {
                 {() => (
                   <ComparisonResultsScreen
                     countries={selectedComparisonCountries}
-                    availableCountries={countries}
+                    availableCountries={discoveryCountries}
                     selectedYear={selectedYear}
                     onBack={() => navigateToRoute("comparisonSelect")}
                     onChangeYear={(year) => handleYearChange(year, "Comparison View")}
