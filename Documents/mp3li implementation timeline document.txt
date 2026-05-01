@@ -1,6 +1,250 @@
 mp3li implementation timeline document
 
-Updated: April 29, 2026
+Updated: April 30, 2026
+
+Country Comparison Mode Page Web Screen Data Implementation (Issue 100) (May 1, 2026)
+- Completed the Country Comparison Mode web-screen data implementation scope and interaction polish for this issue.
+
+Implemented data behavior:
+- Country list behavior now requires song availability in app data for the currently selected year (not just hidden-gem availability).
+- Comparison Mode country source wiring was updated to use the broader discovery-backed country source in app state for selection/list availability.
+- Selected comparison-country mapping and available-country handoff were aligned with that same source so selection and result screens stay consistent.
+
+Implemented UI/interaction updates:
+- Select Year dropdown now uses strict available years from metadata API (`loadAvailableYears`) instead of static mock year options.
+- Select Year dropdown now closes when clicking outside of the dropdown.
+- Comparison blurb copy was updated to final issue-aligned usage guidance text.
+- Region filter options were corrected to include the intended continent set while removing non-user-facing placeholders:
+  - removed `Continent info coming soon.`
+  - removed `Other`
+- Language and Genre filter chips were preserved visually and functionally while broader genre/language dataset details remain deferred.
+- Unknown values were removed from Language and Genre filter option lists.
+- Filter changes now auto-clear current selected countries to avoid stale invalid selections under new filter states.
+- Added a `Clear Selections` control next to the selected-count summary in the Select Countries header:
+  - uses matching filter-chip style language
+  - semitransparent treatment in default/hover/press states
+  - only visible when the Select Countries panel is expanded
+- Country-selection helper text remains concise (`x out of 2 countries selected`) after follow-up cleanup.
+
+Filter behavior updates:
+- Region, Language, Genre, and Popularity filters all affect visible country results.
+- Popularity filters (`Biggest Hits`, `Fast Rising Songs`, `All Songs`) now apply concrete list behavior in the comparison-mode country list.
+
+Navigation/task integrity:
+- Existing comparison-mode route flow and button wiring were preserved while implementing these data/filter changes.
+
+Files updated in this issue implementation:
+- `hidden-gem-music-app/src/screens/ComparisonSelectScreen.web.tsx`
+- `hidden-gem-music-app/App.tsx`
+
+Verification:
+- `cd hidden-gem-music-app && npx tsc --noEmit` passed after the final set of issue-100 changes.
+
+Country Comparison View Page Web Screen Data Implementation (Issue 98) (April 30, 2026)
+- Comparison View was upgraded from mock-data behavior into API-backed country-detail parity on both panes.
+- Each pane now independently loads backend-backed country data using the same implementation pattern used on Country Page:
+  - `GET /api/metadata/years` for year options
+  - `GET /api/country/{code}?year={year}` for country profile stats
+  - `GET /api/country/{code}/hidden-gems/preview?year={year}&limit=13` for hidden-gems carousel preview
+  - `GET /api/country/{code}/songs?year={year}&listType=unique&page={page}&pageSize=50`
+  - `GET /api/country/{code}/songs?year={year}&listType=shared&page={page}&pageSize=50`
+- API mapper parity was added for comparison-pane data transformation:
+  - `mapApiCountryProfile`
+  - `mapApiHiddenGem`
+  - `mapApiSong`
+- Pane-level request lifecycle logic now mirrors Country Page behavior:
+  - reset lists / paging state on country or year change
+  - initial loading states for profile, preview, unique list, shared list
+  - guarded stale-request handling per pane via request id tracking
+  - graceful fallback to existing generated profile values when profile API data is unavailable
+- Both pane song columns now support paged load-more behavior tied to scroll position:
+  - unique list (`Most Loved in This Country`)
+  - shared list (`Loved Here and Elsewhere`)
+- Comparison-pane summary generation now follows the same implementation style used on Country Page:
+  - dynamic general-description text using loaded artists and songs when available
+  - loading-safe fallback copy while data is still resolving
+- Favorite Artists section on Comparison View was aligned to current implementation expectations:
+  - artist cards are sourced from API-derived top unique/shared songs
+  - cards now include artist name plus associated song title
+  - long artist / song text is clamped to 3 lines with ellipsis
+  - horizontal scrolling was enabled with persistent visible horizontal scrollbar treatment
+  - this behavior was implemented for Comparison View only (not Country Page)
+- Comparison-pane year dropdown behavior was corrected to be pane-local:
+  - changing year on left pane affects only left pane
+  - changing year on right pane affects only right pane
+  - shared-year coupling was removed for the comparison results screen
+- Stored procedure and SQL contract note:
+  - no new stored procedure edits were required in this round
+  - existing Country Page SP work was reused (`sp_GetAvailableYears`, `sp_GetCountryHiddenGemsPreview`, `sp_GetCountrySongsPaged`) through current API endpoints
+- Main implementation file updated:
+  - `hidden-gem-music-app/src/screens/ComparisonResultsScreen.web.tsx`
+- Verification completed:
+  - `npx tsc --noEmit` passed after changes
+
+Country Detail Web Screen Data Implementation + Discovery Timeline Year Real-Data Alignment (May 1, 2026)
+- Goal for this task:
+  - Replace Country Detail placeholder wiring with live API data (except intentional genre/language deferrals), add list pagination/infinite loading for large song lists, align dropdown/year behavior with real dataset years, and complete Discovery timeline slider year-gap behavior using real years only.
+
+- Scope completed:
+  - Country Detail Web Screen:
+    - Header/dropdown/stat/list/hidden-gems preview/data-loading behavior and endpoint wiring.
+  - Discovery Globe screen:
+    - Timeline slider year source + gap rendering/drag behavior aligned to real available years.
+  - Deferred-by-design areas retained:
+    - Genre + Language data content sections (data not yet available).
+
+- Backend/API implementation completed:
+  - New metadata years API:
+    - Added `GET /api/metadata/years`
+    - Files:
+      - `backend/Capstone.API/Controllers/MetadataController.cs`
+      - `backend/Capstone.API/Infrastructure/Interfaces/IMetadataRepository.cs`
+      - `backend/Capstone.API/Infrastructure/Repositories/MetadataRepository.cs`
+      - `backend/Capstone.API/Program.cs` (DI registration)
+  - Country hidden gems preview endpoint extended:
+    - Existing route now supports `limit` query parameter:
+      - `GET /api/country/{code}/hidden-gems/preview?year={year}&limit={n}`
+    - Files:
+      - `backend/Capstone.API/Controllers/CountryController.cs`
+      - `backend/Capstone.API/Infrastructure/Interfaces/ICountryRepository.cs`
+      - `backend/Capstone.API/Infrastructure/Repositories/CountryRepository.cs`
+      - `backend/Capstone.API/SQL Scripts/read/sp_GetCountryHiddenGemsPreview.sql`
+  - Country year validation contract updated:
+    - Country endpoints now validate `year` against actual DB years from `sp_GetAvailableYears` (instead of legacy hardcoded year window).
+    - File:
+      - `backend/Capstone.API/Controllers/CountryController.cs`
+  - New paged songs endpoint for Country list panels:
+    - Added `GET /api/country/{code}/songs?year={year}&listType={shared|unique}&page={n}&pageSize={n}`
+    - Supports infinite-scroll style front-end loading.
+    - Files:
+      - `backend/Capstone.API/Models/Country/CountrySongsPage.cs`
+      - `backend/Capstone.API/Controllers/CountryController.cs`
+      - `backend/Capstone.API/Infrastructure/Interfaces/ICountryRepository.cs`
+      - `backend/Capstone.API/Infrastructure/Repositories/CountryRepository.cs`
+      - `backend/Capstone.API/SQL Scripts/read/sp_GetCountrySongsPaged.sql`
+
+- SQL procedures added/changed:
+  - Added:
+    - `backend/Capstone.API/SQL Scripts/read/sp_GetAvailableYears.sql`
+    - `backend/Capstone.API/SQL Scripts/read/sp_GetCountrySongsPaged.sql`
+  - Updated:
+    - `backend/Capstone.API/SQL Scripts/read/sp_GetCountryHiddenGemsPreview.sql`
+      - Added `@Limit INT = 5`
+      - `TOP 5` -> `TOP (@Limit)`
+
+- Exact DB-side commands run/validated in this workflow:
+  - `EXEC sp_GetAvailableYears;`
+    - Returned (current restored dataset): `2017, 2018, 2019, 2020, 2021, 2023, 2024, 2025`
+    - Confirms gap year `2022` missing.
+  - `EXEC sp_GetCountryHiddenGemsPreview @CountryCode='US', @Year=2021, @Limit=13;`
+    - Returned 13 rows sorted by trend score.
+  - `EXEC sp_GetCountrySongsPaged @CountryCode='US', @Year=2023, @ListType='unique', @Offset=0, @PageSize=50;`
+  - `EXEC sp_GetCountrySongsPaged @CountryCode='US', @Year=2023, @ListType='shared', @Offset=0, @PageSize=50;`
+
+- Browser/API checks used during verification:
+  - `GET /api/metadata/years`
+  - `GET /api/country/US?year=2023`
+  - `GET /api/country/US/hidden-gems/preview?year=2023&limit=13`
+  - `GET /api/country/US/songs?year=2023&listType=unique&page=1&pageSize=50`
+  - `GET /api/country/US/songs?year=2023&listType=shared&page=1&pageSize=50`
+
+- Frontend implementation completed (Country Detail):
+  - New Country API client:
+    - `hidden-gem-music-app/src/data/countryApi.ts`
+      - loads country profile, hidden-gems preview, metadata years, and paged country songs.
+  - Country screen moved from placeholder-only behavior to live data for implemented sections:
+    - `hidden-gem-music-app/src/screens/CountryScreen.web.tsx`
+  - Country dropdown:
+    - Uses full country data source aligned with Discovery country set.
+    - Click-outside closes dropdown.
+    - Loading popup behavior when changing country.
+  - Year dropdown (Country screen):
+    - Uses only real API years from `/api/metadata/years`.
+    - Click-outside closes dropdown.
+  - Stat square mappings:
+    - Songs in This View -> `totalCharted`
+    - Loved in This Country -> `uniqueCount`
+    - Loved Here and Elsewhere (count) -> `sharedCount`
+    - Loved Here and Elsewhere (%) -> `overlapPct`
+  - Favorite Artists section:
+    - Uses unique-songs artists first; backfills from shared-songs artists if needed.
+    - During initial load, shows animated `Loading...` states instead of placeholder names.
+  - Hidden Gems preview section:
+    - Uses top 13 from country preview endpoint.
+    - During load, displays animated `Loading...` song/artist text instead of placeholder values.
+  - Country list panels:
+    - `Most Loved in This Country` and `Loved Here and Elsewhere` now use paged API endpoint and auto-fetch next pages on near-bottom scroll.
+    - Initial and incremental loading states added.
+  - Language section title updated:
+    - `Country Name's Language(s) in Music`
+  - General Description sentence rewired to requested template style:
+    - Uses current genres + loaded artists/songs.
+    - Uses animated `Loading...` slots while required data is still loading.
+  - Removed placeholder fallbacks for implemented (non-deferred) sections:
+    - Replaced with explicit loading-state behavior to avoid fake content during fetch.
+
+- Frontend implementation completed (Discovery timeline):
+  - Files:
+    - `hidden-gem-music-app/src/components/YearSlider.tsx`
+    - `hidden-gem-music-app/src/screens/DiscoveryScreen.web.tsx`
+    - `hidden-gem-music-app/App.tsx`
+  - Timeline slider now:
+    - Uses API-provided available years.
+    - Computes real missing-year gap from the dataset year list.
+    - Renders gap as one discrete year-slot width.
+    - Prevents thumb from landing in gap; dragging jumps to either valid side.
+
+- Issues encountered and fixes applied:
+  - Hidden Gems page endpoint had mapper key mismatches (`song_title` vs `song_name`, `countries_charting` vs `countries_charting_count`):
+    - Confirmed this affected `/api/hidden-gems/{code}` and not country preview endpoint.
+    - Country-detail preview path remained correct.
+  - Country endpoints originally rejected valid newer years due to old hardcoded validator:
+    - Fixed by year validation against `sp_GetAvailableYears`.
+  - Country list panels still showed placeholder rows after initial integration:
+    - Root cause: combined failure path and fallback generation.
+    - Fixed by independent data fetch handling + no placeholder fallback for those sections.
+  - Discovery country label switched to backend full name (e.g., `United States`) when seed label expected (`USA`):
+    - Fixed merge behavior to preserve existing seed display name when available.
+
+- UI polish changes completed during final pass:
+  - Dropdown click-outside close behavior for Country and Year selectors.
+  - `%` symbol reduced in size for overlap stat square.
+  - Number vertical alignment adjusted in first two stat squares.
+  - Stat square loading text reduced in size while loading.
+
+- Files added in this delivery:
+  - `backend/Capstone.API/Controllers/MetadataController.cs`
+  - `backend/Capstone.API/Infrastructure/Interfaces/IMetadataRepository.cs`
+  - `backend/Capstone.API/Infrastructure/Repositories/MetadataRepository.cs`
+  - `backend/Capstone.API/Models/Country/CountrySongsPage.cs`
+  - `backend/Capstone.API/SQL Scripts/read/sp_GetAvailableYears.sql`
+  - `backend/Capstone.API/SQL Scripts/read/sp_GetCountrySongsPaged.sql`
+  - `hidden-gem-music-app/src/data/countryApi.ts`
+
+- Existing files updated in this delivery:
+  - `backend/Capstone.API/Controllers/CountryController.cs`
+  - `backend/Capstone.API/Infrastructure/Interfaces/ICountryRepository.cs`
+  - `backend/Capstone.API/Infrastructure/Repositories/CountryRepository.cs`
+  - `backend/Capstone.API/Program.cs`
+  - `backend/Capstone.API/SQL Scripts/read/sp_GetCountryHiddenGemsPreview.sql`
+  - `hidden-gem-music-app/App.tsx`
+  - `hidden-gem-music-app/src/components/YearSlider.tsx`
+  - `hidden-gem-music-app/src/screens/DiscoveryScreen.web.tsx`
+  - `hidden-gem-music-app/src/screens/CountryScreen.web.tsx`
+  - `hidden-gem-music-app/src/data/discoveryApi.ts`
+  - `hidden-gem-music-app/src/types/api.ts`
+
+- Build/typecheck verification run:
+  - `dotnet build backend/Capstone.API/Capstone.API.csproj` -> success
+  - `cd hidden-gem-music-app && npx tsc --noEmit` -> success
+- SP contract and mapper cross-check outcome:
+  - Confirmed Country repository bindings to:
+    - `sp_GetCountryProfile`
+    - `sp_GetCountryHiddenGemsPreview`
+  - Confirmed no additional SP was required for this task once preview proc was corrected in DB.
+- Repro/handoff note for Leena:
+  - Apply the same `CREATE OR ALTER PROCEDURE dbo.sp_GetCountryHiddenGemsPreview` star-schema version in source DB before producing future backup zips.
+  - Without this, restored environments can reproduce the same `Invalid object name 'Song'` failure on preview endpoint.
 
 Discovery Globe Data Integration + Discovery Filters Completion + DB Repro Runbook (April 30, 2026)
 - Goal for this task:
@@ -258,171 +502,6 @@ Country + Preview Endpoint Verification, Failure Analysis, SQL Fix, and Repro Ha
     - `404` no profile row for valid profile lookup
     - `503` SQL/database failures
     - `500` unexpected failures
-
-Country Detail Web Screen Data Implementation + Discovery Timeline Year Real-Data Alignment (May 1, 2026)
-- Goal for this task:
-  - Replace Country Detail placeholder wiring with live API data (except intentional genre/language deferrals), add list pagination/infinite loading for large song lists, align dropdown/year behavior with real dataset years, and complete Discovery timeline slider year-gap behavior using real years only.
-
-- Scope completed:
-  - Country Detail Web Screen:
-    - Header/dropdown/stat/list/hidden-gems preview/data-loading behavior and endpoint wiring.
-  - Discovery Globe screen:
-    - Timeline slider year source + gap rendering/drag behavior aligned to real available years.
-  - Deferred-by-design areas retained:
-    - Genre + Language data content sections (data not yet available).
-
-- Backend/API implementation completed:
-  - New metadata years API:
-    - Added `GET /api/metadata/years`
-    - Files:
-      - `backend/Capstone.API/Controllers/MetadataController.cs`
-      - `backend/Capstone.API/Infrastructure/Interfaces/IMetadataRepository.cs`
-      - `backend/Capstone.API/Infrastructure/Repositories/MetadataRepository.cs`
-      - `backend/Capstone.API/Program.cs` (DI registration)
-  - Country hidden gems preview endpoint extended:
-    - Existing route now supports `limit` query parameter:
-      - `GET /api/country/{code}/hidden-gems/preview?year={year}&limit={n}`
-    - Files:
-      - `backend/Capstone.API/Controllers/CountryController.cs`
-      - `backend/Capstone.API/Infrastructure/Interfaces/ICountryRepository.cs`
-      - `backend/Capstone.API/Infrastructure/Repositories/CountryRepository.cs`
-      - `backend/Capstone.API/SQL Scripts/read/sp_GetCountryHiddenGemsPreview.sql`
-  - Country year validation contract updated:
-    - Country endpoints now validate `year` against actual DB years from `sp_GetAvailableYears` (instead of legacy hardcoded year window).
-    - File:
-      - `backend/Capstone.API/Controllers/CountryController.cs`
-  - New paged songs endpoint for Country list panels:
-    - Added `GET /api/country/{code}/songs?year={year}&listType={shared|unique}&page={n}&pageSize={n}`
-    - Supports infinite-scroll style front-end loading.
-    - Files:
-      - `backend/Capstone.API/Models/Country/CountrySongsPage.cs`
-      - `backend/Capstone.API/Controllers/CountryController.cs`
-      - `backend/Capstone.API/Infrastructure/Interfaces/ICountryRepository.cs`
-      - `backend/Capstone.API/Infrastructure/Repositories/CountryRepository.cs`
-      - `backend/Capstone.API/SQL Scripts/read/sp_GetCountrySongsPaged.sql`
-
-- SQL procedures added/changed:
-  - Added:
-    - `backend/Capstone.API/SQL Scripts/read/sp_GetAvailableYears.sql`
-    - `backend/Capstone.API/SQL Scripts/read/sp_GetCountrySongsPaged.sql`
-  - Updated:
-    - `backend/Capstone.API/SQL Scripts/read/sp_GetCountryHiddenGemsPreview.sql`
-      - Added `@Limit INT = 5`
-      - `TOP 5` -> `TOP (@Limit)`
-
-- Exact DB-side commands run/validated in this workflow:
-  - `EXEC sp_GetAvailableYears;`
-    - Returned (current restored dataset): `2017, 2018, 2019, 2020, 2021, 2023, 2024, 2025`
-    - Confirms gap year `2022` missing.
-  - `EXEC sp_GetCountryHiddenGemsPreview @CountryCode='US', @Year=2021, @Limit=13;`
-    - Returned 13 rows sorted by trend score.
-  - `EXEC sp_GetCountrySongsPaged @CountryCode='US', @Year=2023, @ListType='unique', @Offset=0, @PageSize=50;`
-  - `EXEC sp_GetCountrySongsPaged @CountryCode='US', @Year=2023, @ListType='shared', @Offset=0, @PageSize=50;`
-
-- Browser/API checks used during verification:
-  - `GET /api/metadata/years`
-  - `GET /api/country/US?year=2023`
-  - `GET /api/country/US/hidden-gems/preview?year=2023&limit=13`
-  - `GET /api/country/US/songs?year=2023&listType=unique&page=1&pageSize=50`
-  - `GET /api/country/US/songs?year=2023&listType=shared&page=1&pageSize=50`
-
-- Frontend implementation completed (Country Detail):
-  - New Country API client:
-    - `hidden-gem-music-app/src/data/countryApi.ts`
-      - loads country profile, hidden-gems preview, metadata years, and paged country songs.
-  - Country screen moved from placeholder-only behavior to live data for implemented sections:
-    - `hidden-gem-music-app/src/screens/CountryScreen.web.tsx`
-  - Country dropdown:
-    - Uses full country data source aligned with Discovery country set.
-    - Click-outside closes dropdown.
-    - Loading popup behavior when changing country.
-  - Year dropdown (Country screen):
-    - Uses only real API years from `/api/metadata/years`.
-    - Click-outside closes dropdown.
-  - Stat square mappings:
-    - Songs in This View -> `totalCharted`
-    - Loved in This Country -> `uniqueCount`
-    - Loved Here and Elsewhere (count) -> `sharedCount`
-    - Loved Here and Elsewhere (%) -> `overlapPct`
-  - Favorite Artists section:
-    - Uses unique-songs artists first; backfills from shared-songs artists if needed.
-    - During initial load, shows animated `Loading...` states instead of placeholder names.
-  - Hidden Gems preview section:
-    - Uses top 13 from country preview endpoint.
-    - During load, displays animated `Loading...` song/artist text instead of placeholder values.
-  - Country list panels:
-    - `Most Loved in This Country` and `Loved Here and Elsewhere` now use paged API endpoint and auto-fetch next pages on near-bottom scroll.
-    - Initial and incremental loading states added.
-  - Language section title updated:
-    - `Country Name's Language(s) in Music`
-  - General Description sentence rewired to requested template style:
-    - Uses current genres + loaded artists/songs.
-    - Uses animated `Loading...` slots while required data is still loading.
-  - Removed placeholder fallbacks for implemented (non-deferred) sections:
-    - Replaced with explicit loading-state behavior to avoid fake content during fetch.
-
-- Frontend implementation completed (Discovery timeline):
-  - Files:
-    - `hidden-gem-music-app/src/components/YearSlider.tsx`
-    - `hidden-gem-music-app/src/screens/DiscoveryScreen.web.tsx`
-    - `hidden-gem-music-app/App.tsx`
-  - Timeline slider now:
-    - Uses API-provided available years.
-    - Computes real missing-year gap from the dataset year list.
-    - Renders gap as one discrete year-slot width.
-    - Prevents thumb from landing in gap; dragging jumps to either valid side.
-
-- Issues encountered and fixes applied:
-  - Hidden Gems page endpoint had mapper key mismatches (`song_title` vs `song_name`, `countries_charting` vs `countries_charting_count`):
-    - Confirmed this affected `/api/hidden-gems/{code}` and not country preview endpoint.
-    - Country-detail preview path remained correct.
-  - Country endpoints originally rejected valid newer years due to old hardcoded validator:
-    - Fixed by year validation against `sp_GetAvailableYears`.
-  - Country list panels still showed placeholder rows after initial integration:
-    - Root cause: combined failure path and fallback generation.
-    - Fixed by independent data fetch handling + no placeholder fallback for those sections.
-  - Discovery country label switched to backend full name (e.g., `United States`) when seed label expected (`USA`):
-    - Fixed merge behavior to preserve existing seed display name when available.
-
-- UI polish changes completed during final pass:
-  - Dropdown click-outside close behavior for Country and Year selectors.
-  - `%` symbol reduced in size for overlap stat square.
-  - Number vertical alignment adjusted in first two stat squares.
-  - Stat square loading text reduced in size while loading.
-
-- Files added in this delivery:
-  - `backend/Capstone.API/Controllers/MetadataController.cs`
-  - `backend/Capstone.API/Infrastructure/Interfaces/IMetadataRepository.cs`
-  - `backend/Capstone.API/Infrastructure/Repositories/MetadataRepository.cs`
-  - `backend/Capstone.API/Models/Country/CountrySongsPage.cs`
-  - `backend/Capstone.API/SQL Scripts/read/sp_GetAvailableYears.sql`
-  - `backend/Capstone.API/SQL Scripts/read/sp_GetCountrySongsPaged.sql`
-  - `hidden-gem-music-app/src/data/countryApi.ts`
-
-- Existing files updated in this delivery:
-  - `backend/Capstone.API/Controllers/CountryController.cs`
-  - `backend/Capstone.API/Infrastructure/Interfaces/ICountryRepository.cs`
-  - `backend/Capstone.API/Infrastructure/Repositories/CountryRepository.cs`
-  - `backend/Capstone.API/Program.cs`
-  - `backend/Capstone.API/SQL Scripts/read/sp_GetCountryHiddenGemsPreview.sql`
-  - `hidden-gem-music-app/App.tsx`
-  - `hidden-gem-music-app/src/components/YearSlider.tsx`
-  - `hidden-gem-music-app/src/screens/DiscoveryScreen.web.tsx`
-  - `hidden-gem-music-app/src/screens/CountryScreen.web.tsx`
-  - `hidden-gem-music-app/src/data/discoveryApi.ts`
-  - `hidden-gem-music-app/src/types/api.ts`
-
-- Build/typecheck verification run:
-  - `dotnet build backend/Capstone.API/Capstone.API.csproj` -> success
-  - `cd hidden-gem-music-app && npx tsc --noEmit` -> success
-- SP contract and mapper cross-check outcome:
-  - Confirmed Country repository bindings to:
-    - `sp_GetCountryProfile`
-    - `sp_GetCountryHiddenGemsPreview`
-  - Confirmed no additional SP was required for this task once preview proc was corrected in DB.
-- Repro/handoff note for Leena:
-  - Apply the same `CREATE OR ALTER PROCEDURE dbo.sp_GetCountryHiddenGemsPreview` star-schema version in source DB before producing future backup zips.
-  - Without this, restored environments can reproduce the same `Invalid object name 'Song'` failure on preview endpoint.
 
 Backend Database Connection + Endpoint Validation + Mapper Alignment (April 29, 2026)
 - Local SQL Server database restore was validated through SSMS in Windows 11 on Parallels, and API local hosting was confirmed in macOS Docker setup context.
@@ -713,46 +792,6 @@ Architecture Documentation and Repo Tracking Cleanup (April 21, 2026)
   - The tracked generated files were removed from Git tracking so the ignore rules can work as intended going forward
 - This cleanup is being treated as an additional repo-maintenance improvement attached to the same general setup work, since it removes machine-specific generated files from future frontend/backend collaboration noise.
 
-Project Foundation and Screen Architecture (April 17, 2026)
-- React Native project structure was created in `hidden-gem-music-app`.
-- Shared theme primitives were established:
-  - Color tokens
-  - Typography setup
-  - Shared spacing
-  - Reusable panel / button styling
-- Uploaded Nyght Serif and Tanklager font files were wired into the app.
-- Initial route structure was built for:
-  - Welcome
-  - Discovery Globe
-  - Country
-  - Hidden Songs / Hidden Gems
-  - Comparison Select
-  - Comparison Results
-  - Dashboard
-  - Credits
-- Mock data and yearly data helpers were set up so major screens could respond to selected-year changes.
-- A loading overlay pattern was added for year-switching interactions.
-
-Core Discovery Flow and Shared UI Systems (April 18, 2026)
-- The discovery experience was split into globe and list-view panels so the app background remains visually stable while secondary content scrolls independently.
-- Search was moved into the main navigation flow instead of remaining the primary planned standalone screen.
-- Shared screen scaffolding and gradient background treatments were added to support a more polished mockup-driven layout direction.
-- The placeholder globe was separated behind platform-specific components so the app can transition to real Mapbox integration later without rewriting the higher-level discovery layout.
-- Country and comparison data views were connected to the existing year-aware mock-data structure.
-
-Visual Theme Revision and Navigation Restyling (April 19, 2026)
-- The full app palette was reworked to match the mockup art more accurately:
-  - Header gradient and nav colors
-  - Main vertical background gradient
-  - Secondary panel surfaces for globe and list views
-  - Timeline colors
-  - Scrollbar colors
-  - Globe-card top / bottom color split
-- Dark text usage was standardized away from pure black, and light text usage was standardized away from pure white.
-- Country listing outlines, list-view cards, button fills, and globe-card surfaces were updated to match the new palette.
-- The display-face usage was updated so the project now uses `NyghtSerif-MediumItalic` for the intended serif styling.
-- The top navigation was restyled with wider desktop spacing and a more responsive condensed behavior for narrower web widths.
-
 Responsive Header, Routing, and Interaction Polish (April 20, 2026)
 - The header wordmark was customized so the `i` in `Hidden` uses the gem asset as its dot, with the glyph itself adjusted to support that styling.
 - `Hidden Songs` was added to the main navigation between `Comparison Mode` and `Dashboard`.
@@ -816,81 +855,42 @@ Current Follow-up Work
 - Continue screen-by-screen visual alignment against the finalized mockups, especially for secondary screens.
 - Recheck narrow-width web behavior after the remaining feature screens fully adopt the updated header and filter-row patterns.
 
-Country Comparison View Page Web Screen Data Implementation (Issue 98) (April 30, 2026)
-- Comparison View was upgraded from mock-data behavior into API-backed country-detail parity on both panes.
-- Each pane now independently loads backend-backed country data using the same implementation pattern used on Country Page:
-  - `GET /api/metadata/years` for year options
-  - `GET /api/country/{code}?year={year}` for country profile stats
-  - `GET /api/country/{code}/hidden-gems/preview?year={year}&limit=13` for hidden-gems carousel preview
-  - `GET /api/country/{code}/songs?year={year}&listType=unique&page={page}&pageSize=50`
-  - `GET /api/country/{code}/songs?year={year}&listType=shared&page={page}&pageSize=50`
-- API mapper parity was added for comparison-pane data transformation:
-  - `mapApiCountryProfile`
-  - `mapApiHiddenGem`
-  - `mapApiSong`
-- Pane-level request lifecycle logic now mirrors Country Page behavior:
-  - reset lists / paging state on country or year change
-  - initial loading states for profile, preview, unique list, shared list
-  - guarded stale-request handling per pane via request id tracking
-  - graceful fallback to existing generated profile values when profile API data is unavailable
-- Both pane song columns now support paged load-more behavior tied to scroll position:
-  - unique list (`Most Loved in This Country`)
-  - shared list (`Loved Here and Elsewhere`)
-- Comparison-pane summary generation now follows the same implementation style used on Country Page:
-  - dynamic general-description text using loaded artists and songs when available
-  - loading-safe fallback copy while data is still resolving
-- Favorite Artists section on Comparison View was aligned to current implementation expectations:
-  - artist cards are sourced from API-derived top unique/shared songs
-  - cards now include artist name plus associated song title
-  - long artist / song text is clamped to 3 lines with ellipsis
-  - horizontal scrolling was enabled with persistent visible horizontal scrollbar treatment
-  - this behavior was implemented for Comparison View only (not Country Page)
-- Comparison-pane year dropdown behavior was corrected to be pane-local:
-  - changing year on left pane affects only left pane
-  - changing year on right pane affects only right pane
-  - shared-year coupling was removed for the comparison results screen
-- Stored procedure and SQL contract note:
-  - no new stored procedure edits were required in this round
-  - existing Country Page SP work was reused (`sp_GetAvailableYears`, `sp_GetCountryHiddenGemsPreview`, `sp_GetCountrySongsPaged`) through current API endpoints
-- Main implementation file updated:
-  - `hidden-gem-music-app/src/screens/ComparisonResultsScreen.web.tsx`
-- Verification completed:
-  - `npx tsc --noEmit` passed after changes
+Visual Theme Revision and Navigation Restyling (April 19, 2026)
+- The full app palette was reworked to match the mockup art more accurately:
+  - Header gradient and nav colors
+  - Main vertical background gradient
+  - Secondary panel surfaces for globe and list views
+  - Timeline colors
+  - Scrollbar colors
+  - Globe-card top / bottom color split
+- Dark text usage was standardized away from pure black, and light text usage was standardized away from pure white.
+- Country listing outlines, list-view cards, button fills, and globe-card surfaces were updated to match the new palette.
+- The display-face usage was updated so the project now uses `NyghtSerif-MediumItalic` for the intended serif styling.
+- The top navigation was restyled with wider desktop spacing and a more responsive condensed behavior for narrower web widths.
 
-Country Comparison Mode Page Web Screen Data Implementation (Issue 100) (May 1, 2026)
-- Completed the Country Comparison Mode web-screen data implementation scope and interaction polish for this issue.
+Core Discovery Flow and Shared UI Systems (April 18, 2026)
+- The discovery experience was split into globe and list-view panels so the app background remains visually stable while secondary content scrolls independently.
+- Search was moved into the main navigation flow instead of remaining the primary planned standalone screen.
+- Shared screen scaffolding and gradient background treatments were added to support a more polished mockup-driven layout direction.
+- The placeholder globe was separated behind platform-specific components so the app can transition to real Mapbox integration later without rewriting the higher-level discovery layout.
+- Country and comparison data views were connected to the existing year-aware mock-data structure.
 
-Implemented data behavior:
-- Country list behavior now requires song availability in app data for the currently selected year (not just hidden-gem availability).
-- Comparison Mode country source wiring was updated to use the broader discovery-backed country source in app state for selection/list availability.
-- Selected comparison-country mapping and available-country handoff were aligned with that same source so selection and result screens stay consistent.
-
-Implemented UI/interaction updates:
-- Select Year dropdown now uses strict available years from metadata API (`loadAvailableYears`) instead of static mock year options.
-- Select Year dropdown now closes when clicking outside of the dropdown.
-- Comparison blurb copy was updated to final issue-aligned usage guidance text.
-- Region filter options were corrected to include the intended continent set while removing non-user-facing placeholders:
-  - removed `Continent info coming soon.`
-  - removed `Other`
-- Language and Genre filter chips were preserved visually and functionally while broader genre/language dataset details remain deferred.
-- Unknown values were removed from Language and Genre filter option lists.
-- Filter changes now auto-clear current selected countries to avoid stale invalid selections under new filter states.
-- Added a `Clear Selections` control next to the selected-count summary in the Select Countries header:
-  - uses matching filter-chip style language
-  - semitransparent treatment in default/hover/press states
-  - only visible when the Select Countries panel is expanded
-- Country-selection helper text remains concise (`x out of 2 countries selected`) after follow-up cleanup.
-
-Filter behavior updates:
-- Region, Language, Genre, and Popularity filters all affect visible country results.
-- Popularity filters (`Biggest Hits`, `Fast Rising Songs`, `All Songs`) now apply concrete list behavior in the comparison-mode country list.
-
-Navigation/task integrity:
-- Existing comparison-mode route flow and button wiring were preserved while implementing these data/filter changes.
-
-Files updated in this issue implementation:
-- `hidden-gem-music-app/src/screens/ComparisonSelectScreen.web.tsx`
-- `hidden-gem-music-app/App.tsx`
-
-Verification:
-- `cd hidden-gem-music-app && npx tsc --noEmit` passed after the final set of issue-100 changes.
+Project Foundation and Screen Architecture (April 17, 2026)
+- React Native project structure was created in `hidden-gem-music-app`.
+- Shared theme primitives were established:
+  - Color tokens
+  - Typography setup
+  - Shared spacing
+  - Reusable panel / button styling
+- Uploaded Nyght Serif and Tanklager font files were wired into the app.
+- Initial route structure was built for:
+  - Welcome
+  - Discovery Globe
+  - Country
+  - Hidden Songs / Hidden Gems
+  - Comparison Select
+  - Comparison Results
+  - Dashboard
+  - Credits
+- Mock data and yearly data helpers were set up so major screens could respond to selected-year changes.
+- A loading overlay pattern was added for year-switching interactions.
