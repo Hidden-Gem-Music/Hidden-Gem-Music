@@ -38,13 +38,13 @@ namespace Capstone.API.Infrastructure.Repositories
 
             var profile = new CountryProfile
             {
-                CountryCode = AsString(stats, "country_code"),
-                CountryName = AsString(stats, "country_name"),
-                Year = AsInt(stats, "chart_year"),
-                TotalCharted = AsInt(stats, "total_charted"),
-                SharedCount = AsInt(stats, "shared_count"),
-                UniqueCount = AsInt(stats, "unique_count"),
-                OverlapPct = AsDecimal(stats, "overlap_pct")
+                CountryCode = AsStringAny(stats, "country_code", "iso_code"),
+                CountryName = AsStringAny(stats, "country_name", "full_name"),
+                Year = AsIntAny(stats, "chart_year", "year"),
+                TotalCharted = AsIntAny(stats, "total_charted"),
+                SharedCount = AsIntAny(stats, "shared_count"),
+                UniqueCount = AsIntAny(stats, "unique_count"),
+                OverlapPct = AsDecimalAny(stats, "overlap_pct")
             };
 
             if (sets.Count > 1)
@@ -72,9 +72,9 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new Song
             {
-                SongName = AsString(row, "song_name"),
-                ArtistName = AsString(row, "artist_name"),
-                AlbumName = AsString(row, "album_name")
+                SongName = AsStringAny(row, "song_name", "song_title", "title"),
+                ArtistName = AsStringAny(row, "artist_name"),
+                AlbumName = AsStringAny(row, "album_name")
             };
         }
 
@@ -82,23 +82,47 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new HiddenGem
             {
-                SongName = AsString(row, "song_name"),
-                AlbumName = AsString(row, "album_name"),
-                ArtistName = AsString(row, "artist_name"),
-                Genre = AsString(row, "genre"),
-                PreviewUrl = AsString(row, "preview_url"),
-                TrendScore = AsDecimal(row, "trend_score"),
-                CountriesChartingCount = AsInt(row, "countries_charting_count")
+                SongName = AsStringAny(row, "song_name", "song_title", "title"),
+                AlbumName = AsStringAny(row, "album_name"),
+                ArtistName = AsStringAny(row, "artist_name"),
+                Genre = AsStringAny(row, "genre"),
+                PreviewUrl = AsStringAny(row, "preview_url"),
+                TrendScore = AsDecimalAny(row, "trend_score"),
+                CountriesChartingCount = AsIntAny(row, "countries_charting_count", "countries_charting")
             };
         }
 
-        private static string? AsString(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) ? v?.ToString() : null;
+        private static string? AsStringAny(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var v) && v != null)
+                    return v.ToString();
+            }
 
-        private static int AsInt(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) && v != null ? Convert.ToInt32(v) : 0;
+            return null;
+        }
 
-        private static decimal AsDecimal(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) && v != null ? Convert.ToDecimal(v) : 0m;
+        private static int AsIntAny(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var v) && v != null)
+                    return Convert.ToInt32(v);
+            }
+
+            return 0;
+        }
+
+        private static decimal AsDecimalAny(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var v) && v != null)
+                    return Convert.ToDecimal(v);
+            }
+
+            return 0m;
+        }
     }
 }

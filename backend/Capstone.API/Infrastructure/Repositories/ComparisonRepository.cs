@@ -71,8 +71,8 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new CountryComparisonSide
             {
-                CountryCode = AsString(row, "country_code"),
-                CountryName = AsString(row, "country_name"),
+                CountryCode = AsString(row, "country_code", "iso_code"),
+                CountryName = AsString(row, "country_name", "full_name"),
                 TotalCharted = AsInt(row, "total_charted"),
                 SharedCount = AsInt(row, "shared_count"),
                 UniqueCount = AsInt(row, "unique_count"),
@@ -84,7 +84,7 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new SharedSong
             {
-                SongName = AsString(row, "song_name"),
+                SongName = AsString(row, "song_name", "song_title", "title"),
                 ArtistName = AsString(row, "artist_name"),
                 AlbumName = AsString(row, "album_name"),
                 RankInCountryA = AsInt(row, "rank_in_country_a"),
@@ -96,7 +96,7 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new Song
             {
-                SongName = AsString(row, "song_name"),
+                SongName = AsString(row, "song_name", "song_title", "title"),
                 ArtistName = AsString(row, "artist_name"),
                 AlbumName = AsString(row, "album_name")
             };
@@ -106,21 +106,45 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new ComparisonHiddenGem
             {
-                SongName = AsString(row, "song_name"),
+                SongName = AsString(row, "song_name", "song_title", "title"),
                 AlbumName = AsString(row, "album_name"),
                 ArtistName = AsString(row, "artist_name"),
                 TrendScore = AsDecimal(row, "trend_score"),
-                CountriesChartingCount = AsInt(row, "countries_charting_count")
+                CountriesChartingCount = AsInt(row, "countries_charting_count", "countries_charting", "country_count")
             };
         }
 
-        private static string? AsString(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) ? v?.ToString() : null;
+        private static string? AsString(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var value) && value != null)
+                    return value.ToString();
+            }
 
-        private static int AsInt(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) && v != null ? Convert.ToInt32(v) : 0;
+            return null;
+        }
 
-        private static decimal AsDecimal(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) && v != null ? Convert.ToDecimal(v) : 0m;
+        private static int AsInt(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var value) && value != null)
+                    return Convert.ToInt32(value);
+            }
+
+            return 0;
+        }
+
+        private static decimal AsDecimal(IDictionary<string, object?> row, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                if (row.TryGetValue(key, out var value) && value != null)
+                    return Convert.ToDecimal(value);
+            }
+
+            return 0m;
+        }
     }
 }
