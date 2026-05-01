@@ -16,6 +16,7 @@ import { DiscoveryScreen } from "./src/screens/DiscoveryScreen";
 import { HiddenGemsScreen } from "./src/screens/HiddenGemsScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { loadDiscoveryCountries } from "./src/data/discoveryApi";
+import { loadAvailableYears } from "./src/data/countryApi";
 import {
   availableYears,
   getCountriesForYear,
@@ -154,6 +155,7 @@ export default function App() {
   );
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [apiAvailableYears, setApiAvailableYears] = useState<number[]>([]);
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
   const [discoveryCountries, setDiscoveryCountries] = useState<Country[]>(countries);
@@ -161,8 +163,8 @@ export default function App() {
   const songs = useMemo(() => getSongsForCountryYear(selectedCountryId, selectedYear), [selectedCountryId, selectedYear]);
 
   const selectedCountry = useMemo(
-    () => getCountryByYear(selectedCountryId, selectedYear) ?? featuredCountry,
-    [selectedCountryId, selectedYear, featuredCountry]
+    () => discoveryCountries.find((country) => country.id === selectedCountryId) ?? getCountryByYear(selectedCountryId, selectedYear) ?? featuredCountry,
+    [discoveryCountries, selectedCountryId, selectedYear, featuredCountry]
   );
 
   const selectedSong = useMemo(
@@ -316,16 +318,38 @@ export default function App() {
   };
 
   const openCountry = (countryId: string) => {
-    setSelectedCountryId(countryId);
+    const countryLabel = discoveryCountries.find((country) => country.id === countryId)?.name ?? countries.find((country) => country.id === countryId)?.name ?? countryId;
 
-    if (!navigationRef.isReady()) {
+    if (countryId === selectedCountryId) {
+      if (navigationRef.isReady()) {
+        navigationRef.navigate("country", {
+          country: countryId,
+          year: selectedYear,
+        });
+      }
       return;
     }
 
-    navigationRef.navigate("country", {
-      country: countryId,
-      year: selectedYear,
-    });
+    setLoadingMessage(`Loading ${countryLabel} for ${selectedYear}...`);
+    if (loadingTimerRef.current) {
+      clearTimeout(loadingTimerRef.current);
+    }
+
+    loadingTimerRef.current = setTimeout(() => {
+      setSelectedCountryId(countryId);
+      setLoadingMessage(null);
+
+      if (!navigationRef.isReady()) {
+        return;
+      }
+
+      navigationRef.navigate("country", {
+        country: countryId,
+        year: selectedYear,
+      });
+    }, 500);
+
+    return;
   };
 
   const openCountryFromDiscovery = (countryId: string) => {
@@ -437,6 +461,26 @@ export default function App() {
       isCancelled = true;
     };
   }, [countries, selectedYear]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    loadAvailableYears()
+      .then((years) => {
+        if (!isCancelled && years.length > 0) {
+          setApiAvailableYears(years);
+        }
+      })
+      .catch((error) => {
+        if (!isCancelled) {
+          console.warn("Failed to load API available years; Discovery timeline will use default years.", error);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -653,6 +697,7 @@ export default function App() {
                     onOpenCountry={openCountryFromDiscovery}
                     selectedYear={selectedYear}
                     onChangeYear={(year) => handleYearChange(year, "Discovery Globe")}
+                    availableYears={apiAvailableYears}
                   />
                 )}
               </Stack.Screen>
@@ -661,7 +706,7 @@ export default function App() {
                 {() => (
                   <CountryScreen
                     country={selectedCountry}
-                    countries={countries}
+                    countries={discoveryCountries}
                     onSelectCountry={openCountry}
                     onOpenHiddenGems={openHiddenGems}
                     onOpenComparisonMode={() => navigateToRoute("comparisonSelect")}

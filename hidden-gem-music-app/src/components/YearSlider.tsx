@@ -8,22 +8,60 @@ import { typefaces } from "../theme/typography";
 type Props = {
   year: number;
   onChangeYear: (year: number) => void;
+  years?: number[];
 };
 
-const gapStartYear = 2007;
-const gapEndYear = 2010;
-
-export function YearSlider({ year, onChangeYear }: Props) {
-  const minYear = availableYears[0];
-  const maxYear = availableYears[availableYears.length - 1];
+export function YearSlider({ year, onChangeYear, years = availableYears }: Props) {
+  const sliderYears = years.length > 0 ? years : availableYears;
+  const minYear = sliderYears[0];
+  const maxYear = sliderYears[sliderYears.length - 1];
+  const largestGap = sliderYears.reduce(
+    (currentGap, currentYear, index) => {
+      if (index === 0) {
+        return currentGap;
+      }
+      const previousYear = sliderYears[index - 1];
+      const gapSize = currentYear - previousYear;
+      if (gapSize > currentGap.gapSize) {
+        return {
+          gapSize,
+          start: previousYear + 1,
+          end: currentYear - 1,
+        };
+      }
+      return currentGap;
+    },
+    { gapSize: 0, start: -1, end: -1 }
+  );
+  const hasGap = largestGap.gapSize > 1;
+  const gapStartYear = hasGap ? largestGap.start : minYear;
+  const gapEndYear = hasGap ? largestGap.end : minYear;
   const gapMidpoint = (gapStartYear + gapEndYear) / 2;
   const [dragYear, setDragYear] = useState(year);
   const [isDragging, setIsDragging] = useState(false);
   const dragYearRef = useRef(year);
-  const progress = ((dragYear - minYear) / (maxYear - minYear)) * 100;
+  const yearBeforeGap = hasGap ? gapStartYear - 1 : minYear;
+  const yearAfterGap = hasGap ? gapEndYear + 1 : maxYear;
+  const yearBeforeGapIndex = sliderYears.indexOf(yearBeforeGap);
+  const yearAfterGapIndex = sliderYears.indexOf(yearAfterGap);
+  const gapSlotIndex = hasGap ? yearAfterGapIndex : -1;
+  const totalSlots = sliderYears.length + (hasGap ? 1 : 0);
+  const maxSlotIndex = Math.max(totalSlots - 1, 1);
+  const getSlotFromYear = (value: number) => {
+    const yearIndex = sliderYears.indexOf(value);
+    if (yearIndex < 0) {
+      return 0;
+    }
+    if (!hasGap) {
+      return yearIndex;
+    }
+    return yearIndex >= yearAfterGapIndex ? yearIndex + 1 : yearIndex;
+  };
+  const dragSlotIndex = getSlotFromYear(dragYear);
+  const progress = (dragSlotIndex / maxSlotIndex) * 100;
   const clampedProgress = Math.min(Math.max(progress, 0), 100);
-  const gapStartProgress = ((gapStartYear - minYear) / (maxYear - minYear)) * 100;
-  const gapEndProgress = ((gapEndYear - minYear) / (maxYear - minYear)) * 100;
+  const gapStartProgress = hasGap ? ((gapSlotIndex - 0.5) / maxSlotIndex) * 100 : 0;
+  const gapEndProgress = hasGap ? ((gapSlotIndex + 0.5) / maxSlotIndex) * 100 : 0;
   const [trackWidth, setTrackWidth] = useState(1);
 
   const getSelectableYear = (candidateYear: number) => {
@@ -35,17 +73,17 @@ export function YearSlider({ year, onChangeYear }: Props) {
   };
 
   const getAdjacentSelectableYear = (currentYear: number, direction: -1 | 1) => {
-    const currentIndex = availableYears.indexOf(currentYear);
+    const currentIndex = sliderYears.indexOf(currentYear);
     if (currentIndex === -1) {
       return getSelectableYear(currentYear);
     }
 
     for (
       let index = currentIndex + direction;
-      index >= 0 && index < availableYears.length;
+      index >= 0 && index < sliderYears.length;
       index += direction
     ) {
-      const nextYear = availableYears[index];
+      const nextYear = sliderYears[index];
       if (nextYear < gapStartYear || nextYear > gapEndYear) {
         return nextYear;
       }
@@ -64,8 +102,20 @@ export function YearSlider({ year, onChangeYear }: Props) {
 
   const getYearFromLocation = (locationX: number) => {
     const ratio = Math.min(Math.max(locationX / trackWidth, 0), 1);
-    const rawYear = Math.round(minYear + ratio * (maxYear - minYear));
-    return getSelectableYear(rawYear);
+    const rawSlot = ratio * maxSlotIndex;
+    const slotIndex = Math.round(rawSlot);
+
+    if (!hasGap) {
+      return sliderYears[Math.min(Math.max(slotIndex, 0), sliderYears.length - 1)];
+    }
+
+    if (slotIndex === gapSlotIndex) {
+      return rawSlot < gapSlotIndex ? yearBeforeGap : yearAfterGap;
+    }
+
+    const yearIndex = slotIndex > gapSlotIndex ? slotIndex - 1 : slotIndex;
+    const clampedIndex = Math.min(Math.max(yearIndex, 0), sliderYears.length - 1);
+    return sliderYears[clampedIndex];
   };
 
   const updateFromLocation = (locationX: number) => {
@@ -104,22 +154,24 @@ export function YearSlider({ year, onChangeYear }: Props) {
           }}
         >
           <View style={[styles.fill, { width: `${clampedProgress}%` }]} />
-          <View
-            style={[
-              styles.gap,
-              {
-                left: `${gapStartProgress}%`,
-                width: `${Math.max(gapEndProgress - gapStartProgress, 0)}%`,
-              },
-            ]}
-          />
+          {hasGap ? (
+            <View
+              style={[
+                styles.gap,
+                {
+                  left: `${gapStartProgress}%`,
+                  width: `${Math.max(gapEndProgress - gapStartProgress, 0)}%`,
+                },
+              ]}
+            />
+          ) : null}
           <View style={[styles.thumb, { left: `${clampedProgress}%` }]} />
         </View>
         <Pressable onPress={() => onChangeYear(getAdjacentSelectableYear(year, 1))}>
           <Text style={styles.arrow}>›</Text>
         </Pressable>
       </View>
-      <Text style={styles.disclaimer}>Data gap: timeline skips unavailable years.</Text>
+      {hasGap ? <Text style={styles.disclaimer}>Data gap: timeline skips unavailable years.</Text> : null}
     </View>
   );
 }

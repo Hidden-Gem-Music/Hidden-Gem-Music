@@ -57,15 +57,46 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<HiddenGem>> GetHiddenGemsPreviewAsync(string countryCode, int year)
+        public async Task<IEnumerable<HiddenGem>> GetHiddenGemsPreviewAsync(string countryCode, int year, int limit)
         {
             var rows = await _db.GetDataAsync("sp_GetCountryHiddenGemsPreview", new Dictionary<string, object?>
             {
                 { "@CountryCode", countryCode },
-                { "@Year", year }
+                { "@Year", year },
+                { "@Limit", limit }
             });
 
             return rows.Select(MapHiddenGem);
+        }
+
+        /// <inheritdoc/>
+        public async Task<CountrySongsPage> GetCountrySongsPageAsync(string countryCode, int year, string listType, int page, int pageSize)
+        {
+            var safePage = Math.Max(page, 1);
+            var safePageSize = Math.Clamp(pageSize, 1, 100);
+            var offset = (safePage - 1) * safePageSize;
+
+            var rows = (await _db.GetDataAsync("sp_GetCountrySongsPaged", new Dictionary<string, object?>
+            {
+                { "@CountryCode", countryCode },
+                { "@Year", year },
+                { "@ListType", listType },
+                { "@Offset", offset },
+                { "@PageSize", safePageSize }
+            })).ToList();
+
+            var totalCount = rows.Count > 0 ? AsIntAny(rows[0], "total_count", "TotalCount") : 0;
+            var items = rows.Select(MapSong).ToList();
+            var loadedItemCount = offset + items.Count;
+
+            return new CountrySongsPage
+            {
+                Items = items,
+                Page = safePage,
+                PageSize = safePageSize,
+                TotalCount = totalCount,
+                HasMore = loadedItemCount < totalCount
+            };
         }
 
         private static Song MapSong(IDictionary<string, object?> row)

@@ -23,6 +23,14 @@ export type ApiCountryProfile = {
   topUniqueSongs: ApiSong[];
 };
 
+export type ApiCountrySongsPage = {
+  items: ApiSong[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
+};
+
 export type ApiCountryComparisonSide = {
   countryCode: string | null;
   countryName: string | null;

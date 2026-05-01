@@ -64,7 +64,7 @@ export async function loadDiscoveryCountries(year: number, fallbackCountries: Co
     return {
       id: existing?.id ?? `iso-${normalizedCode.toLowerCase() || index}`,
       code: normalizedCode,
-      name: mapped.countryName,
+      name: existing?.name ?? mapped.countryName,
       region: mapped.region,
       hiddenSongs: mapped.hiddenSongs,
       genres: existing?.genres?.length ? existing.genres : ["Unknown"],

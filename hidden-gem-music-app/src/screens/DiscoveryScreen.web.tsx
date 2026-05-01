@@ -21,6 +21,7 @@ export type Props = {
   onOpenCountry: (countryId: string) => void;
   selectedYear: number;
   onChangeYear: (year: number) => void;
+  availableYears?: number[];
 };
 
 type SortOption = "a-z" | "z-a" | "gems-desc" | "gems-asc";
@@ -42,6 +43,7 @@ export function DiscoveryScreen({
   onOpenCountry,
   selectedYear,
   onChangeYear,
+  availableYears,
 }: Props) {
   // Issue #6 shell: this screen owns the core Discovery Globe layout,
   // including globe rendering, country selection, panel structure, and dummy-data wiring.
@@ -134,7 +136,7 @@ export function DiscoveryScreen({
         onRightAction={() => setAllFiltersOpen(true)}
         showHeader={false}
       />
-      <YearSlider year={selectedYear} onChangeYear={onChangeYear} />
+      <YearSlider year={selectedYear} onChangeYear={onChangeYear} years={availableYears} />
     </View>
   );
 

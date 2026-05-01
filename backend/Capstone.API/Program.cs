@@ -26,6 +26,7 @@ builder.Services.AddScoped<ICountryRepository, CountryRepository>();
 builder.Services.AddScoped<IHiddenGemsRepository, HiddenGemsRepository>();
 builder.Services.AddScoped<IComparisonRepository, ComparisonRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<IMetadataRepository, MetadataRepository>();
 
 var app = builder.Build();
 

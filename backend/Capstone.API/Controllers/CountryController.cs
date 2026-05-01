@@ -14,21 +14,26 @@ namespace Capstone.API.Controllers
     {
         private static readonly Regex CountryCodeRegex = new("^[A-Za-z]{2}$", RegexOptions.Compiled);
 
-        // Keep backend year validation aligned with frontend selectable years.
-        private const int MinSupportedYear = 1975;
-        private const int MaxSupportedYear = 2021;
-        private const int UnavailableGapStartYear = 2007;
-        private const int UnavailableGapEndYear = 2010;
+        private const int DefaultPreviewLimit = 5;
+        private const int MaxPreviewLimit = 25;
+        private const int DefaultSongsPage = 1;
+        private const int DefaultSongsPageSize = 50;
+        private const int MaxSongsPageSize = 200;
 
         private readonly ICountryRepository _repo;
+        private readonly IMetadataRepository _metadataRepo;
         private readonly ILogger<CountryController> _logger;
 
         /// <summary>
         /// Initializes a new instance of CountryController.
         /// </summary>
-        public CountryController(ICountryRepository repo, ILogger<CountryController> logger)
+        public CountryController(
+            ICountryRepository repo,
+            IMetadataRepository metadataRepo,
+            ILogger<CountryController> logger)
         {
             _repo = repo;
+            _metadataRepo = metadataRepo;
             _logger = logger;
         }
 
@@ -41,7 +46,8 @@ namespace Capstone.API.Controllers
         [HttpGet("{code}")]
         public async Task<IActionResult> GetCountryProfile(string code, [FromQuery] int year = 2021)
         {
-            if (!TryValidateInputs(code, year, out var validationError))
+            var validationError = await ValidateInputsAsync(code, year);
+            if (validationError != null)
                 return BadRequest(new { message = validationError });
 
             try
@@ -72,15 +78,18 @@ namespace Capstone.API.Controllers
         /// <param name="code">2-letter ISO country code.</param>
         /// <param name="year">The chart year to display. Defaults to 2021.</param>
         [HttpGet("{code}/hidden-gems/preview")]
-        public async Task<IActionResult> GetHiddenGemsPreview(string code, [FromQuery] int year = 2021)
+        public async Task<IActionResult> GetHiddenGemsPreview(string code, [FromQuery] int year = 2021, [FromQuery] int limit = DefaultPreviewLimit)
         {
-            if (!TryValidateInputs(code, year, out var validationError))
+            var validationError = await ValidateInputsAsync(code, year);
+            if (validationError != null)
                 return BadRequest(new { message = validationError });
+
+            var normalizedLimit = Math.Clamp(limit, 1, MaxPreviewLimit);
 
             try
             {
                 var normalizedCode = code.ToUpperInvariant();
-                var result = await _repo.GetHiddenGemsPreviewAsync(normalizedCode, year);
+                var result = await _repo.GetHiddenGemsPreviewAsync(normalizedCode, year, normalizedLimit);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -95,28 +104,71 @@ namespace Capstone.API.Controllers
             }
         }
 
-        private static bool TryValidateInputs(string code, int year, out string validationError)
+        /// <summary>
+        /// Returns paginated shared or unique songs for the country page list panels.
+        /// GET /api/country/{code}/songs?year={year}&amp;listType={shared|unique}&amp;page={page}&amp;pageSize={pageSize}
+        /// </summary>
+        /// <param name="code">2-letter ISO country code.</param>
+        /// <param name="year">The chart year to display.</param>
+        /// <param name="listType">Either "shared" or "unique".</param>
+        /// <param name="page">1-based page number.</param>
+        /// <param name="pageSize">Results per page.</param>
+        [HttpGet("{code}/songs")]
+        public async Task<IActionResult> GetCountrySongs(
+            string code,
+            [FromQuery] int year = 2021,
+            [FromQuery] string listType = "shared",
+            [FromQuery] int page = DefaultSongsPage,
+            [FromQuery] int pageSize = DefaultSongsPageSize)
+        {
+            var validationError = await ValidateInputsAsync(code, year);
+            if (validationError != null)
+                return BadRequest(new { message = validationError });
+
+            var normalizedListType = listType.Trim().ToLowerInvariant();
+            if (normalizedListType != "shared" && normalizedListType != "unique")
+                return BadRequest(new { message = "listType must be either 'shared' or 'unique'." });
+
+            var normalizedPage = Math.Max(page, 1);
+            var normalizedPageSize = Math.Clamp(pageSize, 1, MaxSongsPageSize);
+
+            try
+            {
+                var normalizedCode = code.ToUpperInvariant();
+                var result = await _repo.GetCountrySongsPageAsync(
+                    normalizedCode,
+                    year,
+                    normalizedListType,
+                    normalizedPage,
+                    normalizedPageSize);
+                return Ok(result);
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "SQL error getting country songs for {CountryCode} year {Year} listType {ListType}", code, year, listType);
+                return StatusCode(503, new { message = "Database temporarily unavailable while retrieving country songs data." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting country songs for {CountryCode} year {Year} listType {ListType}", code, year, listType);
+                return StatusCode(500, new { message = "An unexpected error occurred while retrieving country songs data." });
+            }
+        }
+
+        private async Task<string?> ValidateInputsAsync(string code, int year)
         {
             if (string.IsNullOrWhiteSpace(code) || !CountryCodeRegex.IsMatch(code))
             {
-                validationError = "Country code must be exactly 2 letters (ISO format, e.g. 'US').";
-                return false;
+                return "Country code must be exactly 2 letters (ISO format, e.g. 'US').";
             }
 
-            if (year < MinSupportedYear || year > MaxSupportedYear)
+            var availableYears = (await _metadataRepo.GetAvailableYearsAsync()).ToHashSet();
+            if (!availableYears.Contains(year))
             {
-                validationError = $"Year must be between {MinSupportedYear} and {MaxSupportedYear}.";
-                return false;
+                return $"Year {year} is unavailable in this dataset.";
             }
 
-            if (year >= UnavailableGapStartYear && year <= UnavailableGapEndYear)
-            {
-                validationError = $"Year {year} is unavailable in this dataset window.";
-                return false;
-            }
-
-            validationError = string.Empty;
-            return true;
+            return null;
         }
     }
 }
