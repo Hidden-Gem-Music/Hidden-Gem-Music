@@ -23,6 +23,7 @@ export type Props = {
   year: number;
   metrics: Array<{ label: string; value: string; detail: string }>;
   countries: Country[];
+  onChangeYear?: (year: number) => void;
 };
 
 function DashboardSection({

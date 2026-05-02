@@ -2,7 +2,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ActionButton } from "../components/ActionButton";
-import { DiscoveryBlurb } from "../components/DiscoveryBlurb";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { ScreenRoute } from "../types/navigation";
@@ -25,11 +24,6 @@ export function WelcomeScreen({ countries, onNavigate }: Props) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <DiscoveryBlurb
-          heading="Hidden Gem Music"
-          body="Discover the songs that are loved locally but missed globally. Explore charts by country, compare music scenes, and uncover hidden gems from around the world."
-        />
-
         <Panel style={styles.modal}>
           <LinearGradient
             colors={[colors.surfaceSecondary, "#27293B", "rgba(66,72,101,0.42)", "rgba(66,72,101,0.72)"]}
@@ -44,11 +38,11 @@ export function WelcomeScreen({ countries, onNavigate }: Props) {
               Insert somewhat long text about the project and the problem and the solution
             </Text>
             <View style={styles.buttonStack}>
-              <ActionButton label="Discovery Globe" size="compact" onPress={() => onNavigate("discovery")} />
-              <ActionButton label="Comparison Mode" size="compact" onPress={() => onNavigate("comparisonSelect")} />
-              <ActionButton label="Hidden Songs" size="compact" onPress={() => onNavigate("hiddenGems")} />
-              <ActionButton label="Dashboard" size="compact" onPress={() => onNavigate("dashboard")} />
-              <ActionButton label="Credits" size="compact" onPress={() => onNavigate("credits")} />
+              <ActionButton size="compact" label="Discovery Globe" onPress={() => onNavigate("discovery")} />
+              <ActionButton size="compact" label="Comparison Mode" onPress={() => onNavigate("comparisonSelect")} />
+              <ActionButton size="compact" label="Hidden Gems" onPress={() => onNavigate("hiddenGems")} />
+              <ActionButton size="compact" label="Dashboard" onPress={() => onNavigate("dashboard")} />
+              <ActionButton size="compact" label="Credits" onPress={() => onNavigate("credits")} />
             </View>
           </View>
         </Panel>
@@ -74,6 +68,7 @@ const styles = StyleSheet.create({
   modalContent: {
     padding: 24,
     alignItems: "center",
+    justifyContent: "center",
     gap: 22,
   },
   brand: {
@@ -93,6 +88,8 @@ const styles = StyleSheet.create({
   buttonStack: {
     gap: 14,
     alignItems: "center",
+    justifyContent: "center",
     width: "100%",
+    flexShrink: 1,
   },
 });

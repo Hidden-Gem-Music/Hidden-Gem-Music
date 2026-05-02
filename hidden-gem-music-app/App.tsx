@@ -2,10 +2,12 @@ import { CommonActions, NavigationContainer, useNavigationContainerRef } from "@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Component, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, Platform } from "react-native";
 
 import { AppHeader } from "./src/components/AppHeader";
+import { MobileHeader, MobileTabBar } from "./src/components/MobileHeader";
 import { LoadingOverlay } from "./src/components/LoadingOverlay";
 import { ComparisonResultsScreen } from "./src/screens/ComparisonResultsScreen";
 import { ComparisonSelectScreen } from "./src/screens/ComparisonSelectScreen";
@@ -16,7 +18,6 @@ import { DiscoveryScreen } from "./src/screens/DiscoveryScreen";
 import { HiddenGemsScreen } from "./src/screens/HiddenGemsScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { FiltersScreen } from "./src/screens/FiltersScreen.native";
-// ── ADDED: Search screen ──────────────────────────────────────────────────────
 import { SearchScreen } from "./src/screens/SearchScreen";
 
 import {
@@ -26,7 +27,7 @@ import {
   getDashboardMetrics,
   getFeaturedCountry,
   getSongsForCountryYear,
-  searchLibrary,  // ← make sure this is exported from mockData
+  searchLibrary,
 } from "./src/data/mockData";
 import { getInitialNavigationSeed, getRouteParams, linking, RootStackParamList } from "./src/navigation/linking";
 import { ScreenRoute } from "./src/types/navigation";
@@ -104,7 +105,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
   }
 
   private handleReset = () => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && window.location) {
       window.location.assign("/welcome");
       return;
     }
@@ -151,8 +152,7 @@ export default function App() {
   const [selectedSongId, setSelectedSongId] = useState("");
   const [comparisonIds, setComparisonIds] = useState<string[]>(getDefaultComparisonIds());
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
-
-  // ── REMOVED: searchOpen state — search is now a full screen, not an overlay
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
   const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
@@ -216,7 +216,6 @@ export default function App() {
           { label: "Home", route: "welcome" as ScreenRoute },
           { label: "Credits", route: "credits" as ScreenRoute },
         ];
-      // ── ADDED: breadcrumb for search screen
       case "search":
         return [
           { label: "Home", route: "welcome" as ScreenRoute },
@@ -278,7 +277,6 @@ export default function App() {
       case "filters":
         navigationRef.navigate("filters");
         break;
-      // ── ADDED: navigate to search screen
       case "search":
         navigationRef.navigate("search");
         break;
@@ -382,30 +380,44 @@ export default function App() {
 
   if (!fontsLoaded) return <View style={styles.appShell} />;
 
+  const sharedHeaderProps = {
+    currentRoute,
+    onNavigate: navigateToRoute,
+    breadcrumbs,
+    countries,
+    onOpenCountry: openCountry,
+  };
+
   return (
     <AppErrorBoundary>
-      <NavigationContainer
-        ref={navigationRef}
-        linking={linking}
-        onReady={() => {
-          setNavigationReady(true);
-          syncStateFromNavigation();
-        }}
-        onStateChange={syncStateFromNavigation}
-      >
+      <SafeAreaProvider>
+        <NavigationContainer
+          ref={navigationRef}
+          linking={linking}
+          onReady={() => {
+            setNavigationReady(true);
+            syncStateFromNavigation();
+          }}
+          onStateChange={syncStateFromNavigation}
+        >
         <View style={styles.appShell}>
           <StatusBar style="light" />
 
-          <AppHeader
-            currentRoute={currentRoute}
-            onNavigate={navigateToRoute}
-            breadcrumbs={breadcrumbs}
-            searchOpen={false}
-            onToggleSearch={() => navigateToRoute("search")}
-            onCloseSearch={() => {}}
-            countries={countries}
-            onOpenCountry={openCountry}
-          />
+          {Platform.OS !== "web" ? (
+            <MobileHeader
+              {...sharedHeaderProps}
+              searchOpen={searchOpen}
+              onToggleSearch={() => setSearchOpen((v) => !v)}
+              onCloseSearch={() => setSearchOpen(false)}
+            />
+          ) : (
+            <AppHeader
+              {...sharedHeaderProps}
+              searchOpen={false}
+              onToggleSearch={() => navigateToRoute("search")}
+              onCloseSearch={() => {}}
+            />
+          )}
 
           <View style={styles.screenArea}>
             <Stack.Navigator
@@ -451,7 +463,6 @@ export default function App() {
                 }
               </Stack.Screen>
 
-              {/* ── ADDED: Search as a full stack screen ───────────────────── */}
               <Stack.Screen name="search" options={{ title: "Search" }}>
                 {() => (
                   <SearchScreen
@@ -544,16 +555,33 @@ export default function App() {
               </Stack.Screen>
 
               <Stack.Screen name="dashboard">
-                {() => <DashboardScreen year={selectedYear} metrics={dashboardMetrics} countries={countries} />}
+                {() => (
+                  <DashboardScreen
+                    year={selectedYear}
+                    metrics={dashboardMetrics}
+                    countries={countries}
+                    onChangeYear={(y: number) => handleYearChange(y, "Dashboard")}
+                  />
+                )}
               </Stack.Screen>
 
               <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />
             </Stack.Navigator>
           </View>
 
+          {Platform.OS !== "web" && (
+            <MobileTabBar
+              {...sharedHeaderProps}
+              searchOpen={searchOpen}
+              onToggleSearch={() => setSearchOpen((v) => !v)}
+              onCloseSearch={() => setSearchOpen(false)}
+            />
+          )}
+
           <LoadingOverlay visible={Boolean(loadingMessage)} message={loadingMessage ?? undefined} />
         </View>
       </NavigationContainer>
+      </SafeAreaProvider>
     </AppErrorBoundary>
   );
 }
@@ -564,5 +592,5 @@ const styles = StyleSheet.create({
   errorTitle: { fontSize: 22, textAlign: "center" },
   errorButton: { padding: 12 },
   errorButtonText: { fontSize: 16 },
-  screenArea: { flex: 1 },
+  screenArea: { flex: 1, paddingBottom: 80 },
 });
