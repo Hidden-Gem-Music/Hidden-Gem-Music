@@ -34,7 +34,6 @@ const normalizeContinent = (region: string) => {
     return "Other / Territories";
   }
   return region;
-  onNavigate?: (route: "filters") => void;
 };
 
 export function DiscoveryScreen({
@@ -45,7 +44,6 @@ export function DiscoveryScreen({
   selectedYear,
   onChangeYear,
   availableYears,
-  onNavigate,
 }: Props) {
   // Issue #6 shell: this screen owns the core Discovery Globe layout,
   // including globe rendering, country selection, panel structure, and dummy-data wiring.

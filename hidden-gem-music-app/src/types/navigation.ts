@@ -7,7 +7,4 @@ export type ScreenRoute =
   | "comparisonResults"
   | "dashboard"
   | "credits"
-  | "search"
-  | "filters";
-
-
+  | "search";

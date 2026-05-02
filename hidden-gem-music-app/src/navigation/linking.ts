@@ -13,8 +13,6 @@ export type RootStackParamList = {
   comparisonResults: { year?: number } | undefined;
   dashboard: { year?: number } | undefined;
   credits: undefined;
-  filters: undefined;
-  search: undefined; // ← ADDED
 };
 
 type NavigationSeed = {
@@ -33,7 +31,6 @@ const routeByPath: Record<string, ScreenRoute> = {
   "compare/results": "comparisonResults",
   dashboard: "dashboard",
   credits: "credits",
-  search: "search", // ← ADDED
 };
 
 function parseYearValue(value: string | null | undefined) {
@@ -41,18 +38,8 @@ function parseYearValue(value: string | null | undefined) {
   return availableYears.includes(parsedYear) ? parsedYear : undefined;
 }
 
-function getWebURL() {
-  try {
-    if (typeof window === "undefined") return null;
-    return new URL(window.location.href);
-  } catch {
-    return null;
-  }
-}
-
 export const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [ExpoLinking.createURL("/")],
-
   config: {
     initialRouteName: "welcome",
     screens: {
@@ -64,18 +51,16 @@ export const linking: LinkingOptions<RootStackParamList> = {
       comparisonResults: "compare/results",
       dashboard: "dashboard",
       credits: "credits",
-      search: "search", // ← ADDED
     },
   },
 };
 
 export function getInitialNavigationSeed(): NavigationSeed {
-  const url = getWebURL();
-
-  if (!url) {
+  if (typeof window === "undefined") {
     return { route: "welcome" };
   }
 
+  const url = new URL(window.location.href);
   const normalizedPath = url.pathname.replace(/^\/+|\/+$/g, "");
   const route = routeByPath[normalizedPath] ?? "welcome";
 
@@ -86,25 +71,19 @@ export function getInitialNavigationSeed(): NavigationSeed {
   };
 }
 
-export function getRouteParams(
-  route: ScreenRoute,
-  selectedYear: number,
-  selectedCountryId: string
-) {
+export function getRouteParams(route: ScreenRoute, selectedYear: number, selectedCountryId: string) {
   switch (route) {
     case "discovery":
     case "comparisonSelect":
     case "comparisonResults":
     case "dashboard":
       return { year: selectedYear };
-
     case "country":
     case "hiddenGems":
       return {
         year: selectedYear,
         country: selectedCountryId,
       };
-
     default:
       return undefined;
   }
