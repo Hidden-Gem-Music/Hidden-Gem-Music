@@ -1,6 +1,7 @@
 using Capstone.API.Infrastructure.Interfaces;
 using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using System.Text.RegularExpressions;
 
 namespace Capstone.API.Controllers
@@ -18,11 +19,13 @@ namespace Capstone.API.Controllers
         private const int MaxPreviewLimit = 25;
         private const int DefaultSongsPage = 1;
         private const int DefaultSongsPageSize = 50;
-        private const int MaxSongsPageSize = 200;
+        private const int MaxSongsPageSize = 100;
+        private const string AvailableYearsCacheKey = "country-controller-available-years";
 
         private readonly ICountryRepository _repo;
         private readonly IMetadataRepository _metadataRepo;
         private readonly ILogger<CountryController> _logger;
+        private readonly IMemoryCache _memoryCache;
 
         /// <summary>
         /// Initializes a new instance of CountryController.
@@ -30,10 +33,12 @@ namespace Capstone.API.Controllers
         public CountryController(
             ICountryRepository repo,
             IMetadataRepository metadataRepo,
+            IMemoryCache memoryCache,
             ILogger<CountryController> logger)
         {
             _repo = repo;
             _metadataRepo = metadataRepo;
+            _memoryCache = memoryCache;
             _logger = logger;
         }
 
@@ -162,7 +167,12 @@ namespace Capstone.API.Controllers
                 return "Country code must be exactly 2 letters (ISO format, e.g. 'US').";
             }
 
-            var availableYears = (await _metadataRepo.GetAvailableYearsAsync()).ToHashSet();
+            var availableYears = await _memoryCache.GetOrCreateAsync(AvailableYearsCacheKey, async (entry) =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+                return (await _metadataRepo.GetAvailableYearsAsync()).ToHashSet();
+            }) ?? new HashSet<int>();
+
             if (!availableYears.Contains(year))
             {
                 return $"Year {year} is unavailable in this dataset.";

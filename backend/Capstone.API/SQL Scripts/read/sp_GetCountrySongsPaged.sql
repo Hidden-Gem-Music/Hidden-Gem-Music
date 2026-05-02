@@ -56,7 +56,8 @@ BEGIN
                  AND NOT EXISTS (
                     SELECT 1
                     FROM HiddenGems hg
-                    WHERE hg.song_id = scp.song_id
+                    WHERE hg.country_id = @CountryId
+                      AND hg.song_id = scp.song_id
                       AND hg.chart_year = @Year
                  ))
               )

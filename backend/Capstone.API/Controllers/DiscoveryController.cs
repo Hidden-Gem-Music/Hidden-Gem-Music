@@ -1,5 +1,6 @@
 using Capstone.API.Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 
 namespace Capstone.API.Controllers
 {
@@ -12,10 +13,17 @@ namespace Capstone.API.Controllers
     public class DiscoveryController : ControllerBase
     {
         private readonly IGlobeRepository _repo;
+        private readonly IMetadataRepository _metadataRepo;
+        private readonly ILogger<DiscoveryController> _logger;
 
-        public DiscoveryController(IGlobeRepository repo)
+        public DiscoveryController(
+            IGlobeRepository repo,
+            IMetadataRepository metadataRepo,
+            ILogger<DiscoveryController> logger)
         {
             _repo = repo;
+            _metadataRepo = metadataRepo;
+            _logger = logger;
         }
 
         /// <summary>
@@ -25,8 +33,27 @@ namespace Capstone.API.Controllers
         [HttpGet("countries")]
         public async Task<IActionResult> GetDiscoveryCountries([FromQuery] int year = 2021)
         {
-            var result = await _repo.GetGlobeSummaryAsync(year);
-            return Ok(result);
+            try
+            {
+                var availableYears = (await _metadataRepo.GetAvailableYearsAsync()).ToHashSet();
+                if (!availableYears.Contains(year))
+                {
+                    return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
+                }
+
+                var result = await _repo.GetGlobeSummaryAsync(year);
+                return Ok(result);
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "SQL error getting discovery countries for year {Year}", year);
+                return StatusCode(503, new { message = "Database temporarily unavailable while retrieving discovery countries data." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting discovery countries for year {Year}", year);
+                return StatusCode(500, new { message = "An unexpected error occurred while retrieving discovery countries data." });
+            }
         }
     }
 }

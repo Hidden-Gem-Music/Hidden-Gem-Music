@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from "react-native";
 
 import { Country } from "../types/content";
@@ -16,6 +16,7 @@ import { typefaces } from "../theme/typography";
 
 export type Props = {
   countries: Country[];
+  allYearsCountries?: Country[];
   selectedCountryId: string;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry: (countryId: string) => void;
@@ -38,6 +39,7 @@ const normalizeContinent = (region: string) => {
 
 export function DiscoveryScreen({
   countries,
+  allYearsCountries,
   selectedCountryId,
   onSelectCountry,
   onOpenCountry,
@@ -57,18 +59,45 @@ export function DiscoveryScreen({
   const [onlyWithoutHiddenGems, setOnlyWithoutHiddenGems] = useState(false);
   const [isCloseHovered, setIsCloseHovered] = useState(false);
   const [isClosePressed, setIsClosePressed] = useState(false);
+  const [isClearHovered, setIsClearHovered] = useState(false);
+  const [isClearPressed, setIsClearPressed] = useState(false);
+  const [selectedFilterYears, setSelectedFilterYears] = useState<number[]>([selectedYear]);
+  const timelineYears = availableYears && availableYears.length > 0 ? availableYears : [selectedYear];
+  const isAllYearsSelected = selectedFilterYears.length === 0;
+  const countriesForFiltering =
+    isAllYearsSelected && allYearsCountries && allYearsCountries.length > 0
+      ? allYearsCountries
+      : countries;
+
+  useEffect(() => {
+    if (isAllYearsSelected) {
+      return;
+    }
+
+    if (selectedFilterYears[0] !== selectedYear) {
+      setSelectedFilterYears([selectedYear]);
+    }
+  }, [isAllYearsSelected, selectedFilterYears, selectedYear]);
+
+  const resetAllFilters = () => {
+    setSortOption(null);
+    setSelectedContinents([]);
+    setOnlyWithHiddenGems(true);
+    setOnlyWithoutHiddenGems(false);
+    setSelectedFilterYears([]);
+  };
 
   const continentOptions = useMemo(() => {
     const continents = Array.from(
-      new Set(countries.map((country) => normalizeContinent(country.region)).filter(Boolean))
+      new Set(countriesForFiltering.map((country) => normalizeContinent(country.region)).filter(Boolean))
     ).sort((a, b) =>
       a.localeCompare(b)
     );
     return ["all", ...continents];
-  }, [countries]);
+  }, [countriesForFiltering]);
 
   const filteredCountries = useMemo(() => {
-    let next = [...countries];
+    let next = [...countriesForFiltering];
 
     if (selectedContinents.length > 0) {
       const continentSet = new Set(selectedContinents);
@@ -100,7 +129,7 @@ export function DiscoveryScreen({
     }
 
     return next;
-  }, [countries, onlyWithHiddenGems, onlyWithoutHiddenGems, selectedContinents, sortOption]);
+  }, [countriesForFiltering, onlyWithHiddenGems, onlyWithoutHiddenGems, selectedContinents, sortOption]);
 
   const visibleSelectedCountryId = filteredCountries.some((country) => country.id === selectedCountryId)
     ? selectedCountryId
@@ -136,7 +165,12 @@ export function DiscoveryScreen({
         onRightAction={() => setAllFiltersOpen(true)}
         showHeader={false}
       />
-      <YearSlider year={selectedYear} onChangeYear={onChangeYear} years={availableYears} />
+      <YearSlider
+        year={selectedYear}
+        onChangeYear={onChangeYear}
+        years={timelineYears}
+        displayLabel={isAllYearsSelected ? "All Available Years" : undefined}
+      />
     </View>
   );
 
@@ -197,29 +231,55 @@ export function DiscoveryScreen({
           <Panel style={styles.modal}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>All Filters</Text>
-              <Pressable
-                onPress={() => setAllFiltersOpen(false)}
-                onHoverIn={() => setIsCloseHovered(true)}
-                onHoverOut={() => setIsCloseHovered(false)}
-                onPressIn={() => setIsClosePressed(true)}
-                onPressOut={() => setIsClosePressed(false)}
-                style={styles.closeButtonShell}
-              >
-                {isCloseHovered || isClosePressed ? (
-                  <LinearGradient
-                    colors={isClosePressed ? activeGradient : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]}
-                    locations={[0, 0.34, 1]}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={styles.closeButtonGradient}
-                  />
-                ) : null}
-                <View style={[styles.closeButton, isCloseHovered || isClosePressed ? styles.closeButtonActive : null]}>
-                  <Text style={[styles.closeButtonText, isCloseHovered || isClosePressed ? styles.closeButtonTextActive : null]}>
-                    Close
-                  </Text>
-                </View>
-              </Pressable>
+              <View style={styles.modalHeaderActions}>
+                <Pressable
+                  onPress={resetAllFilters}
+                  onHoverIn={() => setIsClearHovered(true)}
+                  onHoverOut={() => setIsClearHovered(false)}
+                  onPressIn={() => setIsClearPressed(true)}
+                  onPressOut={() => setIsClearPressed(false)}
+                  style={styles.closeButtonShell}
+                >
+                  {isClearHovered || isClearPressed ? (
+                    <LinearGradient
+                      colors={isClearPressed ? activeGradient : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]}
+                      locations={[0, 0.34, 1]}
+                      start={{ x: 0, y: 0.5 }}
+                      end={{ x: 1, y: 0.5 }}
+                      style={styles.closeButtonGradient}
+                    />
+                  ) : null}
+                  <View style={[styles.closeButton, isClearHovered || isClearPressed ? styles.closeButtonActive : null]}>
+                    <Text style={[styles.closeButtonText, isClearHovered || isClearPressed ? styles.closeButtonTextActive : null]}>
+                      Clear Filters
+                    </Text>
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setAllFiltersOpen(false)}
+                  onHoverIn={() => setIsCloseHovered(true)}
+                  onHoverOut={() => setIsCloseHovered(false)}
+                  onPressIn={() => setIsClosePressed(true)}
+                  onPressOut={() => setIsClosePressed(false)}
+                  style={styles.closeButtonShell}
+                >
+                  {isCloseHovered || isClosePressed ? (
+                    <LinearGradient
+                      colors={isClosePressed ? activeGradient : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]}
+                      locations={[0, 0.34, 1]}
+                      start={{ x: 0, y: 0.5 }}
+                      end={{ x: 1, y: 0.5 }}
+                      style={styles.closeButtonGradient}
+                    />
+                  ) : null}
+                  <View style={[styles.closeButton, isCloseHovered || isClosePressed ? styles.closeButtonActive : null]}>
+                    <Text style={[styles.closeButtonText, isCloseHovered || isClosePressed ? styles.closeButtonTextActive : null]}>
+                      Close
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
             </View>
             <ScrollView
               style={styles.modalScroll}
@@ -331,6 +391,61 @@ export function DiscoveryScreen({
 
               <Panel style={styles.filterSection}>
                 <SecondarySurfaceFill />
+                <Text style={styles.filterSectionTitle}>Years</Text>
+                <View style={styles.optionGroup}>
+                  <Pressable
+                    style={styles.filterButtonShell}
+                    onPress={() => setSelectedFilterYears([])}
+                  >
+                    {isAllYearsSelected ? <LinearGradient colors={activeGradient} locations={[0, 0.34, 1]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.filterButtonGradient} /> : null}
+                    <View style={[styles.filterButton, isAllYearsSelected ? styles.filterButtonActive : null]}>
+                      <View style={styles.filterButtonContent}>
+                        <View style={styles.filterButtonLead}>
+                          <GemIcon size={16} />
+                          <Text style={[styles.filterButtonText, isAllYearsSelected ? styles.filterButtonTextActive : null]}>All Years</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </Pressable>
+
+                  {timelineYears.map((yearOption) => {
+                    const isActive = selectedFilterYears.includes(yearOption);
+                    return (
+                      <Pressable
+                        key={`year-${yearOption}`}
+                        style={styles.filterButtonShell}
+                        onPress={() => {
+                          if (isActive) {
+                            setSelectedFilterYears([]);
+                            return;
+                          }
+
+                          setSelectedFilterYears([yearOption]);
+                          if (yearOption !== selectedYear) {
+                            onChangeYear(yearOption);
+                          }
+                        }}
+                      >
+                        {isActive ? <LinearGradient colors={activeGradient} locations={[0, 0.34, 1]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.filterButtonGradient} /> : null}
+                        <View style={[styles.filterButton, isActive ? styles.filterButtonActive : null]}>
+                          <View style={styles.filterButtonContent}>
+                            <View style={styles.filterButtonLead}>
+                              <GemIcon size={16} />
+                              <Text style={[styles.filterButtonText, isActive ? styles.filterButtonTextActive : null]}>{yearOption}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={styles.filterSectionHint}>
+                  Changing the selected year may change which countries are in the resulted list.
+                </Text>
+              </Panel>
+
+              <Panel style={styles.filterSection}>
+                <SecondarySurfaceFill />
                 <Text style={styles.filterSectionTitle}>Continent</Text>
                 <View style={styles.optionGroup}>
                   {continentOptions.map((continentOption) => {
@@ -368,6 +483,40 @@ export function DiscoveryScreen({
                       </Pressable>
                     );
                   })}
+                </View>
+              </Panel>
+
+              <Panel style={styles.filterSection}>
+                <SecondarySurfaceFill />
+                <Text style={styles.filterSectionTitle}>Genre(s)</Text>
+                <View style={styles.optionGroup}>
+                  <View style={styles.filterButtonShell}>
+                    <View style={styles.filterButton}>
+                      <View style={styles.filterButtonContent}>
+                        <View style={styles.filterButtonLead}>
+                          <GemIcon size={16} />
+                          <Text style={styles.filterButtonText}>Coming Soon</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </Panel>
+
+              <Panel style={styles.filterSection}>
+                <SecondarySurfaceFill />
+                <Text style={styles.filterSectionTitle}>Language(s)</Text>
+                <View style={styles.optionGroup}>
+                  <View style={styles.filterButtonShell}>
+                    <View style={styles.filterButton}>
+                      <View style={styles.filterButtonContent}>
+                        <View style={styles.filterButtonLead}>
+                          <GemIcon size={16} />
+                          <Text style={styles.filterButtonText}>Coming Soon</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
                 </View>
               </Panel>
             </ScrollView>
@@ -456,6 +605,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 16,
   },
+  modalHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   modalTitle: {
     color: colors.textStrong,
     fontFamily: typefaces.display,
@@ -516,6 +670,13 @@ const styles = StyleSheet.create({
     color: colors.textStrong,
     fontFamily: typefaces.display,
     fontSize: 22,
+  },
+  filterSectionHint: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
   },
   optionGroup: {
     flexDirection: "row",

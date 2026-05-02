@@ -1,5 +1,4 @@
 using Capstone.API.Models.Country;
-using Capstone.API.Models.HiddenGems;
 
 namespace Capstone.API.Infrastructure.Interfaces
 {
@@ -23,7 +22,7 @@ namespace Capstone.API.Infrastructure.Interfaces
         /// <param name="countryCode">2-letter ISO country code.</param>
         /// <param name="year">The chart year to filter by.</param>
         /// <param name="limit">Maximum number of rows to return.</param>
-        Task<IEnumerable<HiddenGem>> GetHiddenGemsPreviewAsync(string countryCode, int year, int limit);
+        Task<IEnumerable<CountryHiddenGemPreviewItem>> GetHiddenGemsPreviewAsync(string countryCode, int year, int limit);
 
         /// <summary>
         /// Returns a paginated list of shared or unique songs for a country-year view.

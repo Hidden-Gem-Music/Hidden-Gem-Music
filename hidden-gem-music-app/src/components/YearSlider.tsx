@@ -1,41 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { availableYears } from "../data/mockData";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 type Props = {
   year: number;
   onChangeYear: (year: number) => void;
-  years?: number[];
+  years: number[];
+  displayLabel?: string;
 };
 
-export function YearSlider({ year, onChangeYear, years = availableYears }: Props) {
-  const sliderYears = years.length > 0 ? years : availableYears;
+export function YearSlider({ year, onChangeYear, years, displayLabel }: Props) {
+  const sliderYears = years.length > 0 ? Array.from(new Set(years)).sort((a, b) => a - b) : [year];
   const minYear = sliderYears[0];
   const maxYear = sliderYears[sliderYears.length - 1];
-  const largestGap = sliderYears.reduce(
-    (currentGap, currentYear, index) => {
-      if (index === 0) {
-        return currentGap;
-      }
-      const previousYear = sliderYears[index - 1];
-      const gapSize = currentYear - previousYear;
-      if (gapSize > currentGap.gapSize) {
-        return {
-          gapSize,
-          start: previousYear + 1,
-          end: currentYear - 1,
-        };
-      }
-      return currentGap;
-    },
-    { gapSize: 0, start: -1, end: -1 }
-  );
-  const hasGap = largestGap.gapSize > 1;
-  const gapStartYear = hasGap ? largestGap.start : minYear;
-  const gapEndYear = hasGap ? largestGap.end : minYear;
+  const selectableYears = new Set(sliderYears);
+  const missingYears = [];
+  for (let candidateYear = minYear; candidateYear <= maxYear; candidateYear += 1) {
+    if (!selectableYears.has(candidateYear)) {
+      missingYears.push(candidateYear);
+    }
+  }
+  const knownGapYear = missingYears.length > 0 ? missingYears[0] : null;
+  const hasGap = knownGapYear != null;
+  const gapStartYear = hasGap ? knownGapYear : minYear;
+  const gapEndYear = hasGap ? knownGapYear : minYear;
   const gapMidpoint = (gapStartYear + gapEndYear) / 2;
   const [dragYear, setDragYear] = useState(year);
   const [isDragging, setIsDragging] = useState(false);
@@ -63,10 +53,25 @@ export function YearSlider({ year, onChangeYear, years = availableYears }: Props
   const gapStartProgress = hasGap ? ((gapSlotIndex - 0.5) / maxSlotIndex) * 100 : 0;
   const gapEndProgress = hasGap ? ((gapSlotIndex + 0.5) / maxSlotIndex) * 100 : 0;
   const [trackWidth, setTrackWidth] = useState(1);
+  const thumbRadiusPx = 16;
+  const extraGapPadPx = 4;
+  const thumbRadiusProgress = (thumbRadiusPx / trackWidth) * 100;
+  const extraGapPadProgress = (extraGapPadPx / trackWidth) * 100;
+  const visualGapStartProgress = Math.max(gapStartProgress - thumbRadiusProgress - extraGapPadProgress, 0);
+  const visualGapEndProgress = Math.min(gapEndProgress + thumbRadiusProgress + extraGapPadProgress, 100);
 
   const getSelectableYear = (candidateYear: number) => {
     if (candidateYear < gapStartYear || candidateYear > gapEndYear) {
-      return Math.min(Math.max(candidateYear, minYear), maxYear);
+      const clampedYear = Math.min(Math.max(candidateYear, minYear), maxYear);
+      if (selectableYears.has(clampedYear)) {
+        return clampedYear;
+      }
+      const nearestYear = sliderYears.reduce(
+        (currentNearest, currentYear) =>
+          Math.abs(currentYear - clampedYear) < Math.abs(currentNearest - clampedYear) ? currentYear : currentNearest,
+        sliderYears[0]
+      );
+      return nearestYear;
     }
 
     return candidateYear <= gapMidpoint ? gapStartYear - 1 : gapEndYear + 1;
@@ -132,7 +137,9 @@ export function YearSlider({ year, onChangeYear, years = availableYears }: Props
     <View style={styles.wrapper}>
       <View style={styles.topRow}>
         <Text style={styles.label}>Timeline</Text>
-        <Text style={styles.yearText}>Displaying year: {isDragging ? dragYear : year}</Text>
+        <Text style={styles.yearText}>
+          Displaying year: {displayLabel ?? (isDragging ? dragYear : year)}
+        </Text>
       </View>
       <View style={styles.row}>
         <Pressable onPress={() => onChangeYear(getAdjacentSelectableYear(year, -1))}>
@@ -141,14 +148,23 @@ export function YearSlider({ year, onChangeYear, years = availableYears }: Props
         <View
           style={styles.track}
           onLayout={handleTrackLayout}
+          onStartShouldSetResponderCapture={() => true}
+          onMoveShouldSetResponderCapture={() => true}
           onStartShouldSetResponder={() => true}
           onMoveShouldSetResponder={() => true}
+          onTouchStart={(event) => {
+            event.preventDefault?.();
+          }}
           onResponderGrant={(event) => {
             setIsDragging(true);
             updateFromLocation(event.nativeEvent.locationX);
           }}
           onResponderMove={(event) => updateFromLocation(event.nativeEvent.locationX)}
           onResponderRelease={() => {
+            setIsDragging(false);
+            onChangeYear(dragYearRef.current);
+          }}
+          onResponderTerminate={() => {
             setIsDragging(false);
             onChangeYear(dragYearRef.current);
           }}
@@ -159,8 +175,8 @@ export function YearSlider({ year, onChangeYear, years = availableYears }: Props
               style={[
                 styles.gap,
                 {
-                  left: `${gapStartProgress}%`,
-                  width: `${Math.max(gapEndProgress - gapStartProgress, 0)}%`,
+                  left: `${visualGapStartProgress}%`,
+                  width: `${Math.max(visualGapEndProgress - visualGapStartProgress, 0)}%`,
                 },
               ]}
             />
@@ -207,6 +223,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 3,
     borderColor: colors.border,
+    userSelect: "none",
+    cursor: "pointer",
   },
   fill: {
     position: "absolute",

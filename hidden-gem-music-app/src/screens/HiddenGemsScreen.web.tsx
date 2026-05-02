@@ -19,8 +19,7 @@ import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
-import { availableYears as allAvailableYears } from "../data/mockData";
-import { loadAvailableYears, loadHiddenGemsPage } from "../data/countryApi";
+import { loadHiddenGemsPage } from "../data/countryApi";
 import { mapApiHiddenGemPage } from "../data/apiMappers";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -28,14 +27,13 @@ import { typefaces } from "../theme/typography";
 export type Props = {
   country: Country;
   countries: Country[];
-  songs: Song[];
-  selectedSongId: string;
-  selectedSong: Song;
-  onSelectSong: (songId: string) => void;
+  availableYears: number[];
   onSelectCountry: (countryId: string) => void;
   selectedYear: number;
   onChangeYear: (year: number) => void;
   onSetLoading?: (loading: boolean) => void;
+  showNavIntro?: boolean;
+  onDismissNavIntro?: () => void;
 };
 
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
@@ -153,14 +151,6 @@ function MiniCdCase({
   );
 }
 
-function ExplicitBadge() {
-  return (
-    <View style={styles.explicitBadge}>
-      <Text style={styles.explicitBadgeText}>E</Text>
-    </View>
-  );
-}
-
 function BlankCdCase() {
   return (
     <View style={styles.blankCdCaseFrame}>
@@ -240,7 +230,6 @@ function HiddenSongListPanel({
                       <View style={styles.songCopy}>
                         <View style={styles.songTitleRow}>
                           <Text style={[styles.songRowTitle, showGradient ? styles.songTextActive : null]}>{song.title}</Text>
-                          {index === 0 ? <ExplicitBadge /> : null}
                         </View>
                         <Text style={[styles.songRowArtist, showGradient ? styles.songTextActive : null]}>{song.artist}</Text>
                       </View>
@@ -457,24 +446,23 @@ function PlayingSidePanel({
 export function HiddenGemsScreen({
   country,
   countries,
-  selectedSongId,
+  availableYears,
   onSelectCountry,
   selectedYear,
   onChangeYear,
   onSetLoading,
+  showNavIntro = false,
+  onDismissNavIntro,
 }: Props) {
   const { width } = useWindowDimensions();
   const isStacked = width < 1120;
-  const [apiYears, setApiYears] = useState<number[]>([]);
   const [apiSongs, setApiSongs] = useState<Song[] | null>(null);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [page, setPage] = useState(1);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const hiddenGemSongs = useMemo(() => apiSongs ?? [], [apiSongs]);
-  const [activeSongId, setActiveSongId] = useState<string>(() => selectedSongId || hiddenGemSongs[0]?.id || "");
-  const safeSelectedSong =
-    hiddenGemSongs.find((song) => song.id === activeSongId) ??
-    hiddenGemSongs.find((song) => song.id === selectedSongId) ?? hiddenGemSongs[0];
+  const [activeSongId, setActiveSongId] = useState<string>(() => hiddenGemSongs[0]?.id || "");
+  const safeSelectedSong = hiddenGemSongs.find((song) => song.id === activeSongId) ?? hiddenGemSongs[0];
   const [previewSongId, setPreviewSongId] = useState<string>(safeSelectedSong?.id ?? "");
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
@@ -487,9 +475,13 @@ export function HiddenGemsScreen({
   const [isYearDropdownPressed, setIsYearDropdownPressed] = useState(false);
   const [isFilterButtonHovered, setIsFilterButtonHovered] = useState(false);
   const [isFilterButtonPressed, setIsFilterButtonPressed] = useState(false);
+  const [introCountryId, setIntroCountryId] = useState(country.id);
+  const [introYear, setIntroYear] = useState(selectedYear);
+  const [isIntroCountryDropdownOpen, setIsIntroCountryDropdownOpen] = useState(false);
+  const [isIntroYearDropdownOpen, setIsIntroYearDropdownOpen] = useState(false);
   const yearOptions = useMemo(
-    () => (apiYears.length ? apiYears.slice().sort((a, b) => b - a) : allAvailableYears.slice().reverse()),
-    [apiYears]
+    () => (availableYears.length > 0 ? availableYears.slice().sort((a, b) => b - a) : [selectedYear]),
+    [availableYears, selectedYear]
   );
   const countryOptions = useMemo(() => {
     const filtered = countries.filter((item) => item.hiddenSongs > 0);
@@ -499,29 +491,21 @@ export function HiddenGemsScreen({
   const showCountryDropdownGradient = isCountryDropdownHovered || isCountryDropdownPressed || isCountryDropdownOpen;
   const showYearDropdownGradient = isYearDropdownHovered || isYearDropdownPressed || isYearDropdownOpen;
   const showFilterButtonGradient = isFiltersOpen || isFilterButtonHovered || isFilterButtonPressed;
+  const introCountryLabel = countryOptions.find((item) => item.id === introCountryId)?.name ?? "Select Country";
+
+  useEffect(() => {
+    if (!showNavIntro) {
+      return;
+    }
+    setIntroCountryId(country.id);
+    setIntroYear(selectedYear);
+    setIsIntroCountryDropdownOpen(false);
+    setIsIntroYearDropdownOpen(false);
+  }, [country.id, selectedYear, showNavIntro]);
 
   useEffect(() => {
     setPage(1);
   }, [country.code, selectedYear]);
-
-  useEffect(() => {
-    let isCancelled = false;
-    loadAvailableYears()
-      .then((years) => {
-        if (!isCancelled) {
-          setApiYears(years);
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) {
-          setApiYears([]);
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -535,6 +519,8 @@ export function HiddenGemsScreen({
           items: Array.isArray(response?.items) ? response.items : [],
           page: typeof response?.page === "number" ? response.page : page,
           pageSize: typeof response?.pageSize === "number" ? response.pageSize : 25,
+          totalCount: typeof response?.totalCount === "number" ? response.totalCount : 0,
+          hasMore: Boolean(response?.hasMore),
         };
         const mapped = mapApiHiddenGemPage(safeResponse);
         const nextSongs: Song[] = mapped.items.map((item, index) => ({
@@ -547,10 +533,10 @@ export function HiddenGemsScreen({
           year: selectedYear,
           duration: "",
           description: `Trending in ${item.countriesChartingCount} countries`,
-          spotifySearchUrl: item.previewUrl ? `https://open.spotify.com/track/${item.previewUrl}` : "",
+          spotifySearchUrl: item.previewUrl || "",
         }));
         setApiSongs(nextSongs);
-        setHasNextPage(safeResponse.items.length === safeResponse.pageSize);
+        setHasNextPage(safeResponse.hasMore);
         onSetLoading?.(false);
       })
       .catch(() => {
@@ -563,18 +549,9 @@ export function HiddenGemsScreen({
 
     return () => {
       isCancelled = true;
+      onSetLoading?.(false);
     };
   }, [country.code, onSetLoading, page, selectedYear]);
-
-  useEffect(() => {
-    if (!selectedSongId) {
-      return;
-    }
-    if (!hiddenGemSongs.some((song) => song.id === selectedSongId)) {
-      return;
-    }
-    setActiveSongId(selectedSongId);
-  }, [hiddenGemSongs, selectedSongId]);
 
   useEffect(() => {
     if (!hiddenGemSongs.length) {
@@ -968,11 +945,214 @@ export function HiddenGemsScreen({
           </View>
         </View>
       </View>
+      {showNavIntro ? (
+        <View style={styles.navIntroOverlay}>
+          <View style={styles.navIntroOverlayGradientWrap}>
+            <LinearGradient
+              colors={["rgba(22,26,38,0.62)", "rgba(22,26,38,0.36)", "rgba(66,72,101,0.18)"]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.navIntroOverlayGradient}
+            />
+            <LinearGradient
+              colors={["rgba(117,82,107,0.16)", "rgba(117,82,107,0.05)", "rgba(117,82,107,0.00)"]}
+              start={{ x: 0.0, y: 0.04 }}
+              end={{ x: 1.0, y: 0.72 }}
+              style={styles.navIntroOverlayGradient}
+            />
+          </View>
+          <Panel style={styles.navIntroModal}>
+            <Text style={styles.navIntroTitle}>Hidden Gems</Text>
+            <Text style={styles.navIntroBody}>
+              To view a country&apos;s hidden gems, select a country and a year. After selecting, you will also be able
+              to select a different country and/or year on the top of the page, to further your discovery.
+            </Text>
+            <View style={styles.navIntroControls}>
+              <View style={styles.navIntroDropdownWrap}>
+                <Pressable
+                  onPress={() => {
+                    setIsIntroCountryDropdownOpen((current) => !current);
+                    setIsIntroYearDropdownOpen(false);
+                  }}
+                  style={styles.blurbYearDropdownShell}
+                >
+                  <View style={styles.blurbYearDropdownButton}>
+                    <Text style={styles.blurbYearDropdownText}>{introCountryLabel}</Text>
+                    <Text style={styles.blurbYearDropdownChevron}>{isIntroCountryDropdownOpen ? "-" : "+"}</Text>
+                  </View>
+                </Pressable>
+                {isIntroCountryDropdownOpen ? (
+                  <Panel style={styles.blurbYearDropdownMenu}>
+                    <SecondarySurfaceFill />
+                    <ScrollView style={styles.blurbYearDropdownScroll} contentContainerStyle={styles.blurbYearDropdownContent}>
+                      {countryOptions.map((countryOption) => (
+                        <Pressable
+                          key={`intro-${countryOption.id}`}
+                          onPress={() => {
+                            setIntroCountryId(countryOption.id);
+                            setIsIntroCountryDropdownOpen(false);
+                          }}
+                          style={styles.blurbYearDropdownOptionShell}
+                        >
+                          <View
+                            style={[
+                              styles.blurbYearDropdownOption,
+                              countryOption.id === introCountryId ? styles.blurbYearDropdownOptionActive : null,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.blurbYearDropdownOptionText,
+                                countryOption.id === introCountryId ? styles.blurbYearDropdownOptionTextActive : null,
+                              ]}
+                            >
+                              {countryOption.name}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </Panel>
+                ) : null}
+              </View>
+              <View style={styles.navIntroDropdownWrap}>
+                <Pressable
+                  onPress={() => {
+                    setIsIntroYearDropdownOpen((current) => !current);
+                    setIsIntroCountryDropdownOpen(false);
+                  }}
+                  style={styles.blurbYearDropdownShell}
+                >
+                  <View style={styles.blurbYearDropdownButton}>
+                    <Text style={styles.blurbYearDropdownText}>{introYear}</Text>
+                    <Text style={styles.blurbYearDropdownChevron}>{isIntroYearDropdownOpen ? "-" : "+"}</Text>
+                  </View>
+                </Pressable>
+                {isIntroYearDropdownOpen ? (
+                  <Panel style={styles.blurbYearDropdownMenu}>
+                    <SecondarySurfaceFill />
+                    <ScrollView style={styles.blurbYearDropdownScroll} contentContainerStyle={styles.blurbYearDropdownContent}>
+                      {yearOptions.map((year) => (
+                        <Pressable
+                          key={`intro-year-${year}`}
+                          onPress={() => {
+                            setIntroYear(year);
+                            setIsIntroYearDropdownOpen(false);
+                          }}
+                          style={styles.blurbYearDropdownOptionShell}
+                        >
+                          <View
+                            style={[
+                              styles.blurbYearDropdownOption,
+                              year === introYear ? styles.blurbYearDropdownOptionActive : null,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.blurbYearDropdownOptionText,
+                                year === introYear ? styles.blurbYearDropdownOptionTextActive : null,
+                              ]}
+                            >
+                              {year}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </Panel>
+                ) : null}
+              </View>
+            </View>
+            <Pressable
+              onPress={() => {
+                if (introCountryId !== country.id) {
+                  onSelectCountry(introCountryId);
+                }
+                if (introYear !== selectedYear) {
+                  onChangeYear(introYear);
+                }
+                onDismissNavIntro?.();
+              }}
+              style={styles.navIntroButtonShell}
+            >
+              <Text style={styles.navIntroButtonText}>Discover Hidden Gems</Text>
+            </Pressable>
+          </Panel>
+        </View>
+      ) : null}
     </ScreenScaffold>
   );
 }
 
 const styles = StyleSheet.create({
+  navIntroOverlay: {
+    position: "absolute",
+    inset: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  navIntroOverlayGradientWrap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  navIntroOverlayGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  navIntroModal: {
+    width: "100%",
+    maxWidth: 560,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: "rgba(169, 176, 209, 0.24)",
+    backgroundColor: colors.panel,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    alignItems: "center",
+    gap: 14,
+  },
+  navIntroControls: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    zIndex: 200,
+  },
+  navIntroDropdownWrap: {
+    width: 180,
+    zIndex: 220,
+  },
+  navIntroTitle: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 26,
+    lineHeight: 30,
+    textAlign: "center",
+  },
+  navIntroBody: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  navIntroButtonShell: {
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    minHeight: 40,
+    minWidth: 112,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  navIntroButtonText: {
+    color: colors.border,
+    fontFamily: typefaces.condensed,
+    fontSize: 17,
+    lineHeight: 19,
+  },
   pageFrame: {
     flex: 1,
     marginTop: -4,
@@ -1384,23 +1564,6 @@ const styles = StyleSheet.create({
   },
   songTextActive: {
     color: colors.text,
-  },
-  explicitBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 4,
-    backgroundColor: colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 4,
-  },
-  explicitBadgeText: {
-    color: colors.textStrong,
-    fontFamily: typefaces.display,
-    fontSize: 11,
-    lineHeight: 12,
   },
   miniCdCaseFrame: {
     width: 54,

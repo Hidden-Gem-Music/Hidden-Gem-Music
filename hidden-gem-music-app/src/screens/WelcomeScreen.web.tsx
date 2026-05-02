@@ -16,13 +16,14 @@ import { typefaces } from "../theme/typography";
 
 export type Props = {
   countries: Country[];
+  availableYears: number[];
   onNavigate: (route: ScreenRoute) => void;
   onSelectCountry: (countryId: string) => void;
   selectedYear: number;
   onChangeYear: (year: number) => void;
 };
 
-export function WelcomeScreen({ countries, onNavigate, onSelectCountry, selectedYear, onChangeYear }: Props) {
+export function WelcomeScreen({ countries, availableYears, onNavigate, onSelectCountry, selectedYear, onChangeYear }: Props) {
   const previewCountries = countries.slice(0, 5);
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
@@ -44,14 +45,14 @@ export function WelcomeScreen({ countries, onNavigate, onSelectCountry, selected
     <View style={[styles.rightColumn, isStacked ? styles.columnStacked : null]}>
       <GlobePanel
         countries={countries}
-        activeCountryId={countries[0].id}
+        activeCountryId={countries[0]?.id ?? ""}
         selectedYear={selectedYear}
         onSelectCountry={onSelectCountry}
         onOpenCountry={onSelectCountry}
         title="Globe View"
         showHeader={false}
       />
-      <YearSlider year={selectedYear} onChangeYear={onChangeYear} />
+      <YearSlider year={selectedYear} years={availableYears} onChangeYear={onChangeYear} />
     </View>
   );
 

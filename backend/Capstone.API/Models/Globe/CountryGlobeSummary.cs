@@ -2,7 +2,7 @@ namespace Capstone.API.Models.Globe
 {
     /// <summary>
     /// Represents a country's summary data for globe dot rendering and hover cards.
-    /// Returned by sp_GetGlobeSummary.
+    /// Returned by sp_GetDiscoverPageInfo.
     /// </summary>
     public class CountryGlobeSummary
     {

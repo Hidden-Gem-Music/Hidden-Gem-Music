@@ -20,7 +20,7 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { loadAvailableYears, loadCountryHiddenGemsPreview, loadCountryProfile, loadCountrySongsPage } from "../data/countryApi";
-import { mapApiCountryProfile, mapApiHiddenGem, mapApiSong } from "../data/apiMappers";
+import { mapApiCountryProfile, mapApiSong } from "../data/apiMappers";
 import { Country, Song } from "../types/content";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -1143,8 +1143,10 @@ function ComparisonCountryPane({
         }
         setPreviewSongs(
           hiddenGemsPayload.map((item) => {
-            const mapped = mapApiHiddenGem(item);
-            return { title: mapped.title, artist: mapped.artist };
+            return {
+              title: item.songName?.trim() ? item.songName : "Unknown Song",
+              artist: item.artistName?.trim() ? item.artistName : "Unknown Artist",
+            };
           })
         );
         setInitialLoadingPreview(false);

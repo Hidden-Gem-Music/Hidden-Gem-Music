@@ -58,10 +58,20 @@ export type ApiHiddenGem = {
   countriesChartingCount: number;
 };
 
+export type ApiCountryHiddenGemPreview = {
+  songName: string | null;
+  albumName: string | null;
+  artistName: string | null;
+  trendScore: number;
+  countriesChartingCount: number;
+};
+
 export type ApiHiddenGemResponse = {
   items: ApiHiddenGem[];
   page: number;
   pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
 };
 
 export type ApiCountryGlobeSummary = {

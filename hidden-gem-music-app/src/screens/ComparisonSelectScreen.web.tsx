@@ -19,7 +19,6 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { GlobePanel } from "../components/globe/GlobePanel";
-import { loadAvailableYears } from "../data/countryApi";
 import { getSongsForCountryYear } from "../data/mockData";
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
@@ -32,6 +31,7 @@ export type Props = {
   onClearSelections: () => void;
   onDone: () => void;
   selectedYear: number;
+  availableYears: number[];
   onChangeYear: (year: number) => void;
 };
 
@@ -41,6 +41,8 @@ type ComparisonFilters = {
   region: string[];
   language: string[];
   genre: string[];
+  sort: string[];
+  hiddenGems: string[];
 };
 
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
@@ -494,7 +496,9 @@ function ComparisonSidebarPanels({
               onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => setFilterScrollY(event.nativeEvent.contentOffset.y)}
               scrollEventThrottle={16}
             >
+              {renderInlineFilterRow("Sort By", "sort", ["All", "A--Z", "Z--A", "Most Hidden Gems to Least", "Least Hidden Gems to Most"])}
               {renderInlineFilterRow("Popularity", "popularity", ["Biggest Hits", "Fast Rising Songs", "All Songs"])}
+              {renderInlineFilterRow("Hidden Gems", "hiddenGems", ["All", "Only Show Countries with Hidden Gems", "Show Countries Without Hidden Gems"])}
               {renderInlineFilterRow("Region", "region", ["All", ...regionOptions])}
               {renderInlineFilterRow("Language", "language", ["All", ...languageOptions])}
               {renderInlineFilterRow("Genre", "genre", ["All", ...genreOptions])}
@@ -679,18 +683,20 @@ export function ComparisonSelectScreen({
   onClearSelections,
   onDone,
   selectedYear,
+  availableYears,
   onChangeYear,
 }: Props) {
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
   const [comparisonYear, setComparisonYear] = useState<number | null>(selectedYear);
-  const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [validationOpen, setValidationOpen] = useState(false);
   const [filters, setFilters] = useState<ComparisonFilters>({
     popularity: ["All Songs"],
     region: ["All"],
     language: ["All"],
     genre: ["All"],
+    sort: ["All"],
+    hiddenGems: ["All"],
   });
   const regionOptions = useMemo(
     () =>
@@ -717,9 +723,8 @@ export function ComparisonSelectScreen({
         .sort((a, b) => a.localeCompare(b)),
     [countries]
   );
-  const filteredCountries = useMemo(
-    () =>
-      countries.filter((country) => {
+  const filteredCountries = useMemo(() => {
+      const filtered = countries.filter((country) => {
         // Include only countries that have songs in app data for this year.
         if (getSongsForCountryYear(country.id, comparisonYear ?? selectedYear).length <= 0) {
           return false;
@@ -747,35 +752,39 @@ export function ComparisonSelectScreen({
         if (!filters.genre.includes("All") && !filters.genre.some((genre) => (country.genres ?? []).includes(genre))) {
           return false;
         }
+        if (!filters.hiddenGems.includes("All")) {
+          if (filters.hiddenGems.includes("Only Show Countries with Hidden Gems") && country.hiddenSongs <= 0) {
+            return false;
+          }
+          if (filters.hiddenGems.includes("Show Countries Without Hidden Gems") && country.hiddenSongs > 0) {
+            return false;
+          }
+        }
         return true;
-      }),
-    [countries, filters.genre, filters.language, filters.popularity, filters.region]
+      });
+
+      if (filters.sort.includes("A--Z")) {
+        return filtered.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      if (filters.sort.includes("Z--A")) {
+        return filtered.sort((a, b) => b.name.localeCompare(a.name));
+      }
+      if (filters.sort.includes("Most Hidden Gems to Least")) {
+        return filtered.sort((a, b) => b.hiddenSongs - a.hiddenSongs || a.name.localeCompare(b.name));
+      }
+      if (filters.sort.includes("Least Hidden Gems to Most")) {
+        return filtered.sort((a, b) => a.hiddenSongs - b.hiddenSongs || a.name.localeCompare(b.name));
+      }
+
+      return filtered;
+    },
+    [comparisonYear, countries, filters.genre, filters.hiddenGems, filters.language, filters.popularity, filters.region, filters.sort, selectedYear]
   );
-  const visibleCountries = filteredCountries.length > 0 ? filteredCountries : countries;
+  const visibleCountries = filteredCountries;
 
   useEffect(() => {
     setComparisonYear(selectedYear);
   }, [selectedYear]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    loadAvailableYears()
-      .then((years) => {
-        if (!cancelled && years.length > 0) {
-          setAvailableYears(years);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          console.warn("Failed to load available years metadata for Comparison Mode; falling back to selected year.", error);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const yearOptions = useMemo(() => {
     if (availableYears.length === 0) {
@@ -827,6 +836,9 @@ export function ComparisonSelectScreen({
         languageOptions={languageOptions}
         genreOptions={genreOptions}
       />
+      {visibleCountries.length === 0 ? (
+        <Text style={styles.emptyStateText}>No countries match these filters.</Text>
+      ) : null}
     </View>
   );
 
@@ -1015,9 +1027,6 @@ const styles = StyleSheet.create({
   layoutStacked: {
     flexDirection: "column",
   },
-  layoutScrollable: {
-    flexWrap: "nowrap",
-  },
   leftColumn: {
     flex: 1,
     minWidth: 340,
@@ -1028,6 +1037,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 340,
     gap: 16,
+  },
+  emptyStateText: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 18,
+    textAlign: "center",
   },
   columnStacked: {
     width: "100%",

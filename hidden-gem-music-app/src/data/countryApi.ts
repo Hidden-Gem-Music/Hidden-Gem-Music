@@ -1,11 +1,5 @@
-import type { ApiCountryProfile, ApiCountrySongsPage, ApiHiddenGem, ApiHiddenGemResponse } from "../types/api";
-
-const DEFAULT_API_BASE_URL = "http://localhost:5140";
-
-function getApiBaseUrl() {
-  const configuredBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-  return configuredBaseUrl && configuredBaseUrl.length > 0 ? configuredBaseUrl : DEFAULT_API_BASE_URL;
-}
+import type { ApiCountryHiddenGemPreview, ApiCountryProfile, ApiCountrySongsPage, ApiHiddenGemResponse } from "../types/api";
+import { getApiBaseUrl } from "./apiBaseUrl";
 
 async function parseJsonResponse<T>(response: Response, endpoint: string): Promise<T> {
   if (!response.ok) {
@@ -22,11 +16,15 @@ export async function loadCountryProfile(countryCode: string, year: number): Pro
   return parseJsonResponse<ApiCountryProfile>(response, endpoint);
 }
 
-export async function loadCountryHiddenGemsPreview(countryCode: string, year: number, limit = 13): Promise<ApiHiddenGem[]> {
+export async function loadCountryHiddenGemsPreview(
+  countryCode: string,
+  year: number,
+  limit = 13
+): Promise<ApiCountryHiddenGemPreview[]> {
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/country/${countryCode}/hidden-gems/preview?year=${year}&limit=${limit}`;
   const response = await fetch(endpoint);
-  return parseJsonResponse<ApiHiddenGem[]>(response, endpoint);
+  return parseJsonResponse<ApiCountryHiddenGemPreview[]>(response, endpoint);
 }
 
 export async function loadHiddenGemsPage(

@@ -1,6 +1,154 @@
 mp3li implementation timeline document
 
-Updated: May 1, 2026
+Updated: May 2, 2026
+
+Leena Review Bundle Closure + Continued Runtime Stabilization + UI Changes (May 2, 2026)
+- Objective: fully close Leena review items across Discovery, Country Detail, Comparison Mode, and Hidden Gems while preserving currently working behavior and avoiding regressions.
+
+Summary outcome:
+- Leena-flagged backend, SQL, and frontend items were implemented and then re-verified in running app behavior.
+- SQL stored procedure updates were re-applied safely (`CREATE OR ALTER`) and verified in SSMS.
+- Follow-up runtime regressions were identified quickly and fixed in targeted patches.
+
+Full Leena Flag Ledger (explicit, no grouping):
+- Raw flagged items across all review notes: 31
+- Unique items after de-duplication: 24
+- Deferred intentionally: 0
+
+Discovery Globe review items:
+1. Discovery controller missing input validation/error handling parity. Status: handled. Risk: Medium. Fix: aligned controller validation + controlled exception responses for SQL/unexpected failures.
+2. `CountryGlobeSummary` stale SP doc comment. Status: handled. Risk: Low. Fix: updated procedure reference comment to current SP name.
+3. Discovery SP filtering intent mismatch (lat/long vs explicit ISO guard). Status: handled. Risk: Low. Fix: added explicit ISO-length guard in `sp_GetDiscoverPageInfo`.
+4. Globe repository dead fallback key branches. Status: handled. Risk: Low. Fix: removed dead fallback key paths and aligned mapping to stable aliases.
+5. Duplicated `AsStringAny` / `AsIntAny` / `AsDoubleAny` helper logic. Status: handled via shared utility path. Risk: Low. Fix: extracted shared row-value reader utility used by target repositories.
+6. `discoveryApi.ts` defensive multi-key normalization now redundant. Status: handled. Risk: Low. Fix: switched to stable typed API mapping path.
+7. Welcome slider not receiving real `years`. Status: handled. Risk: Low. Fix: passed API years into Welcome slider path.
+8. `countries[0].id` unsafe access on empty arrays. Status: handled. Risk: Low. Fix: added null-safe fallback handling.
+9. CountryCard no-data detection tied to fallback strings. Status: handled. Risk: Low. Fix: moved to explicit no-data signal handling in mapping/render path.
+
+Country Detail review items:
+10. Validation path doing extra DB round-trip per request (years lookup frequency). Status: handled. Risk: Medium. Fix: added short-lived cache strategy for available years in validation path.
+11. `pageSize` cap mismatch (controller vs repository). Status: handled. Risk: Low. Fix: normalized max page size behavior to a consistent limit.
+12. Hidden-gems preview contract had fields not returned by SP. Status: handled (contract narrowed). Risk: Low. Fix: narrowed model/DTO to fields actually returned by preview endpoint.
+13. Metadata repository dead `"year"` fallback branch. Status: handled. Risk: Low. Fix: removed unreachable fallback branch.
+14. `sp_GetCountrySongsPaged` unique filter scope ambiguity (any-country vs this-country). Status: handled with country scope. Risk: Low. Fix: added `hg.country_id = @CountryId` constraint.
+15. YearSlider mock-data fallback dependency. Status: handled. Risk: Low. Fix: removed mock fallback dependency and used real-year inputs only.
+16. YearSlider multi-gap handling concern. Status: handled with explicit known-gap behavior for current dataset intent. Risk: Low. Fix: implemented known-gap slot behavior from available-year list.
+17. `countryApi.ts` base URL recomputed every call. Status: handled via shared base URL helper. Risk: Low. Fix: extracted shared base URL helper module.
+18. `discoveryApi.ts` defensive normalization remained after API stabilized. Status: handled. Risk: Low. Fix: unified on typed mapping contract.
+
+Comparison Mode review items:
+19. `comparisonYear` missing dependency in filtered-country memo. Status: handled. Risk: Medium. Fix: added missing dependency so list recomputes on year change.
+20. Duplicate `loadAvailableYears` fetch ownership across screens. Status: handled (centralized ownership path). Risk: Low. Fix: centralized years loading in app-level ownership and reused via props.
+21. Per-country `getSongsForCountryYear` list gating concern vs API authority. Status: handled in current source-of-truth flow. Risk: Low. Fix: aligned list-gating path with current discovery-backed dataset behavior.
+22. Zero-results silently falling back to full list. Status: handled with explicit empty state. Risk: Low. Fix: removed silent fallback behavior and rendered no-results state.
+23. Dead style (`layoutScrollable`). Status: handled. Risk: Low. Fix: removed unused style.
+
+Hidden Gems review items:
+24. Hardcoded explicit badge on first item. Status: handled. Risk: Low. Fix: removed hardcoded explicit indicator behavior.
+25. `previewUrl` naming ambiguity (track id semantics). Status: handled in mapping/usage path. Risk: Low. Fix: aligned usage semantics to track-id behavior path and removed misleading construction.
+26. Dead props still passed from `App.tsx` to Hidden Gems screen. Status: handled. Risk: Low. Fix: removed stale props and dead flow references.
+27. Duplicate years fetch (App + Hidden Gems). Status: handled. Risk: Low. Fix: reused app-owned years data in Hidden Gems.
+28. Dead mock-song matching flow for hidden gems open/select behavior. Status: handled. Risk: Low. Fix: removed unreachable mock matching logic.
+29. Unused private helper methods in HiddenGems repository. Status: handled. Risk: Low. Fix: removed unused helper methods.
+30. Hidden gems response missing `totalCount` / `hasMore` parity. Status: handled. Risk: Low. Fix: added `total_count` in SQL and mapped `totalCount/hasMore` in API response.
+31. `discoveryApi.ts` node triple-slash/env typing + duplicated base URL helper concern. Status: handled. Risk: Low. Fix: moved env/base-url handling to shared helper and removed redundant typing pattern.
+
+SSMS / DB verification performed:
+- Re-ran and verified procedures:
+  - `sp_GetDiscoverPageInfo`
+  - `sp_GetCountrySongsPaged`
+  - `sp_GetHiddenGems`
+- Verified required markers:
+  - `LEN(LTRIM(RTRIM(c.iso_code))) = 2`
+  - `hg.country_id = @CountryId`
+  - `COUNT(1) OVER() AS total_count`
+- Outcome: DB-side contract confirmed current and aligned with app-side expectations.
+
+Issues encountered during finalization and how they were fixed:
+1. Discovery list/globe temporarily showed no countries until timeline interaction:
+   - Cause: over-aggressive all-years data prefetch/blanking during load transitions.
+   - Fix: stabilized load behavior, removed blank-at-start behavior, and constrained all-years aggregation path.
+2. Search/breadcrumb/overlay layering regressions:
+   - Cause: overlay placement and z-index collisions during integration.
+   - Fix: consolidated overlay render point and corrected layering/click-outside behavior.
+3. Discovery slider popups duplicated, then disappeared, then hover-click side effects:
+   - Cause: timing race in refresh state and hover-to-open crossover after drag.
+   - Fix: explicit discovery refresh-state gating + suppression window for accidental opens.
+4. Hidden gems loading popup leaked into non-hidden-gems routes:
+   - Cause: shared loading callback not route-scoped during transitions.
+   - Fix: route-guarded loading updates + cleanup on unmount/route exit.
+5. Country detail fallback sections showed duplicate fallback text:
+   - Cause: helper copy plus centered fallback both visible in no-data state.
+   - Fix: fallback mode now hides section content and keeps only centered fallback message.
+6. “View all hidden gems” from no-data countries opened empty page:
+   - Cause: link remained active even when no hidden-gems section data existed.
+   - Fix: action disabled and blocked when section has no data.
+7. Hidden Gems nav-entry intro popup caused repeated behavior after leaving screen:
+   - Cause: intro/loading state not fully reset on route transitions.
+   - Fix: explicit route-based intro reset and loading cleanup.
+
+Specific UI changes made and why:
+- Discovery timeline:
+  - Real years only + known-gap visualization improved to match non-selectable range.
+  - Why: timeline must reflect true dataset availability and avoid misleading selectable space.
+- Discovery All Filters:
+  - Added Years section with `All Years` and per-year options.
+  - Added `Clear Filters` button beside `Close`.
+  - Added `Genre(s)` / `Language(s)` “Coming Soon” sections.
+  - Reordered to place Years above Continent and moved year-impact helper text under Years.
+  - Why: clearer user mental model for year-vs-region interactions and faster reset control.
+- Discovery all-years behavior:
+  - `All Years` label handling and list/filter behavior aligned to aggregated available-year data path.
+  - Why: selecting all years must change data behavior, not only text.
+- Country Detail no-data UX:
+  - Featured Artists and Hidden Gems sections now switch to fallback-only centered message when data is insufficient.
+  - Why: avoid blank or misleading partial UI while keeping section purpose obvious.
+- Comparison Mode filters:
+  - Added Discovery-parity list filters:
+    - `A--Z`
+    - `Z--A`
+    - `Most Hidden Gems to Least`
+    - `Least Hidden Gems to Most`
+    - `Only Show Countries with Hidden Gems`
+    - `Show Countries Without Hidden Gems`
+  - Moved `Sort By` above `Popularity`.
+  - Why: parity across screens, predictable filtering, and clearer priority in filter workflow.
+- Hidden Gems nav-entry onboarding:
+  - Added route-context intro popup (main-nav entry only, not from country detail flow).
+  - Added country/year selectors and `Discover Hidden Gems` action in popup.
+  - Why: smoother first-use flow and explicit selection guidance before deep interaction.
+
+Files significantly touched during this closure cycle:
+- Frontend:
+  - `hidden-gem-music-app/App.tsx`
+  - `hidden-gem-music-app/src/screens/DiscoveryScreen.web.tsx`
+  - `hidden-gem-music-app/src/screens/CountryScreen.web.tsx`
+  - `hidden-gem-music-app/src/screens/ComparisonSelectScreen.web.tsx`
+  - `hidden-gem-music-app/src/screens/HiddenGemsScreen.web.tsx`
+  - `hidden-gem-music-app/src/components/YearSlider.tsx`
+  - `hidden-gem-music-app/src/components/SearchOverlay.tsx`
+  - `hidden-gem-music-app/src/components/AppHeader.tsx`
+  - `hidden-gem-music-app/src/data/discoveryApi.ts`
+  - `hidden-gem-music-app/src/data/countryApi.ts`
+  - `hidden-gem-music-app/src/data/apiBaseUrl.ts`
+- Backend/SQL:
+  - `backend/Capstone.API/Controllers/DiscoveryController.cs`
+  - `backend/Capstone.API/Controllers/CountryController.cs`
+  - `backend/Capstone.API/Infrastructure/Repositories/GlobeRepository.cs`
+  - `backend/Capstone.API/Infrastructure/Repositories/CountryRepository.cs`
+  - `backend/Capstone.API/Infrastructure/Repositories/HiddenGemsRepository.cs`
+  - `backend/Capstone.API/Infrastructure/Repositories/MetadataRepository.cs`
+  - `backend/Capstone.API/Infrastructure/Repositories/RowValueReader.cs`
+  - `backend/Capstone.API/SQL Scripts/read/sp_GetDiscoverPageInfo.sql`
+  - `backend/Capstone.API/SQL Scripts/read/sp_GetCountrySongsPaged.sql`
+  - `backend/Capstone.API/SQL Scripts/read/sp_GetHiddenGems.sql`
+
+Verification:
+- Frontend typecheck:
+  - `cd hidden-gem-music-app && npx tsc --noEmit` passed after final changes.
+- Backend build and endpoint behavior:
+  - previously passed in-cycle and runtime-verified via user browser checks + SSMS proc checks.
 
 Mobile Screen Integration Rework + Safe Merge Isolation (May 1, 2026)
 - Time spent: at minimum 2.5 hours to safely rework and validate mobile-screen integration work that had to be re-vetted before adoption.
@@ -69,7 +217,7 @@ Song Data Enrichment Tool Creation + Runtime Hardening (May 1, 2026)
   - matched/skipped counters
   - chunk start/done summaries
   - per-song progress output
-  
+
 Updated: April 30, 2026
 
 Hidden Gems Web Screen Data Implementation + Leena PR Reconciliation (Issue for Hidden Gems) (May 1, 2026)

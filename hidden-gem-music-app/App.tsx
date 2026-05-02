@@ -23,7 +23,6 @@ import {
   getCountryByYear,
   getDashboardMetrics,
   getFeaturedCountry,
-  getSongsForCountryYear,
 } from "./src/data/mockData";
 import { getInitialNavigationSeed, getRouteParams, linking, RootStackParamList } from "./src/navigation/linking";
 import { Country } from "./src/types/content";
@@ -41,7 +40,6 @@ type RouteParams = {
 type PersistedAppState = {
   selectedYear?: number;
   selectedCountryId?: string;
-  selectedSongId?: string;
   comparisonIds?: string[];
 };
 
@@ -70,7 +68,6 @@ function readPersistedAppState(): PersistedAppState {
     return {
       selectedYear: persistedYear,
       selectedCountryId: typeof parsedValue.selectedCountryId === "string" ? parsedValue.selectedCountryId : undefined,
-      selectedSongId: typeof parsedValue.selectedSongId === "string" ? parsedValue.selectedSongId : undefined,
       comparisonIds: persistedComparisonIds,
     };
   } catch {
@@ -136,6 +133,10 @@ export default function App() {
 
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasAppliedLatestYearDefaultRef = useRef(false);
+  const suppressOpenUntilRef = useRef(0);
+  const isAwaitingDiscoveryRefreshRef = useRef(false);
+  const hasSeenDiscoveryLoadingRef = useRef(false);
   const initialNavigationSeedRef = useRef(getInitialNavigationSeed());
   const persistedAppStateRef = useRef(readPersistedAppState());
   const initialNavigationSeed = initialNavigationSeedRef.current;
@@ -149,20 +150,39 @@ export default function App() {
   const [selectedCountryId, setSelectedCountryId] = useState(
     initialNavigationSeed.countryId ?? persistedAppState.selectedCountryId ?? initialFeaturedCountry.id
   );
-  const [selectedSongId, setSelectedSongId] = useState(persistedAppState.selectedSongId ?? "");
   const [comparisonIds, setComparisonIds] = useState<string[]>(
     initialNavigationSeed.route === "comparisonResults" ? persistedAppState.comparisonIds ?? [] : []
   );
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+  const [showHiddenGemsNavIntro, setShowHiddenGemsNavIntro] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [apiAvailableYears, setApiAvailableYears] = useState<number[]>([]);
   const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(true);
   const [discoveryLoadingDots, setDiscoveryLoadingDots] = useState(1);
+  const [discoveryCountriesByYear, setDiscoveryCountriesByYear] = useState<Record<number, Country[]>>({});
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
   const [discoveryCountries, setDiscoveryCountries] = useState<Country[]>([]);
+  const allYearsDiscoveryCountries = useMemo(() => {
+    if (apiAvailableYears.length === 0) {
+      return discoveryCountries;
+    }
+
+    const byId = new Map<string, Country>();
+    for (const year of apiAvailableYears) {
+      const yearCountries = discoveryCountriesByYear[year] ?? [];
+      for (const country of yearCountries) {
+        const existing = byId.get(country.id);
+        if (!existing || country.hiddenSongs > existing.hiddenSongs) {
+          byId.set(country.id, country);
+        }
+      }
+    }
+
+    const merged = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return merged.length > 0 ? merged : discoveryCountries;
+  }, [apiAvailableYears, discoveryCountries, discoveryCountriesByYear]);
   const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
-  const songs = useMemo(() => getSongsForCountryYear(selectedCountryId, selectedYear), [selectedCountryId, selectedYear]);
 
   const selectedCountry = useMemo(
     () =>
@@ -170,11 +190,6 @@ export default function App() {
       getCountryByYear(selectedCountryId, selectedYear) ??
       featuredCountry,
     [discoveryCountries, selectedCountryId, selectedYear, featuredCountry]
-  );
-
-  const selectedSong = useMemo(
-    () => songs.find((song) => song.id === selectedSongId) ?? songs[0],
-    [selectedSongId, songs]
   );
 
   const selectedComparisonCountries = useMemo(
@@ -273,6 +288,7 @@ export default function App() {
         navigationRef.navigate("country", getRouteParams("country", selectedYear, selectedCountryId));
         break;
       case "hiddenGems":
+        setShowHiddenGemsNavIntro(currentRoute !== "country");
         navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
         break;
       case "comparisonSelect":
@@ -296,33 +312,21 @@ export default function App() {
     }
   };
 
-  const openHiddenGems = (selection?: { songTitle?: string; artist?: string }) => {
-    const normalize = (value?: string) => value?.trim().toLowerCase() ?? "";
-    const normalizedTitle = normalize(selection?.songTitle);
-    const normalizedArtist = normalize(selection?.artist);
-    const matchedSong =
-      songs.find(
-        (song) =>
-          normalizedTitle &&
-          normalize(song.title) === normalizedTitle &&
-          (!normalizedArtist || normalize(song.artist) === normalizedArtist)
-      ) ??
-      songs.find((song) => normalizedTitle && normalize(song.title) === normalizedTitle) ??
-      songs.find((song) => normalizedArtist && normalize(song.artist) === normalizedArtist) ??
-      songs[0];
-
-    if (matchedSong) {
-      setSelectedSongId(matchedSong.id);
-    }
-
+  const openHiddenGems = () => {
     if (!navigationRef.isReady()) {
       return;
     }
 
+    setShowHiddenGemsNavIntro(false);
     navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
   };
 
   const openCountry = (countryId: string) => {
+    if (Date.now() < suppressOpenUntilRef.current) {
+      setSelectedCountryId(countryId);
+      return;
+    }
+
     const countryLabel = discoveryCountries.find((country) => country.id === countryId)?.name ?? countries.find((country) => country.id === countryId)?.name ?? countryId;
 
     if (countryId === selectedCountryId) {
@@ -373,26 +377,14 @@ export default function App() {
     setSelectedCountryId(countryId);
   };
 
-  const openHiddenGemsForCountry = (countryId: string, selection?: { songTitle?: string; artist?: string }) => {
-    const countrySongs = getSongsForCountryYear(countryId, selectedYear);
-    const normalize = (value?: string) => value?.trim().toLowerCase() ?? "";
-    const normalizedTitle = normalize(selection?.songTitle);
-    const normalizedArtist = normalize(selection?.artist);
-    const matchedSong =
-      countrySongs.find(
-        (song) =>
-          normalizedTitle &&
-          normalize(song.title) === normalizedTitle &&
-          (!normalizedArtist || normalize(song.artist) === normalizedArtist)
-      ) ??
-      countrySongs.find((song) => normalizedTitle && normalize(song.title) === normalizedTitle) ??
-      countrySongs.find((song) => normalizedArtist && normalize(song.artist) === normalizedArtist) ??
-      countrySongs[0];
+  const openHiddenGemsForCountry = (countryId: string) => {
+    if (Date.now() < suppressOpenUntilRef.current) {
+      setSelectedCountryId(countryId);
+      return;
+    }
 
     setSelectedCountryId(countryId);
-    if (matchedSong) {
-      setSelectedSongId(matchedSong.id);
-    }
+    setShowHiddenGemsNavIntro(false);
 
     if (!navigationRef.isReady()) {
       return;
@@ -403,12 +395,6 @@ export default function App() {
       year: selectedYear,
     });
   };
-
-  useEffect(() => {
-    if (!songs.find((song) => song.id === selectedSongId)) {
-      setSelectedSongId(songs[0]?.id ?? "");
-    }
-  }, [songs, selectedSongId]);
 
   useEffect(() => {
     if (currentRoute === "discovery") {
@@ -459,7 +445,6 @@ export default function App() {
   useEffect(() => {
     let isCancelled = false;
     setIsDiscoveryLoading(true);
-    setDiscoveryCountries([]);
 
     loadDiscoveryCountries(selectedYear, countries)
       .then((apiCountries) => {
@@ -467,17 +452,17 @@ export default function App() {
           return;
         }
 
-        if (apiCountries.length > 0) {
-          setDiscoveryCountries(apiCountries);
-        } else {
-          setDiscoveryCountries(countries);
-        }
+        setDiscoveryCountries(apiCountries);
+        setDiscoveryCountriesByYear((current) => ({
+          ...current,
+          [selectedYear]: apiCountries,
+        }));
         setIsDiscoveryLoading(false);
       })
       .catch((error) => {
         if (!isCancelled) {
-          console.warn("Failed to load discovery countries from API; using local mock countries.", error);
-          setDiscoveryCountries(countries);
+          console.warn("Failed to load discovery countries from API.", error);
+          setDiscoveryCountries([]);
           setIsDiscoveryLoading(false);
         }
       });
@@ -501,6 +486,27 @@ export default function App() {
   }, [isDiscoveryLoading]);
 
   useEffect(() => {
+    if (!isAwaitingDiscoveryRefreshRef.current) {
+      return;
+    }
+
+    if (isDiscoveryLoading) {
+      hasSeenDiscoveryLoadingRef.current = true;
+      return;
+    }
+
+    if (hasSeenDiscoveryLoadingRef.current && loadingMessage && loadingMessage.startsWith("Refreshing")) {
+      const timer = setTimeout(() => {
+        setLoadingMessage(null);
+        isAwaitingDiscoveryRefreshRef.current = false;
+        hasSeenDiscoveryLoadingRef.current = false;
+      }, 120);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isDiscoveryLoading, loadingMessage]);
+
+  useEffect(() => {
     let isCancelled = false;
 
     loadAvailableYears()
@@ -519,6 +525,36 @@ export default function App() {
       isCancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (apiAvailableYears.length === 0 || apiAvailableYears.includes(selectedYear)) {
+      return;
+    }
+
+    const nearestYear = apiAvailableYears.reduce((currentNearest, currentYear) =>
+      Math.abs(currentYear - selectedYear) < Math.abs(currentNearest - selectedYear) ? currentYear : currentNearest
+    , apiAvailableYears[0]);
+
+    setSelectedYear(nearestYear);
+  }, [apiAvailableYears, selectedYear]);
+
+  useEffect(() => {
+    if (hasAppliedLatestYearDefaultRef.current || initialNavigationSeed.year != null || apiAvailableYears.length === 0) {
+      return;
+    }
+
+    const latestYear = apiAvailableYears[apiAvailableYears.length - 1];
+    hasAppliedLatestYearDefaultRef.current = true;
+    if (latestYear !== selectedYear) {
+      setSelectedYear(latestYear);
+    }
+  }, [apiAvailableYears, initialNavigationSeed.year, selectedYear]);
+
+  useEffect(() => {
+    if (currentRoute !== "hiddenGems") {
+      setShowHiddenGemsNavIntro(false);
+    }
+  }, [currentRoute]);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -653,17 +689,25 @@ export default function App() {
         JSON.stringify({
           selectedYear,
           selectedCountryId,
-          selectedSongId,
           comparisonIds: comparisonIds.slice(0, 2),
         } satisfies PersistedAppState)
       );
     } catch {
       // Ignore localStorage write failures.
     }
-  }, [comparisonIds, selectedCountryId, selectedSongId, selectedYear]);
+  }, [comparisonIds, selectedCountryId, selectedYear]);
 
   const handleYearChange = (nextYear: number, context: string) => {
     if (nextYear === selectedYear) {
+      return;
+    }
+
+    if (currentRoute === "discovery" || currentRoute === "welcome") {
+      suppressOpenUntilRef.current = Date.now() + 700;
+      isAwaitingDiscoveryRefreshRef.current = true;
+      hasSeenDiscoveryLoadingRef.current = false;
+      setLoadingMessage(`Refreshing ${context} for ${nextYear}...`);
+      setSelectedYear(nextYear);
       return;
     }
 
@@ -679,8 +723,12 @@ export default function App() {
   };
 
   const handleHiddenGemsLoading = useCallback((loading: boolean) => {
+    if (currentRoute !== "hiddenGems") {
+      setLoadingMessage(null);
+      return;
+    }
     setLoadingMessage(loading ? "Loading hidden gems..." : null);
-  }, []);
+  }, [currentRoute]);
 
   if (!fontsLoaded) {
     return <View style={styles.appShell} />;
@@ -706,7 +754,7 @@ export default function App() {
             searchOpen={searchOpen}
             onToggleSearch={() => setSearchOpen((open) => !open)}
             onCloseSearch={() => setSearchOpen(false)}
-            countries={countries}
+            countries={discoveryCountries}
             onOpenCountry={openCountry}
           />
           <View style={styles.screenArea}>
@@ -721,7 +769,8 @@ export default function App() {
               <Stack.Screen name="welcome" options={{ title: "Welcome" }}>
                 {() => (
                   <WelcomeScreen
-                    countries={countries}
+                    countries={discoveryCountries}
+                    availableYears={apiAvailableYears}
                     onNavigate={navigateToRoute}
                     onSelectCountry={openCountry}
                     selectedYear={selectedYear}
@@ -734,6 +783,7 @@ export default function App() {
                 {() => (
                   <DiscoveryScreen
                     countries={discoveryCountries}
+                    allYearsCountries={allYearsDiscoveryCountries}
                     selectedCountryId={selectedCountryId}
                     onSelectCountry={(countryId) => setSelectedCountryId(countryId)}
                     onOpenCountry={openCountryFromDiscovery}
@@ -763,14 +813,13 @@ export default function App() {
                   <HiddenGemsScreen
                     country={selectedCountry}
                     countries={discoveryCountries}
-                    songs={songs}
-                    selectedSongId={selectedSongId}
-                    selectedSong={selectedSong}
-                    onSelectSong={setSelectedSongId}
+                    availableYears={apiAvailableYears}
                     onSelectCountry={(countryId) => setSelectedCountryId(countryId)}
                     selectedYear={selectedYear}
                     onChangeYear={(year) => handleYearChange(year, `${selectedCountry.name} hidden gems`)}
                     onSetLoading={handleHiddenGemsLoading}
+                    showNavIntro={showHiddenGemsNavIntro}
+                    onDismissNavIntro={() => setShowHiddenGemsNavIntro(false)}
                   />
                 )}
               </Stack.Screen>
@@ -794,6 +843,7 @@ export default function App() {
                     onClearSelections={() => setComparisonIds([])}
                     onDone={() => navigateToRoute("comparisonResults")}
                     selectedYear={selectedYear}
+                    availableYears={apiAvailableYears}
                     onChangeYear={(year) => handleYearChange(year, "Comparison Mode")}
                   />
                 )}
@@ -828,13 +878,8 @@ export default function App() {
             </Stack.Navigator>
           </View>
           <LoadingOverlay
-            visible={Boolean(loadingMessage) || (currentRoute === "discovery" && isDiscoveryLoading)}
-            message={
-              loadingMessage ??
-              (currentRoute === "discovery" && isDiscoveryLoading
-                ? `Loading${".".repeat(discoveryLoadingDots)}`
-                : undefined)
-            }
+            visible={Boolean(loadingMessage)}
+            message={loadingMessage ?? undefined}
           />
         </View>
       </NavigationContainer>

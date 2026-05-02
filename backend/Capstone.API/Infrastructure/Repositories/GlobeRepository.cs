@@ -34,48 +34,15 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new CountryGlobeSummary
             {
-                CountryCode = AsStringAny(row, "country_code", "countryCode", "CountryCode", "iso_code"),
-                CountryName = AsStringAny(row, "country_name", "countryName", "CountryName", "full_name"),
-                Region = AsStringAny(row, "region", "Region"),
-                Lat = AsDoubleAny(row, "latitude", "lat", "Latitude", "Lat"),
-                Long = AsDoubleAny(row, "longitude", "long", "Longitude", "Long"),
-                HiddenGemCount = AsIntAny(row, "hidden_gem_count", "hiddenGemCount", "HiddenGemCount"),
-                TopAlbumName = AsStringAny(row, "top_album_name", "topAlbumName", "TopAlbumName"),
-                TopArtistName = AsStringAny(row, "top_artist_name", "topArtistName", "TopArtistName")
+                CountryCode = RowValueReader.AsStringAny(row, "country_code"),
+                CountryName = RowValueReader.AsStringAny(row, "country_name"),
+                Region = RowValueReader.AsStringAny(row, "region"),
+                Lat = RowValueReader.AsDoubleAny(row, "latitude"),
+                Long = RowValueReader.AsDoubleAny(row, "longitude"),
+                HiddenGemCount = RowValueReader.AsIntAny(row, "hidden_gem_count"),
+                TopAlbumName = RowValueReader.AsStringAny(row, "top_album_name"),
+                TopArtistName = RowValueReader.AsStringAny(row, "top_artist_name")
             };
-        }
-
-        private static string? AsStringAny(IDictionary<string, object?> row, params string[] keys)
-        {
-            foreach (var key in keys)
-            {
-                if (row.TryGetValue(key, out var v) && v != null)
-                    return v.ToString();
-            }
-
-            return null;
-        }
-
-        private static int AsIntAny(IDictionary<string, object?> row, params string[] keys)
-        {
-            foreach (var key in keys)
-            {
-                if (row.TryGetValue(key, out var v) && v != null)
-                    return Convert.ToInt32(v);
-            }
-
-            return 0;
-        }
-
-        private static double AsDoubleAny(IDictionary<string, object?> row, params string[] keys)
-        {
-            foreach (var key in keys)
-            {
-                if (row.TryGetValue(key, out var v) && v != null)
-                    return Convert.ToDouble(v);
-            }
-
-            return 0.0;
         }
     }
 }

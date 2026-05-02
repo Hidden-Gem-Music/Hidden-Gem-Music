@@ -61,6 +61,7 @@ BEGIN
     ) top_song ON top_song.country_id = c.country_id AND top_song.rn = 1
     WHERE c.latitude  IS NOT NULL
       AND c.longitude IS NOT NULL
+      AND LEN(LTRIM(RTRIM(c.iso_code))) = 2
     ORDER BY c.full_name;
 END;
 GO

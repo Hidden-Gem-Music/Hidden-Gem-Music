@@ -1,6 +1,5 @@
 using Capstone.API.Infrastructure.Interfaces;
 using Capstone.API.Models.Country;
-using Capstone.API.Models.HiddenGems;
 using Capstone.API.Models.Shared;
 
 namespace Capstone.API.Infrastructure.Repositories
@@ -38,13 +37,13 @@ namespace Capstone.API.Infrastructure.Repositories
 
             var profile = new CountryProfile
             {
-                CountryCode = AsStringAny(stats, "country_code", "iso_code"),
-                CountryName = AsStringAny(stats, "country_name", "full_name"),
-                Year = AsIntAny(stats, "chart_year", "year"),
-                TotalCharted = AsIntAny(stats, "total_charted"),
-                SharedCount = AsIntAny(stats, "shared_count"),
-                UniqueCount = AsIntAny(stats, "unique_count"),
-                OverlapPct = AsDecimalAny(stats, "overlap_pct")
+                CountryCode = RowValueReader.AsStringAny(stats, "country_code", "iso_code"),
+                CountryName = RowValueReader.AsStringAny(stats, "country_name", "full_name"),
+                Year = RowValueReader.AsIntAny(stats, "chart_year", "year"),
+                TotalCharted = RowValueReader.AsIntAny(stats, "total_charted"),
+                SharedCount = RowValueReader.AsIntAny(stats, "shared_count"),
+                UniqueCount = RowValueReader.AsIntAny(stats, "unique_count"),
+                OverlapPct = RowValueReader.AsDecimalAny(stats, "overlap_pct")
             };
 
             if (sets.Count > 1)
@@ -57,7 +56,7 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<HiddenGem>> GetHiddenGemsPreviewAsync(string countryCode, int year, int limit)
+        public async Task<IEnumerable<CountryHiddenGemPreviewItem>> GetHiddenGemsPreviewAsync(string countryCode, int year, int limit)
         {
             var rows = await _db.GetDataAsync("sp_GetCountryHiddenGemsPreview", new Dictionary<string, object?>
             {
@@ -85,7 +84,7 @@ namespace Capstone.API.Infrastructure.Repositories
                 { "@PageSize", safePageSize }
             })).ToList();
 
-            var totalCount = rows.Count > 0 ? AsIntAny(rows[0], "total_count", "TotalCount") : 0;
+            var totalCount = rows.Count > 0 ? RowValueReader.AsIntAny(rows[0], "total_count", "TotalCount") : 0;
             var items = rows.Select(MapSong).ToList();
             var loadedItemCount = offset + items.Count;
 
@@ -103,57 +102,22 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new Song
             {
-                SongName = AsStringAny(row, "song_name", "song_title", "title"),
-                ArtistName = AsStringAny(row, "artist_name"),
-                AlbumName = AsStringAny(row, "album_name")
+                SongName = RowValueReader.AsStringAny(row, "song_name", "song_title", "title"),
+                ArtistName = RowValueReader.AsStringAny(row, "artist_name"),
+                AlbumName = RowValueReader.AsStringAny(row, "album_name")
             };
         }
 
-        private static HiddenGem MapHiddenGem(IDictionary<string, object?> row)
+        private static CountryHiddenGemPreviewItem MapHiddenGem(IDictionary<string, object?> row)
         {
-            return new HiddenGem
+            return new CountryHiddenGemPreviewItem
             {
-                SongName = AsStringAny(row, "song_name", "song_title", "title"),
-                AlbumName = AsStringAny(row, "album_name"),
-                ArtistName = AsStringAny(row, "artist_name"),
-                Genre = AsStringAny(row, "genre"),
-                PreviewUrl = AsStringAny(row, "preview_url"),
-                TrendScore = AsDecimalAny(row, "trend_score"),
-                CountriesChartingCount = AsIntAny(row, "countries_charting_count", "countries_charting")
+                SongName = RowValueReader.AsStringAny(row, "song_name", "song_title", "title"),
+                AlbumName = RowValueReader.AsStringAny(row, "album_name"),
+                ArtistName = RowValueReader.AsStringAny(row, "artist_name"),
+                TrendScore = RowValueReader.AsDecimalAny(row, "trend_score"),
+                CountriesChartingCount = RowValueReader.AsIntAny(row, "countries_charting_count", "countries_charting")
             };
-        }
-
-        private static string? AsStringAny(IDictionary<string, object?> row, params string[] keys)
-        {
-            foreach (var key in keys)
-            {
-                if (row.TryGetValue(key, out var v) && v != null)
-                    return v.ToString();
-            }
-
-            return null;
-        }
-
-        private static int AsIntAny(IDictionary<string, object?> row, params string[] keys)
-        {
-            foreach (var key in keys)
-            {
-                if (row.TryGetValue(key, out var v) && v != null)
-                    return Convert.ToInt32(v);
-            }
-
-            return 0;
-        }
-
-        private static decimal AsDecimalAny(IDictionary<string, object?> row, params string[] keys)
-        {
-            foreach (var key in keys)
-            {
-                if (row.TryGetValue(key, out var v) && v != null)
-                    return Convert.ToDecimal(v);
-            }
-
-            return 0m;
         }
     }
 }

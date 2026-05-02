@@ -136,7 +136,6 @@ export function AppHeader({
               </View>
             ) : null}
 
-            <SearchOverlay visible={searchOpen} countries={countries} onClose={onCloseSearch} onOpenCountry={onOpenCountry} />
           </View>
         ) : (
           <View style={[styles.nav, isTight ? styles.navCompact : null]}>
@@ -161,7 +160,6 @@ export function AppHeader({
 
             <View style={styles.searchArea}>
               {searchButton}
-              <SearchOverlay visible={searchOpen} countries={countries} onClose={onCloseSearch} onOpenCountry={onOpenCountry} />
             </View>
           </View>
         )}
@@ -186,6 +184,7 @@ export function AppHeader({
           })}
         </View>
       </View>
+      <SearchOverlay visible={searchOpen} countries={countries} onClose={onCloseSearch} onOpenCountry={onOpenCountry} />
     </LinearGradient>
   );
 }
@@ -196,7 +195,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: 0,
     position: "relative",
-    zIndex: 10,
+    zIndex: 20,
   },
   brandRow: {
     flexDirection: "row",
@@ -288,6 +287,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: 7,
     backgroundColor: colors.border,
+    zIndex: 0,
   },
   breadcrumbRow: {
     flexDirection: "row",
@@ -338,6 +338,7 @@ const styles = StyleSheet.create({
   },
   searchArea: {
     position: "relative",
+    zIndex: 400,
   },
   searchWrap: {
     flexDirection: "row",

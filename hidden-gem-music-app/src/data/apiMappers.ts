@@ -60,6 +60,8 @@ export type UiHiddenGemPage = {
   items: UiHiddenGem[];
   page: number;
   pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
 };
 
 export type UiCountryGlobeSummary = {
@@ -133,6 +135,8 @@ export const mapApiHiddenGemPage = (response: ApiHiddenGemResponse): UiHiddenGem
   items: response.items.map(mapApiHiddenGem),
   page: response.page,
   pageSize: response.pageSize,
+  totalCount: response.totalCount,
+  hasMore: response.hasMore,
 });
 
 export const mapApiCountryGlobeSummary = (item: ApiCountryGlobeSummary): UiCountryGlobeSummary => ({

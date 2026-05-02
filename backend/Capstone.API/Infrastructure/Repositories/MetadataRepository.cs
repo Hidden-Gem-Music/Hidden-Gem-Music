@@ -23,16 +23,7 @@ namespace Capstone.API.Infrastructure.Repositories
             var rows = await _db.GetDataAsync("sp_GetAvailableYears");
 
             return rows
-                .Select((row) =>
-                {
-                    if (row.TryGetValue("chart_year", out var chartYear) && chartYear != null)
-                        return Convert.ToInt32(chartYear);
-
-                    if (row.TryGetValue("year", out var year) && year != null)
-                        return Convert.ToInt32(year);
-
-                    return 0;
-                })
+                .Select((row) => RowValueReader.AsIntAny(row, "chart_year"))
                 .Where((year) => year > 0)
                 .Distinct()
                 .OrderBy((year) => year)

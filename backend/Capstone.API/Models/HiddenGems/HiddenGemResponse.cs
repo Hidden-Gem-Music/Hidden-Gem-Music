@@ -20,5 +20,15 @@ namespace Capstone.API.Models.HiddenGems
         /// Gets or sets the maximum number of items returned per page.
         /// </summary>
         public int PageSize { get; set; }
+
+        /// <summary>
+        /// Gets or sets the total number of matching rows across all pages.
+        /// </summary>
+        public int TotalCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether another page exists after this one.
+        /// </summary>
+        public bool HasMore { get; set; }
     }
 }

@@ -20,7 +20,7 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { loadAvailableYears, loadCountryHiddenGemsPreview, loadCountryProfile, loadCountrySongsPage } from "../data/countryApi";
-import { mapApiCountryProfile, mapApiHiddenGem, mapApiSong } from "../data/apiMappers";
+import { mapApiCountryProfile, mapApiSong } from "../data/apiMappers";
 import { Country, Song } from "../types/content";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -913,12 +913,14 @@ function HiddenSongsCarouselSection({
   songs,
   isLoading,
   loadingText,
+  sectionAvailable,
   onOpenHiddenGems,
 }: {
   countryName: string;
   songs: Pick<Song, "title" | "artist">[];
   isLoading: boolean;
   loadingText: string;
+  sectionAvailable: boolean;
   onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
 }) {
   const songCount = songs.length;
@@ -969,90 +971,109 @@ function HiddenSongsCarouselSection({
         <View style={styles.hiddenSongsCarouselHeaderLeft}>
           <Text style={styles.panelTitle}>Preview {countryName}'s Hidden Gems</Text>
           <Text style={styles.hiddenSongsCarouselHelper}>
-            {isLoading ? loadingText : "Click a song to listen to a 30 second preview on the Hidden Gems page."}
+            {isLoading
+              ? loadingText
+              : sectionAvailable
+                ? "Click a song to listen to a 30 second preview on the Hidden Gems page."
+                : ""}
           </Text>
         </View>
-        <Pressable onPress={() => onOpenHiddenGems()} style={styles.hiddenSongsCarouselHelperAction}>
+        <Pressable
+          onPress={() => {
+            if (sectionAvailable) {
+              onOpenHiddenGems();
+            }
+          }}
+          style={[styles.hiddenSongsCarouselHelperAction, !sectionAvailable ? styles.hiddenSongsCarouselHelperActionDisabled : null]}
+        >
           <Text style={styles.hiddenSongsCarouselHelperActionText}>{`Click here to view all of ${countryName}'s hidden gems`}</Text>
         </Pressable>
       </View>
-      <View style={styles.hiddenSongsCarouselBody}>
-        <Pressable onPress={goPrevious} style={styles.hiddenSongsCarouselArrowButton}>
-          <View style={styles.hiddenSongsCarouselArrowButtonInner}>
-            <GemIcon size={46} style={styles.hiddenSongsCarouselArrowLeft} />
-          </View>
-        </Pressable>
-        <View style={styles.hiddenSongsCarouselTrack}>
-          {slots.map((offset) => {
-            if (songCount === 0) {
-              return null;
-            }
-
-            const songIndex = getWrappedIndex(activeIndex + offset, songCount);
-            const song = songs[songIndex];
-            const isCenter = offset === 0;
-            const offsetDistance = Math.abs(offset);
-            const size = getCarouselVisualSize(offsetDistance);
-            const horizontalOffset = getCarouselTranslateX(offset);
-            const verticalOffset = -18;
-            const scale = getCarouselVisualScale(offsetDistance);
-
-            return (
-              <Pressable
-                key={`${song.title}-${offset}`}
-                onPress={() => handleCarouselItemPress(songIndex, isCenter)}
-                style={[
-                  styles.hiddenSongsCarouselItem,
-                  {
-                    transform: [
-                      { translateX: horizontalOffset },
-                      { translateY: verticalOffset },
-                      { scale },
-                    ],
-                    opacity:
-                      isCenter
-                        ? 1
-                        : offsetDistance >= 7
-                          ? 0.24
-                          : offsetDistance === 6
-                            ? 0.28
-                            : offsetDistance === 5
-                              ? 0.34
-                              : offsetDistance === 4
-                                ? 0.42
-                                : offsetDistance === 3
-                                  ? 0.56
-                                  : 0.8,
-                    zIndex: 100 - Math.abs(offset),
-                  },
-                  Platform.OS === "web"
-                    ? ({
-                        transitionProperty: "transform, opacity",
-                        transitionDuration: "320ms",
-                        transitionTimingFunction: "ease",
-                      } as any)
-                    : null,
-                ]}
-              >
-                <View style={styles.hiddenSongsCarouselCdSlot}>
-                  <CdCase size={size} artColor={carouselBackdropColors[songIndex % carouselBackdropColors.length]} />
-                </View>
-                {isCenter ? (
-                  <>
-                    <Text style={styles.hiddenSongsCarouselSongTitle}>{song.title}</Text>
-                    <Text style={styles.hiddenSongsCarouselSongArtist}>{song.artist}</Text>
-                  </>
-                ) : null}
-              </Pressable>
-            );
-          })}
+      {!isLoading && !sectionAvailable ? (
+        <View style={styles.sectionFallbackBody}>
+          <Text style={styles.sectionFallbackText}>
+            Unfortunately at this time, there is not enough data needed for this country in this year to display this section. Try another year and/or country to utilize Hidden Gems.
+          </Text>
         </View>
-        <Pressable onPress={goNext} style={styles.hiddenSongsCarouselArrowButton}>
-          <View style={styles.hiddenSongsCarouselArrowButtonInner}>
-            <GemIcon size={46} style={styles.hiddenSongsCarouselArrowRight} />
+      ) : (
+        <View style={styles.hiddenSongsCarouselBody}>
+          <Pressable onPress={goPrevious} style={styles.hiddenSongsCarouselArrowButton}>
+            <View style={styles.hiddenSongsCarouselArrowButtonInner}>
+              <GemIcon size={46} style={styles.hiddenSongsCarouselArrowLeft} />
+            </View>
+          </Pressable>
+          <View style={styles.hiddenSongsCarouselTrack}>
+            {slots.map((offset) => {
+              if (songCount === 0) {
+                return null;
+              }
+
+              const songIndex = getWrappedIndex(activeIndex + offset, songCount);
+              const song = songs[songIndex];
+              const isCenter = offset === 0;
+              const offsetDistance = Math.abs(offset);
+              const size = getCarouselVisualSize(offsetDistance);
+              const horizontalOffset = getCarouselTranslateX(offset);
+              const verticalOffset = -18;
+              const scale = getCarouselVisualScale(offsetDistance);
+
+              return (
+                <Pressable
+                  key={`${song.title}-${offset}`}
+                  onPress={() => handleCarouselItemPress(songIndex, isCenter)}
+                  style={[
+                    styles.hiddenSongsCarouselItem,
+                    {
+                      transform: [
+                        { translateX: horizontalOffset },
+                        { translateY: verticalOffset },
+                        { scale },
+                      ],
+                      opacity:
+                        isCenter
+                          ? 1
+                          : offsetDistance >= 7
+                            ? 0.24
+                            : offsetDistance === 6
+                              ? 0.28
+                              : offsetDistance === 5
+                                ? 0.34
+                                : offsetDistance === 4
+                                  ? 0.42
+                                  : offsetDistance === 3
+                                    ? 0.56
+                                    : 0.8,
+                      zIndex: 100 - Math.abs(offset),
+                    },
+                    Platform.OS === "web"
+                      ? ({
+                          transitionProperty: "transform, opacity",
+                          transitionDuration: "320ms",
+                          transitionTimingFunction: "ease",
+                        } as any)
+                      : null,
+                  ]}
+                >
+                  <View style={styles.hiddenSongsCarouselCdSlot}>
+                    <CdCase size={size} artColor={carouselBackdropColors[songIndex % carouselBackdropColors.length]} />
+                  </View>
+                  {isCenter ? (
+                    <>
+                      <Text style={styles.hiddenSongsCarouselSongTitle}>{song.title}</Text>
+                      <Text style={styles.hiddenSongsCarouselSongArtist}>{song.artist}</Text>
+                    </>
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
-        </Pressable>
-      </View>
+          <Pressable onPress={goNext} style={styles.hiddenSongsCarouselArrowButton}>
+            <View style={styles.hiddenSongsCarouselArrowButtonInner}>
+              <GemIcon size={46} style={styles.hiddenSongsCarouselArrowRight} />
+            </View>
+          </Pressable>
+        </View>
+      )}
     </CountryPageSection>
   );
 }
@@ -1063,11 +1084,13 @@ function FavoriteArtistsSection({
   artists,
   isLoading,
   onOpenHiddenGems,
+  sectionAvailable,
 }: {
   country: Country;
   selectedYear: number;
   artists: string[];
   isLoading: boolean;
+  sectionAvailable: boolean;
   onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
 }) {
   const artistRows = Array.from({ length: 8 }, (_, index) => artists[index] ?? "");
@@ -1075,24 +1098,31 @@ function FavoriteArtistsSection({
   return (
     <CountryPageSection style={styles.snapshotPanel}>
       <Text style={styles.panelTitle}>{`${country.name}'s Favorite Artists in ${selectedYear}`}</Text>
-
-      <View style={styles.favoriteArtistsRow}>
-        {artistRows.map((artist, index) => (
-          <Pressable
-            key={`${artist}-${index}`}
-            onPress={() => {
-              if (!isLoading && artist) {
-                onOpenHiddenGems({ artist });
-              }
-            }}
-            style={styles.favoriteArtistItem}
-          >
-            <CdCase size={104} artColor={carouselBackdropColors[index % carouselBackdropColors.length]} />
-            <Text style={styles.favoriteArtistName}>{isLoading ? "Loading..." : artist}</Text>
-            <Text style={styles.favoriteArtistSongName}>{isLoading ? "Loading..." : ""}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {!isLoading && !sectionAvailable ? (
+        <View style={styles.sectionFallbackBody}>
+          <Text style={styles.sectionFallbackText}>
+            Unfortunately at this time, there is not enough data needed for this country in this year to display this section. Try another year and/or country to utilize Featured Artists.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.favoriteArtistsRow}>
+          {artistRows.map((artist, index) => (
+            <Pressable
+              key={`${artist}-${index}`}
+              onPress={() => {
+                if (!isLoading && artist) {
+                  onOpenHiddenGems({ artist });
+                }
+              }}
+              style={styles.favoriteArtistItem}
+            >
+              <CdCase size={104} artColor={carouselBackdropColors[index % carouselBackdropColors.length]} />
+              <Text style={styles.favoriteArtistName}>{isLoading ? "Loading..." : artist}</Text>
+              <Text style={styles.favoriteArtistSongName}>{isLoading ? "Loading..." : ""}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
     </CountryPageSection>
   );
 }
@@ -1248,8 +1278,10 @@ export function CountryScreen({
 
         setPreviewSongs(
           hiddenGemsPayload.map((item) => {
-            const mapped = mapApiHiddenGem(item);
-            return { title: mapped.title, artist: mapped.artist };
+            return {
+              title: item.songName?.trim() ? item.songName : "Unknown Song",
+              artist: item.artistName?.trim() ? item.artistName : "Unknown Artist",
+            };
           })
         );
         setInitialLoadingPreview(false);
@@ -1431,6 +1463,8 @@ export function CountryScreen({
   const hiddenGemSongs = useMemo(() => {
     return previewSongs;
   }, [previewSongs]);
+  const hasFeaturedArtistsSectionData = favoriteArtists.length > 0;
+  const hasHiddenGemsSectionData = hiddenGemSongs.length > 0;
 
   const profileStats = useMemo(
     () => ({
@@ -1591,6 +1625,7 @@ export function CountryScreen({
           selectedYear={selectedYear}
           artists={favoriteArtists}
           isLoading={initialLoadingProfile}
+          sectionAvailable={hasFeaturedArtistsSectionData}
           onOpenHiddenGems={onOpenHiddenGems}
         />
 
@@ -1652,7 +1687,12 @@ export function CountryScreen({
           songs={hiddenGemSongs.length > 0 ? hiddenGemSongs : [{ title: loadingText, artist: loadingText }]}
           isLoading={initialLoadingPreview}
           loadingText={loadingText}
-          onOpenHiddenGems={onOpenHiddenGems}
+          sectionAvailable={hasHiddenGemsSectionData}
+          onOpenHiddenGems={(selection) => {
+            if (hasHiddenGemsSectionData) {
+              onOpenHiddenGems(selection);
+            }
+          }}
         />
 
         <CountryPageSection style={styles.mainComparisonSection} fillVariant="comparisonBlue">
@@ -2380,6 +2420,9 @@ const styles = StyleSheet.create({
     maxWidth: 460,
     marginTop: 6,
   },
+  hiddenSongsCarouselHelperActionDisabled: {
+    opacity: 0.5,
+  },
   hiddenSongsCarouselHelperActionText: {
     color: colors.text,
     fontFamily: typefaces.body,
@@ -2396,6 +2439,21 @@ const styles = StyleSheet.create({
     gap: 16,
     minHeight: 390,
     marginTop: -6,
+  },
+  sectionFallbackBody: {
+    minHeight: 170,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  sectionFallbackText: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+    maxWidth: 720,
   },
   hiddenSongsCarouselArrowButton: {
     width: 72,
@@ -2522,6 +2580,14 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     alignItems: "flex-start",
     justifyContent: "space-between",
+  },
+  favoriteArtistsFallbackText: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+    marginBottom: 10,
   },
   favoriteArtistItem: {
     alignItems: "center",
