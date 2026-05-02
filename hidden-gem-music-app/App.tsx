@@ -156,9 +156,11 @@ export default function App() {
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [apiAvailableYears, setApiAvailableYears] = useState<number[]>([]);
+  const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(true);
+  const [discoveryLoadingDots, setDiscoveryLoadingDots] = useState(1);
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
-  const [discoveryCountries, setDiscoveryCountries] = useState<Country[]>(countries);
+  const [discoveryCountries, setDiscoveryCountries] = useState<Country[]>([]);
   const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
   const songs = useMemo(() => getSongsForCountryYear(selectedCountryId, selectedYear), [selectedCountryId, selectedYear]);
 
@@ -356,7 +358,14 @@ export default function App() {
   };
 
   const openCountryFromDiscovery = (countryId: string) => {
-    if (countries.some((country) => country.id === countryId)) {
+    const existsInCurrentYear = countries.some(
+      (country) => country.id === countryId || country.code === countryId
+    );
+    const existsInDiscovery = discoveryCountries.some(
+      (country) => country.id === countryId || country.code === countryId
+    );
+
+    if (existsInCurrentYear || existsInDiscovery) {
       openCountry(countryId);
       return;
     }
@@ -449,19 +458,27 @@ export default function App() {
 
   useEffect(() => {
     let isCancelled = false;
-    setDiscoveryCountries(countries);
+    setIsDiscoveryLoading(true);
+    setDiscoveryCountries([]);
 
     loadDiscoveryCountries(selectedYear, countries)
       .then((apiCountries) => {
-        if (isCancelled || apiCountries.length === 0) {
+        if (isCancelled) {
           return;
         }
 
-        setDiscoveryCountries(apiCountries);
+        if (apiCountries.length > 0) {
+          setDiscoveryCountries(apiCountries);
+        } else {
+          setDiscoveryCountries(countries);
+        }
+        setIsDiscoveryLoading(false);
       })
       .catch((error) => {
         if (!isCancelled) {
           console.warn("Failed to load discovery countries from API; using local mock countries.", error);
+          setDiscoveryCountries(countries);
+          setIsDiscoveryLoading(false);
         }
       });
 
@@ -469,6 +486,19 @@ export default function App() {
       isCancelled = true;
     };
   }, [countries, selectedYear]);
+
+  useEffect(() => {
+    if (!isDiscoveryLoading) {
+      setDiscoveryLoadingDots(1);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setDiscoveryLoadingDots((current) => (current >= 3 ? 1 : current + 1));
+    }, 350);
+
+    return () => clearInterval(timer);
+  }, [isDiscoveryLoading]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -797,7 +827,15 @@ export default function App() {
               <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />
             </Stack.Navigator>
           </View>
-          <LoadingOverlay visible={Boolean(loadingMessage)} message={loadingMessage ?? undefined} />
+          <LoadingOverlay
+            visible={Boolean(loadingMessage) || (currentRoute === "discovery" && isDiscoveryLoading)}
+            message={
+              loadingMessage ??
+              (currentRoute === "discovery" && isDiscoveryLoading
+                ? `Loading${".".repeat(discoveryLoadingDots)}`
+                : undefined)
+            }
+          />
         </View>
       </NavigationContainer>
     </AppErrorBoundary>
