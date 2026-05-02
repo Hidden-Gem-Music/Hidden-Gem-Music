@@ -1,5 +1,75 @@
 mp3li implementation timeline document
 
+Updated: May 1, 2026
+
+Mobile Screen Integration Rework + Safe Merge Isolation (May 1, 2026)
+- Time spent: at minimum 2.5 hours to safely rework and validate mobile-screen integration work that had to be re-vetted before adoption.
+- Primary objective: integrate mobile-screen functionality without allowing non-mp3li changes to alter web-screen behavior.
+
+Issue count and fix count summary:
+- Total issues encountered during this integration cycle: 8 major issues.
+- Total corrective actions/fixes performed: 12 targeted fixes/workflows.
+
+Major issues encountered:
+1. Direct merge attempt into working branch caused immediate conflicts in shared/web-impact files (`App.tsx`, `DiscoveryScreen.web.tsx`).
+2. Incoming changes included edits in files that were supposed to remain under web ownership or strict shared safeguards.
+3. Discovery list country-click behavior failed for many countries (worked only for a small subset tied to current static set).
+4. Hidden-gems loading popup appeared constantly during discovery hover/scroll interactions (undesired behavior and not part of intended web UX).
+5. Hidden-gem preview-to-detail selection mapping regressed in some paths.
+6. Recovery confusion occurred while restoring pre-merge state because working-tree restoration used stash snapshots rather than a single exact commit of all local state.
+7. Enrichment tool workflow interruption happened in parallel (tool files looked missing until stash/state restoration was validated).
+8. Sandbox runtime verification initially blocked by dependency/runtime environment gaps in isolated worktree.
+
+Corrective actions performed:
+1. Created rollback safety points before merge (`backup` branch + stash snapshot).
+2. Aborted bad/conflicting merge state and restored working branch safety.
+3. Recovered and verified local enrichment tool files/outputs/checkpoints from saved state.
+4. Moved integration work to isolated local sandbox branch/worktree to protect active branch and running tool process.
+5. Built author map for incoming shared/web-impact commits and enforced elevated scrutiny for Landin-sourced changes.
+6. Re-resolved merge conflicts with hard policy: web source-of-truth retained, mobile-only behavior guarded in shared files.
+7. Repaired persistent discovery country-click bug by broadening safe ID/code matching across discovery/current-year sets.
+8. Removed/neutralized shared loading-behavior bleed so web loading stays in the intended neutral `Loading...` moving-dots style.
+9. Ensured hidden-gems loading callback behavior is constrained to appropriate route context.
+10. Produced explicit kept-vs-rejected shared-change audit in sandbox (`KEPT_vs_REJECTED_shared_changes.md`).
+11. Validated no unresolved merge conflicts remained in sandbox state.
+12. Pushed vetted sandbox integration to GitHub branch `implementing-mobile-screens` while keeping active tool workflow untouched.
+
+Persistent bug note (critical):
+- A persistent discovery country-click bug was confirmed and reproduced repeatedly.
+- Key symptom: clicking many countries in discovery list did not open the country page; only a limited subset worked.
+- This bug appeared to survive state resets and made prior branch snapshots look "corrupted" from a behavior perspective.
+- Important clarification in workflow notes: Git history itself was not rewritten unexpectedly; rather, the persistent runtime behavior reproduced across restored states, creating the effect that prior commits had been "corrupted."
+
+Ownership/safety rule outcome from this cycle:
+- Hard rule enforced: no incoming Landin-origin `*.web.tsx` changes were accepted.
+- Shared-file changes were only accepted when mobile-required and explicitly platform-guarded to avoid web behavior drift.
+- Any shared/web-impact behavior that altered mp3li web UX was rejected or replaced with mobile-only-safe implementation.
+
+Song Data Enrichment Tool Creation + Runtime Hardening (May 1, 2026)
+- Built and integrated a custom enrichment toolchain under `tools/song_data_enrichment` to process large song datasets safely in chunks.
+- Core files created and wired:
+  - `enrich_songs.py`
+  - `run_enrichment_chunks.py`
+  - `requirements.txt`
+  - input template and output artifacts (`csv/json/txt` + checkpoint log)
+- Added chunked runner behavior to prevent all-or-nothing failures on long runs:
+  - chunk-size control
+  - checkpoint logging
+  - resume mode
+  - unmatched-only second pass mode
+  - stall timeout + retry path
+- Added source-mode handling for enrichment:
+  - Deezer + Genius
+  - Deezer-only (skip Genius when Genius rate-limited)
+- Fixed a mode-consistency defect so resume runs do not silently flip source mode:
+  - source mode now recorded in checkpoint events
+  - resume reuses checkpoint source mode
+  - resume fails fast on unexpected mode mismatch
+- Added/confirmed user-facing runtime feedback:
+  - matched/skipped counters
+  - chunk start/done summaries
+  - per-song progress output
+  
 Updated: April 30, 2026
 
 Hidden Gems Web Screen Data Implementation + Leena PR Reconciliation (Issue for Hidden Gems) (May 1, 2026)
