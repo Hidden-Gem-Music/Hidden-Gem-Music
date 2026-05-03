@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, ViewStyle } from "react-native";
 
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
@@ -15,75 +15,110 @@ type Props = {
 
 export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Props) {
   const [query, setQuery] = useState("");
+  const containerRef = useRef<View>(null);
 
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) {
-      return countries.slice(0, 8);
+      return countries.slice(0, 25);
     }
 
-    return countries.filter((country) => country.name.toLowerCase().includes(normalized)).slice(0, 8);
+    return countries.filter((country) => country.name.toLowerCase().includes(normalized)).slice(0, 25);
   }, [countries, query]);
+
+  useEffect(() => {
+    if (typeof document === "undefined" || !visible) {
+      return;
+    }
+
+    const handleDocumentMouseDown = (event: MouseEvent) => {
+      const node = containerRef.current as unknown as { contains?: (target: Node | null) => boolean } | null;
+      const targetNode = event.target as Node | null;
+      const isInside = Boolean(node?.contains?.(targetNode));
+
+      if (!isInside) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+    return () => document.removeEventListener("mousedown", handleDocumentMouseDown);
+  }, [onClose, visible]);
 
   if (!visible) {
     return null;
   }
 
   return (
-    <Panel style={styles.popover}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>Search</Text>
-        <Pressable onPress={onClose}>
-          <Text style={styles.closeText}>Close</Text>
-        </Pressable>
-      </View>
+    <View ref={containerRef} style={styles.popover}>
+      <Panel style={styles.panel}>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Search</Text>
+          <Pressable onPress={onClose}>
+            <Text style={styles.closeText}>Close</Text>
+          </Pressable>
+        </View>
 
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search for a country"
-        placeholderTextColor={colors.textMuted}
-        style={styles.input}
-        autoFocus
-      />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search for a country"
+          placeholderTextColor={colors.textMuted}
+          style={styles.input}
+          autoFocus
+        />
 
-      <View style={styles.resultGroup}>
-        {results.length > 0 ? (
-          results.map((country) => (
-            <Pressable
-              key={country.id}
-              onPress={() => {
-                onClose();
-                onOpenCountry(country.id);
-              }}
-              style={styles.resultItem}
-            >
-              <Text style={styles.resultText}>{country.name}</Text>
-              <Text style={styles.resultMeta}>{country.region}</Text>
-            </Pressable>
-          ))
-        ) : query.trim() ? (
-          <Text style={styles.copy}>That country is not included in this app at this time.</Text>
-        ) : (
-          <Text style={styles.copy}>Start typing to narrow down the countries in this app.</Text>
-        )}
-      </View>
-    </Panel>
+        <ScrollView style={styles.resultScroll} contentContainerStyle={styles.resultGroup} showsVerticalScrollIndicator>
+          {results.length > 0 ? (
+            results.map((country) => (
+              <Pressable
+                key={country.id}
+                onPress={() => {
+                  onClose();
+                  onOpenCountry(country.id);
+                }}
+                style={styles.resultItem}
+              >
+                <Text style={styles.resultText}>{country.name}</Text>
+                <Text style={styles.resultMeta}>{country.region}</Text>
+              </Pressable>
+            ))
+          ) : query.trim() ? (
+            <Text style={styles.copy}>That country is not included in this app at this time.</Text>
+          ) : (
+            <Text style={styles.copy}>Start typing to narrow down the countries in this app.</Text>
+          )}
+        </ScrollView>
+      </Panel>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   popover: {
-    position: "absolute",
-    top: "100%",
-    right: 0,
-    marginTop: 12,
+    ...(Platform.OS === "web"
+      ? ({
+          position: "fixed",
+          top: 110,
+          right: 24,
+        } as unknown as ViewStyle)
+      : {
+          position: "absolute",
+          top: "100%",
+          right: 0,
+          marginTop: 12,
+        }),
     width: 360,
     maxWidth: "92vw" as any,
-    zIndex: 30,
+    zIndex: 300,
+    elevation: 300,
+    backgroundColor: "transparent",
+  },
+  panel: {
     gap: 12,
     paddingVertical: 18,
     backgroundColor: colors.surfaceSecondary,
+    maxHeight: 560,
   },
   headerRow: {
     flexDirection: "row",
@@ -112,8 +147,12 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
     fontSize: 17,
   },
+  resultScroll: {
+    maxHeight: 360,
+  },
   resultGroup: {
     gap: 8,
+    paddingBottom: 6,
   },
   resultItem: {
     paddingHorizontal: 6,

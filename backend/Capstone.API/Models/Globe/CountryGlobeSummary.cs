@@ -2,7 +2,7 @@ namespace Capstone.API.Models.Globe
 {
     /// <summary>
     /// Represents a country's summary data for globe dot rendering and hover cards.
-    /// Returned by sp_GetGlobeSummary.
+    /// Returned by sp_GetDiscoverPageInfo.
     /// </summary>
     public class CountryGlobeSummary
     {
@@ -15,6 +15,11 @@ namespace Capstone.API.Models.Globe
         /// Gets or sets the full display name of the country.
         /// </summary>
         public string? CountryName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the geographic region/continent label for this country.
+        /// </summary>
+        public string? Region { get; set; }
 
         /// <summary>
         /// Gets or sets the latitude for Mapbox dot placement.
@@ -36,5 +41,11 @@ namespace Capstone.API.Models.Globe
         /// Nullable — may not be available for all countries.
         /// </summary>
         public string? TopAlbumName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the primary artist associated with the top discovery item.
+        /// Nullable — may not be available for all countries.
+        /// </summary>
+        public string? TopArtistName { get; set; }
     }
 }

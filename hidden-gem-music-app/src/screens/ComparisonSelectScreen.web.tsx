@@ -19,7 +19,7 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { GlobePanel } from "../components/globe/GlobePanel";
-import { availableYears } from "../data/mockData";
+import { getSongsForCountryYear } from "../data/mockData";
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -28,8 +28,10 @@ export type Props = {
   countries: Country[];
   selectedCountryIds: string[];
   onToggleCountry: (countryId: string) => void;
+  onClearSelections: () => void;
   onDone: () => void;
   selectedYear: number;
+  availableYears: number[];
   onChangeYear: (year: number) => void;
 };
 
@@ -39,6 +41,8 @@ type ComparisonFilters = {
   region: string[];
   language: string[];
   genre: string[];
+  sort: string[];
+  hiddenGems: string[];
 };
 
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
@@ -46,7 +50,6 @@ const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.back
 const comparisonPanelGradient = [colors.backgroundSoft, "#74819B", "#7A4762"] as const;
 const softPanelGradient = [colors.backgroundSoft, "#74819B", "#5D6983", "#36405B"] as const;
 const continentOptions = ["Africa", "Asia", "Europe", "North America", "Oceania", "South America"] as const;
-
 function toggleFilterSelection(currentValues: string[], option: string) {
   if (option === "All") {
     return ["All"];
@@ -64,19 +67,44 @@ function toggleFilterSelection(currentValues: string[], option: string) {
 
 function YearDropdown({
   selectedYear,
+  availableYears,
   onSelectYear,
 }: {
   selectedYear: number | null;
+  availableYears: number[];
   onSelectYear: (year: number) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredYear, setHoveredYear] = useState<number | null>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
+  const containerRef = useRef<View>(null);
   const showButtonGradient = isHovered || isPressed || isOpen;
 
+  useEffect(() => {
+    if (Platform.OS !== "web" || !isOpen || typeof document === "undefined") {
+      return;
+    }
+
+    const handleDocumentMouseDown = (event: MouseEvent) => {
+      const node = containerRef.current as any;
+      const targetNode = event.target as Node | null;
+      const isInside = Boolean(node?.contains?.(targetNode));
+
+      if (!isInside) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, [isOpen]);
+
   return (
-    <View style={styles.yearDropdownWrap}>
+    <View ref={containerRef} style={styles.yearDropdownWrap}>
       <Pressable
         onPress={() => setIsOpen((current) => !current)}
         onHoverIn={() => setIsHovered(true)}
@@ -150,10 +178,12 @@ function YearDropdown({
 
 function ComparisonBlurb({
   selectedYear,
+  availableYears,
   onSelectYear,
   onDone,
 }: {
   selectedYear: number | null;
+  availableYears: number[];
   onSelectYear: (year: number) => void;
   onDone: () => void;
 }) {
@@ -174,12 +204,12 @@ function ComparisonBlurb({
             <GemIcon size={16} style={styles.blurbIcon} />
             {"  "}
             <Text style={styles.blurbBody}>
-              This is text about how to use the comparison view, and how to use the filters, lorem ipsum yadayada.
+              Use Comparison View by selecting a year in the dropdown and optional filters like region, Biggest Hits, Fast Rising Songs, All Songs, and more, and then select two countries in the list before selecting 'Done' to view comparison results. The country list displays countries that have songs included in the app data for that year. Selecting other years may display different countries. On the comparison results screen, you can also select different countries and years to keep discovering even further.
             </Text>
           </Text>
         </View>
         <View style={styles.blurbActions}>
-          <YearDropdown selectedYear={selectedYear} onSelectYear={onSelectYear} />
+          <YearDropdown selectedYear={selectedYear} availableYears={availableYears} onSelectYear={onSelectYear} />
           <ActionButton label="Done" size="small" onPress={onDone} />
         </View>
       </View>
@@ -189,8 +219,10 @@ function ComparisonBlurb({
 
 function ComparisonSidebarPanels({
   visibleCountries,
+  totalCountries,
   selectedCountryIds,
   onToggleCountry,
+  onClearSelections,
   filters,
   onChangeFilter,
   regionOptions,
@@ -198,8 +230,10 @@ function ComparisonSidebarPanels({
   genreOptions,
 }: {
   visibleCountries: Country[];
+  totalCountries: number;
   selectedCountryIds: string[];
   onToggleCountry: (countryId: string) => void;
+  onClearSelections: () => void;
   filters: ComparisonFilters;
   onChangeFilter: (key: keyof ComparisonFilters, value: string[]) => void;
   regionOptions: string[];
@@ -209,6 +243,8 @@ function ComparisonSidebarPanels({
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("list");
   const [hoveredFilterOption, setHoveredFilterOption] = useState<string | null>(null);
   const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
+  const [isClearHovered, setIsClearHovered] = useState(false);
+  const [isClearPressed, setIsClearPressed] = useState(false);
   const filterScrollRef = useRef<ScrollView>(null);
   const filterTrackRef = useRef<View>(null);
   const listScrollRef = useRef<ScrollView>(null);
@@ -460,7 +496,9 @@ function ComparisonSidebarPanels({
               onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => setFilterScrollY(event.nativeEvent.contentOffset.y)}
               scrollEventThrottle={16}
             >
+              {renderInlineFilterRow("Sort By", "sort", ["All", "A--Z", "Z--A", "Most Hidden Gems to Least", "Least Hidden Gems to Most"])}
               {renderInlineFilterRow("Popularity", "popularity", ["Biggest Hits", "Fast Rising Songs", "All Songs"])}
+              {renderInlineFilterRow("Hidden Gems", "hiddenGems", ["All", "Only Show Countries with Hidden Gems", "Show Countries Without Hidden Gems"])}
               {renderInlineFilterRow("Region", "region", ["All", ...regionOptions])}
               {renderInlineFilterRow("Language", "language", ["All", ...languageOptions])}
               {renderInlineFilterRow("Genre", "genre", ["All", ...genreOptions])}
@@ -517,7 +555,40 @@ function ComparisonSidebarPanels({
         >
           <View style={styles.sectionHeaderCopy}>
             <Text style={styles.sectionTitle}>Select Two Countries</Text>
-            <Text style={styles.sectionHelper}>{`${selectedCountryIds.length} out of 2 countries selected.`}</Text>
+            <View style={styles.selectionSummaryRow}>
+              {expandedPanel === "list" ? (
+                <Pressable
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    onClearSelections();
+                  }}
+                  onHoverIn={() => setIsClearHovered(true)}
+                  onHoverOut={() => setIsClearHovered(false)}
+                  onPressIn={() => setIsClearPressed(true)}
+                  onPressOut={() => setIsClearPressed(false)}
+                  style={styles.clearSelectionButtonShell}
+                >
+                  {isClearHovered || isClearPressed ? (
+                    <LinearGradient
+                      colors={isClearPressed ? activeGradient : hoverGradient}
+                      locations={[0, 0.34, 1]}
+                      start={{ x: 0, y: 0.5 }}
+                      end={{ x: 1, y: 0.5 }}
+                      style={styles.clearSelectionButtonGradient}
+                    />
+                  ) : null}
+                  <View
+                    style={[
+                      styles.clearSelectionButton,
+                      isClearHovered || isClearPressed ? styles.clearSelectionButtonActive : null,
+                    ]}
+                  >
+                    <Text style={styles.clearSelectionButtonText}>Clear Selections</Text>
+                  </View>
+                </Pressable>
+              ) : null}
+              <Text style={styles.sectionHelper}>{`${selectedCountryIds.length} out of 2 countries selected.`}</Text>
+            </View>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "list" ? "-" : "+"}</Text>
         </Pressable>
@@ -609,32 +680,66 @@ export function ComparisonSelectScreen({
   countries,
   selectedCountryIds,
   onToggleCountry,
+  onClearSelections,
   onDone,
   selectedYear,
+  availableYears,
   onChangeYear,
 }: Props) {
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
-  const [comparisonYear, setComparisonYear] = useState<number | null>(null);
+  const [comparisonYear, setComparisonYear] = useState<number | null>(selectedYear);
   const [validationOpen, setValidationOpen] = useState(false);
   const [filters, setFilters] = useState<ComparisonFilters>({
     popularity: ["All Songs"],
     region: ["All"],
     language: ["All"],
     genre: ["All"],
+    sort: ["All"],
+    hiddenGems: ["All"],
   });
-  const regionOptions = useMemo(() => [...continentOptions], []);
+  const regionOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [...continentOptions, ...countries.map((country) => country.region).filter(Boolean)].filter(
+            (value) => value !== "Continent info coming soon." && value !== "Other"
+          )
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    [countries]
+  );
   const languageOptions = useMemo(
-    () => Array.from(new Set(countries.flatMap((country) => country.languages ?? []))).sort((a, b) => a.localeCompare(b)),
+    () =>
+      Array.from(new Set(countries.flatMap((country) => country.languages ?? [])))
+        .filter((value) => value.trim().toLowerCase() !== "unknown")
+        .sort((a, b) => a.localeCompare(b)),
     [countries]
   );
   const genreOptions = useMemo(
-    () => Array.from(new Set(countries.flatMap((country) => country.genres ?? []))).sort((a, b) => a.localeCompare(b)),
+    () =>
+      Array.from(new Set(countries.flatMap((country) => country.genres ?? [])))
+        .filter((value) => value.trim().toLowerCase() !== "unknown")
+        .sort((a, b) => a.localeCompare(b)),
     [countries]
   );
-  const filteredCountries = useMemo(
-    () =>
-      countries.filter((country) => {
+  const filteredCountries = useMemo(() => {
+      const filtered = countries.filter((country) => {
+        // Include only countries that have songs in app data for this year.
+        if (getSongsForCountryYear(country.id, comparisonYear ?? selectedYear).length <= 0) {
+          return false;
+        }
+
+        if (filters.popularity.includes("Biggest Hits") && !filters.popularity.includes("All Songs")) {
+          if (country.hiddenSongs < 10) {
+            return false;
+          }
+        }
+        if (filters.popularity.includes("Fast Rising Songs") && !filters.popularity.includes("All Songs")) {
+          if (country.hiddenSongs >= 10) {
+            return false;
+          }
+        }
         if (!filters.region.includes("All") && !filters.region.includes(country.region)) {
           return false;
         }
@@ -647,11 +752,49 @@ export function ComparisonSelectScreen({
         if (!filters.genre.includes("All") && !filters.genre.some((genre) => (country.genres ?? []).includes(genre))) {
           return false;
         }
+        if (!filters.hiddenGems.includes("All")) {
+          if (filters.hiddenGems.includes("Only Show Countries with Hidden Gems") && country.hiddenSongs <= 0) {
+            return false;
+          }
+          if (filters.hiddenGems.includes("Show Countries Without Hidden Gems") && country.hiddenSongs > 0) {
+            return false;
+          }
+        }
         return true;
-      }),
-    [countries, filters.genre, filters.language, filters.region]
+      });
+
+      if (filters.sort.includes("A--Z")) {
+        return filtered.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      if (filters.sort.includes("Z--A")) {
+        return filtered.sort((a, b) => b.name.localeCompare(a.name));
+      }
+      if (filters.sort.includes("Most Hidden Gems to Least")) {
+        return filtered.sort((a, b) => b.hiddenSongs - a.hiddenSongs || a.name.localeCompare(b.name));
+      }
+      if (filters.sort.includes("Least Hidden Gems to Most")) {
+        return filtered.sort((a, b) => a.hiddenSongs - b.hiddenSongs || a.name.localeCompare(b.name));
+      }
+
+      return filtered;
+    },
+    [comparisonYear, countries, filters.genre, filters.hiddenGems, filters.language, filters.popularity, filters.region, filters.sort, selectedYear]
   );
-  const visibleCountries = filteredCountries.length > 0 ? filteredCountries : countries;
+  const visibleCountries = filteredCountries;
+
+  useEffect(() => {
+    setComparisonYear(selectedYear);
+  }, [selectedYear]);
+
+  const yearOptions = useMemo(() => {
+    if (availableYears.length === 0) {
+      return comparisonYear != null ? [comparisonYear] : [selectedYear];
+    }
+    if (comparisonYear == null || availableYears.includes(comparisonYear)) {
+      return availableYears;
+    }
+    return [...availableYears, comparisonYear].sort((a, b) => a - b);
+  }, [availableYears, comparisonYear, selectedYear]);
 
   const handleDone = () => {
     if (comparisonYear == null || selectedCountryIds.length !== 2) {
@@ -680,14 +823,22 @@ export function ComparisonSelectScreen({
     <View style={[styles.rightColumn, isStacked ? styles.columnStacked : null]}>
       <ComparisonSidebarPanels
         visibleCountries={visibleCountries}
+        totalCountries={countries.length}
         selectedCountryIds={selectedCountryIds}
         onToggleCountry={onToggleCountry}
+        onClearSelections={onClearSelections}
         filters={filters}
-        onChangeFilter={(key, value) => setFilters((current) => ({ ...current, [key]: value }))}
+        onChangeFilter={(key, value) => {
+          onClearSelections();
+          setFilters((current) => ({ ...current, [key]: value }));
+        }}
         regionOptions={regionOptions}
         languageOptions={languageOptions}
         genreOptions={genreOptions}
       />
+      {visibleCountries.length === 0 ? (
+        <Text style={styles.emptyStateText}>No countries match these filters.</Text>
+      ) : null}
     </View>
   );
 
@@ -695,6 +846,7 @@ export function ComparisonSelectScreen({
     <View style={styles.stack}>
       <ComparisonBlurb
         selectedYear={comparisonYear}
+        availableYears={yearOptions}
         onSelectYear={(year) => {
           setComparisonYear(year);
           onChangeYear(year);
@@ -875,9 +1027,6 @@ const styles = StyleSheet.create({
   layoutStacked: {
     flexDirection: "column",
   },
-  layoutScrollable: {
-    flexWrap: "nowrap",
-  },
   leftColumn: {
     flex: 1,
     minWidth: 340,
@@ -888,6 +1037,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 340,
     gap: 16,
+  },
+  emptyStateText: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 18,
+    textAlign: "center",
   },
   columnStacked: {
     width: "100%",
@@ -945,8 +1101,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 16,
     textAlign: "right",
-    maxWidth: 260,
+    maxWidth: 300,
     flexShrink: 1,
+  },
+  selectionSummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 10,
+    flexShrink: 1,
+  },
+  clearSelectionButtonShell: {
+    position: "relative",
+    borderRadius: 999,
+    overflow: "hidden",
+    flexShrink: 0,
+  },
+  clearSelectionButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.45,
+  },
+  clearSelectionButton: {
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: "rgba(32,38,56,0.42)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minHeight: 32,
+    justifyContent: "center",
+  },
+  clearSelectionButtonActive: {
+    backgroundColor: "rgba(22,26,38,0.32)",
+  },
+  clearSelectionButtonText: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    lineHeight: 14,
   },
   sectionToggle: {
     color: colors.border,

@@ -9,14 +9,19 @@ import { Panel } from "./Panel";
 
 type Props = {
   country: Country;
+  selectedYear?: number;
   selected?: boolean;
   onPress: () => void;
   onTitlePress?: () => void;
   onHover?: () => void;
 };
 
-export function CountryCard({ country, selected, onPress, onTitlePress, onHover }: Props) {
+export function CountryCard({ country, selectedYear, selected, onPress, onTitlePress, onHover }: Props) {
   const [hovered, setHovered] = useState(false);
+  const hasHiddenGems = country.hiddenSongs > 0;
+  const noHiddenGemsCopy = selectedYear ? `No Hidden Gems for ${selectedYear}` : "No Hidden Gems for this year";
+  const hasNoSongData = country.hasSongData === false;
+  const noSongDataCopy = selectedYear ? `No song data for ${selectedYear}` : "No song data for this year";
 
   return (
     <Pressable
@@ -46,11 +51,18 @@ export function CountryCard({ country, selected, onPress, onTitlePress, onHover 
               <Text style={styles.region}>{country.region}</Text>
             </View>
             <View style={styles.right}>
-              <Text style={styles.detail}>Hidden Songs: {country.hiddenSongs}</Text>
-              <Text style={styles.detail}>Most popular genres: {country.genres.join(", ")}</Text>
               <Text style={styles.detail}>
-                Most popular album: {country.album} by {country.albumArtist}
+                • Hidden Gems:  {hasHiddenGems ? `${country.hiddenSongs}` : noHiddenGemsCopy}
               </Text>
+              <Text style={styles.detail}>• Genre(s):  Genre info coming soon.</Text>
+              <Text style={styles.detail}>• Language(s):  Language info coming soon.</Text>
+              {hasNoSongData ? (
+                <Text style={styles.detail}>• Most popular album:  {noSongDataCopy}</Text>
+              ) : (
+                <Text style={styles.detail}>
+                  • Most popular album:  {country.album} by {country.albumArtist}
+                </Text>
+              )}
             </View>
           </View>
         </LinearGradient>
@@ -88,18 +100,15 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   row: {
-    flexDirection: "row",
-    gap: 18,
-    flexWrap: "wrap",
+    flexDirection: "column",
+    gap: 12,
   },
   left: {
-    minWidth: 170,
     gap: 10,
   },
   right: {
-    flex: 1,
     gap: 10,
-    minWidth: 240,
+    width: "100%",
   },
   countryName: {
     color: colors.textStrong,

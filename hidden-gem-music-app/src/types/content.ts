@@ -7,6 +7,7 @@ export type Country = {
   genres: string[];
   album: string;
   albumArtist: string;
+  hasSongData?: boolean;
   topSong: string;
   languages: string[];
   sceneNote: string;

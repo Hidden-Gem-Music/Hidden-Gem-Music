@@ -9,12 +9,13 @@ import { typefaces } from "../../theme/typography";
 type Props = {
   countries: Country[];
   activeCountry?: Country;
+  selectedYear?: number;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry?: (countryId: string) => void;
   selectOnHover?: boolean;
 };
 
-export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCountry, selectOnHover = true }: Props) {
+export function GlobeView({ countries, activeCountry, selectedYear, onSelectCountry, onOpenCountry, selectOnHover = true }: Props) {
   const { width } = useWindowDimensions();
   const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,6 +43,10 @@ export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCou
   const connectorDy = tooltipAnchorY - markerY;
   const connectorLength = Math.sqrt(connectorDx * connectorDx + connectorDy * connectorDy);
   const connectorAngle = `${Math.atan2(connectorDy, connectorDx)}rad`;
+  const hasHiddenGems = (hoveredCountry?.hiddenSongs ?? 0) > 0;
+  const noHiddenGemsCopy = selectedYear ? `No Hidden Gems for ${selectedYear}` : "No Hidden Gems for this year";
+  const hasNoSongData = hoveredCountry ? hoveredCountry.album === "Unknown Album" && hoveredCountry.albumArtist === "Unknown Artist" : false;
+  const noSongDataCopy = selectedYear ? `No song data for ${selectedYear}` : "No song data for this year";
 
   return (
     <View style={styles.globeArea}>
@@ -137,11 +142,18 @@ export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCou
                   </View>
                   <View style={styles.tooltipDivider} />
                   <View style={styles.tooltipBody}>
-                    <Text style={styles.tooltipCopy}>Hidden Songs: {hoveredCountry.hiddenSongs}</Text>
-                    <Text style={styles.tooltipCopy}>Most Popular Genres: {hoveredCountry.genres.join(", ")}</Text>
                     <Text style={styles.tooltipCopy}>
-                      Most Popular Album: {hoveredCountry.album} by {hoveredCountry.albumArtist}
+                      Hidden Gems: {hasHiddenGems ? `${hoveredCountry.hiddenSongs}` : noHiddenGemsCopy}
                     </Text>
+                    <Text style={styles.tooltipCopy}>Genre(s): Genre info coming soon.</Text>
+                    <Text style={styles.tooltipCopy}>Language(s): Language info coming soon.</Text>
+                    {hasNoSongData ? (
+                      <Text style={styles.tooltipCopy}>Most Popular Album: {noSongDataCopy}</Text>
+                    ) : (
+                      <Text style={styles.tooltipCopy}>
+                        Most Popular Album: {hoveredCountry.album} by {hoveredCountry.albumArtist}
+                      </Text>
+                    )}
                   </View>
                 </View>
               </Pressable>

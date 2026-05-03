@@ -26,20 +26,25 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             var offset = (page - 1) * pageSize;
 
-            var rows = await _db.GetDataAsync("sp_GetHiddenGems", new Dictionary<string, object?>
+            var rows = (await _db.GetDataAsync("sp_GetHiddenGems", new Dictionary<string, object?>
             {
                 { "@CountryCode", countryCode },
                 { "@Year", year },
                 { "@MinCountries", minCountries },
                 { "@Offset", offset },
                 { "@PageSize", pageSize }
-            });
+            })).ToList();
+
+            var totalCount = rows.Count > 0 ? RowValueReader.AsIntAny(rows[0], "total_count", "TotalCount") : 0;
+            var loadedItemCount = offset + rows.Count;
 
             return new HiddenGemResponse
             {
                 Items = rows.Select(MapRow).ToList(),
                 Page = page,
-                PageSize = pageSize
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                HasMore = loadedItemCount < totalCount
             };
         }
 
@@ -47,23 +52,15 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             return new HiddenGem
             {
-                SongName = AsString(row, "song_name"),
-                AlbumName = AsString(row, "album_name"),
-                ArtistName = AsString(row, "artist_name"),
-                Genre = AsString(row, "genre"),
-                PreviewUrl = AsString(row, "preview_url"),
-                TrendScore = AsDecimal(row, "trend_score"),
-                CountriesChartingCount = AsInt(row, "countries_charting_count")
+                // Keep current preferred keys first, but accept star-schema aliases when present.
+                SongName = RowValueReader.AsStringAny(row, "song_name", "song_title", "title"),
+                AlbumName = RowValueReader.AsStringAny(row, "album_name"),
+                ArtistName = RowValueReader.AsStringAny(row, "artist_name"),
+                Genre = RowValueReader.AsStringAny(row, "genre"),
+                PreviewUrl = RowValueReader.AsStringAny(row, "preview_url", "spotify_id"),
+                TrendScore = RowValueReader.AsDecimalAny(row, "trend_score"),
+                CountriesChartingCount = RowValueReader.AsIntAny(row, "countries_charting_count", "countries_charting", "country_count")
             };
         }
-
-        private static string? AsString(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) ? v?.ToString() : null;
-
-        private static int AsInt(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) && v != null ? Convert.ToInt32(v) : 0;
-
-        private static decimal AsDecimal(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) && v != null ? Convert.ToDecimal(v) : 0m;
     }
 }

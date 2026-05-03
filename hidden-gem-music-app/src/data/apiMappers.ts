@@ -60,15 +60,19 @@ export type UiHiddenGemPage = {
   items: UiHiddenGem[];
   page: number;
   pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
 };
 
 export type UiCountryGlobeSummary = {
   countryCode: string;
   countryName: string;
+  region: string;
   lat: number;
   long: number;
   hiddenSongs: number;
   topAlbum: string;
+  topArtist: string;
 };
 
 const toNonEmpty = (value: string | null | undefined, fallback: string) => {
@@ -131,13 +135,17 @@ export const mapApiHiddenGemPage = (response: ApiHiddenGemResponse): UiHiddenGem
   items: response.items.map(mapApiHiddenGem),
   page: response.page,
   pageSize: response.pageSize,
+  totalCount: response.totalCount,
+  hasMore: response.hasMore,
 });
 
 export const mapApiCountryGlobeSummary = (item: ApiCountryGlobeSummary): UiCountryGlobeSummary => ({
   countryCode: toNonEmpty(item.countryCode, ""),
   countryName: toNonEmpty(item.countryName, "Unknown Country"),
+  region: toNonEmpty(item.region, "Continent info coming soon."),
   lat: item.lat,
   long: item.long,
   hiddenSongs: item.hiddenGemCount,
   topAlbum: toNonEmpty(item.topAlbumName, "Unknown Album"),
+  topArtist: toNonEmpty(item.topArtistName, "Unknown Artist"),
 });

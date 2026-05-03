@@ -19,20 +19,21 @@ import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
-import { availableYears as allAvailableYears } from "../data/mockData";
+import { loadHiddenGemsPage } from "../data/countryApi";
+import { mapApiHiddenGemPage } from "../data/apiMappers";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 export type Props = {
   country: Country;
   countries: Country[];
-  songs: Song[];
-  selectedSongId: string;
-  selectedSong: Song;
-  onSelectSong: (songId: string) => void;
+  availableYears: number[];
   onSelectCountry: (countryId: string) => void;
   selectedYear: number;
   onChangeYear: (year: number) => void;
+  onSetLoading?: (loading: boolean) => void;
+  showNavIntro?: boolean;
+  onDismissNavIntro?: () => void;
 };
 
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
@@ -40,40 +41,6 @@ const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.back
 const controlButtonGradient = [colors.backgroundRaised, colors.backgroundRaised, colors.navGradient] as const;
 const cdCaseSource = require("../assets/images/CD-Case-Transparent-Image.png");
 const rowBackdropColors = ["#B86A72", "#8B9BC0", "#8B5E7A", "#627F8A", "#C28C5E", "#7A7EB0"];
-const SONG_BATCH_SIZE = 25;
-const hiddenGemTitleTerms = ["Afterlight", "Glassroom", "Signal", "Static", "Midnight", "Echo", "Receiver", "Velvet"];
-const hiddenGemAlbumTerms = ["Circuit", "Atlas", "Bloom", "Relay", "Theatre", "Horizon", "Current", "Transit"];
-const hiddenGemDescriptionTerms = [
-  "A quieter cut with strong late-night energy and a more country-specific pull.",
-  "Feels like a buried standout that never got the same wider reach as the bigger songs.",
-  "Built around the same scene textures, but with a more hidden-gem kind of appeal.",
-  "Carries the same mood as the most-loved songs, but lands more like a personal discovery.",
-];
-
-function buildGeneratedHiddenGemSongs(country: Country, songs: Song[]) {
-  return Array.from({ length: 25 }, (_, index) => {
-    const leadArtist = country.featuredArtists[index % country.featuredArtists.length] ?? country.albumArtist;
-    const titleLead = hiddenGemTitleTerms[index % hiddenGemTitleTerms.length];
-    const titleTail = hiddenGemTitleTerms[(index + 3) % hiddenGemTitleTerms.length];
-    const albumTail = hiddenGemAlbumTerms[index % hiddenGemAlbumTerms.length];
-    const baseSong = songs[index % Math.max(songs.length, 1)];
-
-    return {
-      id: `${country.id}-generated-hidden-gem-${index + 1}`,
-      title: `${country.name} ${titleLead} ${titleTail}`,
-      artist: leadArtist,
-      album: baseSong?.album ?? `${country.album} ${albumTail}`,
-      genres: baseSong?.genres?.length ? baseSong.genres : country.genres.slice(0, 2),
-      languages: baseSong?.languages?.length ? baseSong.languages : country.languages.slice(0, 2),
-      year: baseSong?.year ?? 2021,
-      duration: baseSong?.duration ?? "3:42",
-      description: hiddenGemDescriptionTerms[index % hiddenGemDescriptionTerms.length],
-      spotifySearchUrl:
-        baseSong?.spotifySearchUrl ??
-        `https://open.spotify.com/search/${encodeURIComponent(`${leadArtist} ${country.name} ${titleLead} ${titleTail}`)}`,
-    } satisfies Song;
-  });
-}
 
 function useCustomScrollbar() {
   const scrollRef = useRef<ScrollView>(null);
@@ -196,36 +163,29 @@ function BlankCdCase() {
 }
 
 function HiddenSongListPanel({
-  country,
   songs,
   selectedSongId,
   onSelectSong,
   onPlaySong,
+  page,
+  hasPreviousPage,
+  hasNextPage,
+  onPreviousPage,
+  onNextPage,
 }: {
-  country: Country;
   songs: Song[];
   selectedSongId: string;
   onSelectSong: (songId: string) => void;
   onPlaySong: (songId: string) => void;
+  page: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+  onPreviousPage: () => void;
+  onNextPage: () => void;
 }) {
   const scrollbar = useCustomScrollbar();
   const [hoveredSongId, setHoveredSongId] = useState<string | null>(null);
   const [hoveredMiniCdSongId, setHoveredMiniCdSongId] = useState<string | null>(null);
-  const [visibleSongCount, setVisibleSongCount] = useState(Math.min(SONG_BATCH_SIZE, songs.length));
-
-  useEffect(() => {
-    setVisibleSongCount(Math.min(SONG_BATCH_SIZE, songs.length));
-  }, [country.id, songs.length]);
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollbar.setScrollY(event.nativeEvent.contentOffset.y);
-
-    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    const nearBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 180;
-    if (nearBottom && visibleSongCount < songs.length) {
-      setVisibleSongCount((current) => Math.min(current + SONG_BATCH_SIZE, songs.length));
-    }
-  };
 
   return (
     <Panel style={styles.secondaryPanel}>
@@ -238,10 +198,10 @@ function HiddenSongListPanel({
           showsVerticalScrollIndicator={false}
           onLayout={(event) => scrollbar.setViewportHeight(event.nativeEvent.layout.height)}
           onContentSizeChange={(_, height) => scrollbar.setContentHeight(height)}
-          onScroll={handleScroll}
+          onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => scrollbar.setScrollY(event.nativeEvent.contentOffset.y)}
           scrollEventThrottle={16}
         >
-          {songs.slice(0, visibleSongCount).map((song, index) => (
+          {songs.map((song, index) => (
             <Pressable
               key={song.id}
               onPress={() => onSelectSong(song.id)}
@@ -268,7 +228,9 @@ function HiddenSongListPanel({
                     <View style={[styles.songRow, showGradient ? styles.songRowActive : null]}>
                       <Text style={[styles.songRowRank, showGradient ? styles.songTextActive : null]}>{index + 1}.</Text>
                       <View style={styles.songCopy}>
-                        <Text style={[styles.songRowTitle, showGradient ? styles.songTextActive : null]}>{song.title}</Text>
+                        <View style={styles.songTitleRow}>
+                          <Text style={[styles.songRowTitle, showGradient ? styles.songTextActive : null]}>{song.title}</Text>
+                        </View>
                         <Text style={[styles.songRowArtist, showGradient ? styles.songTextActive : null]}>{song.artist}</Text>
                       </View>
                       <Pressable
@@ -292,6 +254,23 @@ function HiddenSongListPanel({
             </Pressable>
           ))}
         </ScrollView>
+        <View style={styles.paginationBar}>
+          <Pressable
+            onPress={onPreviousPage}
+            disabled={!hasPreviousPage}
+            style={[styles.paginationButtonShell, !hasPreviousPage ? styles.paginationButtonShellDisabled : null]}
+          >
+            <Text style={styles.paginationButtonText}>Previous Page</Text>
+          </Pressable>
+          <Text style={styles.paginationLabel}>Page {page}</Text>
+          <Pressable
+            onPress={onNextPage}
+            disabled={!hasNextPage}
+            style={[styles.paginationButtonShell, !hasNextPage ? styles.paginationButtonShellDisabled : null]}
+          >
+            <Text style={styles.paginationButtonText}>Next Page</Text>
+          </Pressable>
+        </View>
         {scrollbar.scrollbarVisible ? (
           <View
             ref={scrollbar.trackRef}
@@ -369,7 +348,7 @@ function PlayingSidePanel({
                       end={{ x: 0.5, y: 1 }}
                       style={styles.mainCdControlFill}
                     />
-                    <Text style={[styles.mainCdControlIcon, styles.mainCdControlIconSkipLeft]}>◀</Text>
+                    <Text style={[styles.mainCdControlIcon, styles.mainCdControlIconSkipLeft]}>⏮</Text>
                   </Pressable>
                   <Pressable style={styles.mainCdControlButtonPrimary} onPress={onTogglePreview}>
                     <LinearGradient
@@ -389,7 +368,7 @@ function PlayingSidePanel({
                       end={{ x: 0.5, y: 1 }}
                       style={styles.mainCdControlFill}
                     />
-                    <Text style={[styles.mainCdControlIcon, styles.mainCdControlIconSkipRight]}>▶</Text>
+                    <Text style={[styles.mainCdControlIcon, styles.mainCdControlIconSkipRight]}>⏭</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -467,25 +446,23 @@ function PlayingSidePanel({
 export function HiddenGemsScreen({
   country,
   countries,
-  songs,
-  selectedSongId,
-  selectedSong,
-  onSelectSong,
+  availableYears,
   onSelectCountry,
   selectedYear,
   onChangeYear,
+  onSetLoading,
+  showNavIntro = false,
+  onDismissNavIntro,
 }: Props) {
   const { width } = useWindowDimensions();
   const isStacked = width < 1120;
-  const hiddenGemSongs = useMemo(() => [...songs, ...buildGeneratedHiddenGemSongs(country, songs)], [country, songs]);
-  const [activeSongId, setActiveSongId] = useState<string>(
-    () => selectedSongId || selectedSong?.id || hiddenGemSongs[0]?.id || ""
-  );
-  const safeSelectedSong =
-    hiddenGemSongs.find((song) => song.id === activeSongId) ??
-    hiddenGemSongs.find((song) => song.id === selectedSongId) ??
-    selectedSong ??
-    hiddenGemSongs[0];
+  const [apiSongs, setApiSongs] = useState<Song[] | null>(null);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [page, setPage] = useState(1);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const hiddenGemSongs = useMemo(() => apiSongs ?? [], [apiSongs]);
+  const [activeSongId, setActiveSongId] = useState<string>(() => hiddenGemSongs[0]?.id || "");
+  const safeSelectedSong = hiddenGemSongs.find((song) => song.id === activeSongId) ?? hiddenGemSongs[0];
   const [previewSongId, setPreviewSongId] = useState<string>(safeSelectedSong?.id ?? "");
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
@@ -496,20 +473,85 @@ export function HiddenGemsScreen({
   const [hoveredYear, setHoveredYear] = useState<number | null>(null);
   const [isYearDropdownHovered, setIsYearDropdownHovered] = useState(false);
   const [isYearDropdownPressed, setIsYearDropdownPressed] = useState(false);
-  const yearOptions = useMemo(() => allAvailableYears.slice().reverse(), []);
-  const countryOptions = useMemo(() => countries.slice().sort((left, right) => left.name.localeCompare(right.name)), [countries]);
+  const [isFilterButtonHovered, setIsFilterButtonHovered] = useState(false);
+  const [isFilterButtonPressed, setIsFilterButtonPressed] = useState(false);
+  const [introCountryId, setIntroCountryId] = useState(country.id);
+  const [introYear, setIntroYear] = useState(selectedYear);
+  const [isIntroCountryDropdownOpen, setIsIntroCountryDropdownOpen] = useState(false);
+  const [isIntroYearDropdownOpen, setIsIntroYearDropdownOpen] = useState(false);
+  const yearOptions = useMemo(
+    () => (availableYears.length > 0 ? availableYears.slice().sort((a, b) => b - a) : [selectedYear]),
+    [availableYears, selectedYear]
+  );
+  const countryOptions = useMemo(() => {
+    const filtered = countries.filter((item) => item.hiddenSongs > 0);
+    const source = filtered.length ? filtered : countries;
+    return source.slice().sort((left, right) => left.name.localeCompare(right.name));
+  }, [countries]);
   const showCountryDropdownGradient = isCountryDropdownHovered || isCountryDropdownPressed || isCountryDropdownOpen;
   const showYearDropdownGradient = isYearDropdownHovered || isYearDropdownPressed || isYearDropdownOpen;
+  const showFilterButtonGradient = isFiltersOpen || isFilterButtonHovered || isFilterButtonPressed;
+  const introCountryLabel = countryOptions.find((item) => item.id === introCountryId)?.name ?? "Select Country";
 
   useEffect(() => {
-    if (!selectedSongId) {
+    if (!showNavIntro) {
       return;
     }
-    if (!hiddenGemSongs.some((song) => song.id === selectedSongId)) {
-      return;
-    }
-    setActiveSongId(selectedSongId);
-  }, [hiddenGemSongs, selectedSongId]);
+    setIntroCountryId(country.id);
+    setIntroYear(selectedYear);
+    setIsIntroCountryDropdownOpen(false);
+    setIsIntroYearDropdownOpen(false);
+  }, [country.id, selectedYear, showNavIntro]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [country.code, selectedYear]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    onSetLoading?.(true);
+    loadHiddenGemsPage(country.code, selectedYear, 2, page, 25)
+      .then((response) => {
+        if (isCancelled) {
+          return;
+        }
+        const safeResponse = {
+          items: Array.isArray(response?.items) ? response.items : [],
+          page: typeof response?.page === "number" ? response.page : page,
+          pageSize: typeof response?.pageSize === "number" ? response.pageSize : 25,
+          totalCount: typeof response?.totalCount === "number" ? response.totalCount : 0,
+          hasMore: Boolean(response?.hasMore),
+        };
+        const mapped = mapApiHiddenGemPage(safeResponse);
+        const nextSongs: Song[] = mapped.items.map((item, index) => ({
+          id: `${country.code}-${selectedYear}-page-${page}-${index + 1}`,
+          title: item.title,
+          artist: item.artist,
+          album: item.album,
+          genres: item.genre ? [item.genre] : [],
+          languages: [],
+          year: selectedYear,
+          duration: "",
+          description: `Trending in ${item.countriesChartingCount} countries`,
+          spotifySearchUrl: item.previewUrl || "",
+        }));
+        setApiSongs(nextSongs);
+        setHasNextPage(safeResponse.hasMore);
+        onSetLoading?.(false);
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setApiSongs([]);
+          setHasNextPage(false);
+          onSetLoading?.(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+      onSetLoading?.(false);
+    };
+  }, [country.code, onSetLoading, page, selectedYear]);
 
   useEffect(() => {
     if (!hiddenGemSongs.length) {
@@ -536,9 +578,6 @@ export function HiddenGemsScreen({
 
   const setSongSelection = (songId: string) => {
     setActiveSongId(songId);
-    if (songs.some((song) => song.id === songId)) {
-      onSelectSong(songId);
-    }
   };
 
   const selectSongAndAutoPlay = (songId: string) => {
@@ -589,15 +628,52 @@ export function HiddenGemsScreen({
                 <GemIcon size={16} style={styles.blurbIcon} />
                 {"  "}
                 <Text style={styles.blurbBody}>
-                  This is text explaining to users what a hidden gem actually is and what that means. This is text
-                  explaining to users what a hidden gem actually is and what that means. Hover over the selected
-                  song&apos;s CD to view the play and pause button. Click play to listen to a 30 second preview of
-                  the song.
+                  Hidden gems are songs that are loved in this country, but have not spread as widely across other
+                  countries as of your selected year. Select optional filter(s), a country, and a year to view that
+                  country&apos;s Hidden Gems. Hover over the selected song&apos;s CD to view the previous, play, and
+                  skip buttons. Click play to listen to a 30-second preview of the song.
                 </Text>
               </Text>
             </View>
             <View style={styles.blurbRightRail}>
-              <View style={styles.blurbDropdownStack}>
+              <View style={styles.blurbControlsRow}>
+                <View style={styles.blurbFiltersDropdownWrap}>
+                  <Pressable
+                    onPress={() => {
+                      setIsFiltersOpen((current) => !current);
+                      setIsCountryDropdownOpen(false);
+                      setIsYearDropdownOpen(false);
+                    }}
+                    onHoverIn={() => setIsFilterButtonHovered(true)}
+                    onHoverOut={() => setIsFilterButtonHovered(false)}
+                    onPressIn={() => setIsFilterButtonPressed(true)}
+                    onPressOut={() => setIsFilterButtonPressed(false)}
+                    style={styles.filterActionButtonShell}
+                  >
+                    {showFilterButtonGradient ? (
+                      <LinearGradient
+                        colors={
+                          isFilterButtonPressed
+                            ? activeGradient
+                            : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]
+                        }
+                        locations={[0, 0.34, 1]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.filterActionButtonGradient}
+                      />
+                    ) : null}
+                    <View style={[styles.filterActionButton, showFilterButtonGradient ? styles.filterActionButtonActive : null]}>
+                      <View style={styles.filterActionButtonContent}>
+                        <GemIcon size={18} />
+                        <Text style={[styles.filterActionButtonText, showFilterButtonGradient ? styles.filterActionButtonTextActive : null]}>
+                          Filters
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                </View>
+                <View style={styles.blurbDropdownStack}>
                 <View style={[styles.blurbYearDropdownWrap, styles.blurbCountryDropdownWrap]}>
                   <Pressable
                     onPress={() => {
@@ -625,7 +701,7 @@ export function HiddenGemsScreen({
                         showCountryDropdownGradient ? styles.blurbYearDropdownButtonActive : null,
                       ]}
                     >
-                      <Text style={styles.blurbYearDropdownText}>Select Country</Text>
+                      <Text style={styles.blurbYearDropdownText}>{country.name}</Text>
                       <Text style={styles.blurbYearDropdownChevron}>{isCountryDropdownOpen ? "-" : "+"}</Text>
                     </View>
                   </Pressable>
@@ -665,6 +741,9 @@ export function HiddenGemsScreen({
                           </View>
                         </Pressable>
                         {countryOptions.map((countryOption) => {
+                          if (!countryOption?.id) {
+                            return null;
+                          }
                           const selected = countryOption.id === country.id;
                           const hovered = hoveredCountryId === countryOption.id;
                           const showOptionGradient = selected || hovered;
@@ -676,6 +755,7 @@ export function HiddenGemsScreen({
                               onHoverOut={() => setHoveredCountryId((current) => (current === countryOption.id ? null : current))}
                               onPress={() => {
                                 onSelectCountry(countryOption.id);
+                                setPage(1);
                                 setIsCountryDropdownOpen(false);
                               }}
                               style={styles.blurbYearDropdownOptionShell}
@@ -734,7 +814,7 @@ export function HiddenGemsScreen({
                       />
                     ) : null}
                     <View style={[styles.blurbYearDropdownButton, showYearDropdownGradient ? styles.blurbYearDropdownButtonActive : null]}>
-                      <Text style={styles.blurbYearDropdownText}>Select Year</Text>
+                      <Text style={styles.blurbYearDropdownText}>{selectedYear}</Text>
                       <Text style={styles.blurbYearDropdownChevron}>{isYearDropdownOpen ? "-" : "+"}</Text>
                     </View>
                   </Pressable>
@@ -812,7 +892,16 @@ export function HiddenGemsScreen({
                     </Panel>
                   ) : null}
                 </View>
+                </View>
               </View>
+              {isFiltersOpen ? (
+                <Panel style={styles.filtersModal}>
+                  <SecondarySurfaceFill />
+                  <Text style={styles.filtersModalTitle}>All Filters</Text>
+                  <Text style={styles.filtersModalLine}>Genre(s): Genre info coming soon.</Text>
+                  <Text style={styles.filtersModalLine}>Language(s): Language info coming soon.</Text>
+                </Panel>
+              ) : null}
               <View style={styles.blurbStatCardShell}>
                 <LinearGradient
                   colors={[colors.backgroundSoft, "#74819B", "#7A4762"]}
@@ -827,15 +916,22 @@ export function HiddenGemsScreen({
             </View>
           </View>
         </Panel>
-
         <View style={[styles.layout, isStacked ? styles.layoutStacked : null]}>
           <View style={styles.panelColumn}>
             <HiddenSongListPanel
-              country={country}
               songs={hiddenGemSongs}
               selectedSongId={safeSelectedSong.id}
               onSelectSong={setSongSelection}
               onPlaySong={selectSongAndAutoPlay}
+              page={page}
+              hasPreviousPage={page > 1}
+              hasNextPage={hasNextPage}
+              onPreviousPage={() => setPage((current) => Math.max(1, current - 1))}
+              onNextPage={() => {
+                if (hasNextPage) {
+                  setPage((current) => current + 1);
+                }
+              }}
             />
           </View>
           <View style={styles.panelColumn}>
@@ -849,11 +945,214 @@ export function HiddenGemsScreen({
           </View>
         </View>
       </View>
+      {showNavIntro ? (
+        <View style={styles.navIntroOverlay}>
+          <View style={styles.navIntroOverlayGradientWrap}>
+            <LinearGradient
+              colors={["rgba(22,26,38,0.62)", "rgba(22,26,38,0.36)", "rgba(66,72,101,0.18)"]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.navIntroOverlayGradient}
+            />
+            <LinearGradient
+              colors={["rgba(117,82,107,0.16)", "rgba(117,82,107,0.05)", "rgba(117,82,107,0.00)"]}
+              start={{ x: 0.0, y: 0.04 }}
+              end={{ x: 1.0, y: 0.72 }}
+              style={styles.navIntroOverlayGradient}
+            />
+          </View>
+          <Panel style={styles.navIntroModal}>
+            <Text style={styles.navIntroTitle}>Hidden Gems</Text>
+            <Text style={styles.navIntroBody}>
+              To view a country&apos;s hidden gems, select a country and a year. After selecting, you will also be able
+              to select a different country and/or year on the top of the page, to further your discovery.
+            </Text>
+            <View style={styles.navIntroControls}>
+              <View style={styles.navIntroDropdownWrap}>
+                <Pressable
+                  onPress={() => {
+                    setIsIntroCountryDropdownOpen((current) => !current);
+                    setIsIntroYearDropdownOpen(false);
+                  }}
+                  style={styles.blurbYearDropdownShell}
+                >
+                  <View style={styles.blurbYearDropdownButton}>
+                    <Text style={styles.blurbYearDropdownText}>{introCountryLabel}</Text>
+                    <Text style={styles.blurbYearDropdownChevron}>{isIntroCountryDropdownOpen ? "-" : "+"}</Text>
+                  </View>
+                </Pressable>
+                {isIntroCountryDropdownOpen ? (
+                  <Panel style={styles.blurbYearDropdownMenu}>
+                    <SecondarySurfaceFill />
+                    <ScrollView style={styles.blurbYearDropdownScroll} contentContainerStyle={styles.blurbYearDropdownContent}>
+                      {countryOptions.map((countryOption) => (
+                        <Pressable
+                          key={`intro-${countryOption.id}`}
+                          onPress={() => {
+                            setIntroCountryId(countryOption.id);
+                            setIsIntroCountryDropdownOpen(false);
+                          }}
+                          style={styles.blurbYearDropdownOptionShell}
+                        >
+                          <View
+                            style={[
+                              styles.blurbYearDropdownOption,
+                              countryOption.id === introCountryId ? styles.blurbYearDropdownOptionActive : null,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.blurbYearDropdownOptionText,
+                                countryOption.id === introCountryId ? styles.blurbYearDropdownOptionTextActive : null,
+                              ]}
+                            >
+                              {countryOption.name}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </Panel>
+                ) : null}
+              </View>
+              <View style={styles.navIntroDropdownWrap}>
+                <Pressable
+                  onPress={() => {
+                    setIsIntroYearDropdownOpen((current) => !current);
+                    setIsIntroCountryDropdownOpen(false);
+                  }}
+                  style={styles.blurbYearDropdownShell}
+                >
+                  <View style={styles.blurbYearDropdownButton}>
+                    <Text style={styles.blurbYearDropdownText}>{introYear}</Text>
+                    <Text style={styles.blurbYearDropdownChevron}>{isIntroYearDropdownOpen ? "-" : "+"}</Text>
+                  </View>
+                </Pressable>
+                {isIntroYearDropdownOpen ? (
+                  <Panel style={styles.blurbYearDropdownMenu}>
+                    <SecondarySurfaceFill />
+                    <ScrollView style={styles.blurbYearDropdownScroll} contentContainerStyle={styles.blurbYearDropdownContent}>
+                      {yearOptions.map((year) => (
+                        <Pressable
+                          key={`intro-year-${year}`}
+                          onPress={() => {
+                            setIntroYear(year);
+                            setIsIntroYearDropdownOpen(false);
+                          }}
+                          style={styles.blurbYearDropdownOptionShell}
+                        >
+                          <View
+                            style={[
+                              styles.blurbYearDropdownOption,
+                              year === introYear ? styles.blurbYearDropdownOptionActive : null,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.blurbYearDropdownOptionText,
+                                year === introYear ? styles.blurbYearDropdownOptionTextActive : null,
+                              ]}
+                            >
+                              {year}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </Panel>
+                ) : null}
+              </View>
+            </View>
+            <Pressable
+              onPress={() => {
+                if (introCountryId !== country.id) {
+                  onSelectCountry(introCountryId);
+                }
+                if (introYear !== selectedYear) {
+                  onChangeYear(introYear);
+                }
+                onDismissNavIntro?.();
+              }}
+              style={styles.navIntroButtonShell}
+            >
+              <Text style={styles.navIntroButtonText}>Discover Hidden Gems</Text>
+            </Pressable>
+          </Panel>
+        </View>
+      ) : null}
     </ScreenScaffold>
   );
 }
 
 const styles = StyleSheet.create({
+  navIntroOverlay: {
+    position: "absolute",
+    inset: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  navIntroOverlayGradientWrap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  navIntroOverlayGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  navIntroModal: {
+    width: "100%",
+    maxWidth: 560,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: "rgba(169, 176, 209, 0.24)",
+    backgroundColor: colors.panel,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    alignItems: "center",
+    gap: 14,
+  },
+  navIntroControls: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    zIndex: 200,
+  },
+  navIntroDropdownWrap: {
+    width: 180,
+    zIndex: 220,
+  },
+  navIntroTitle: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 26,
+    lineHeight: 30,
+    textAlign: "center",
+  },
+  navIntroBody: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  navIntroButtonShell: {
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    minHeight: 40,
+    minWidth: 112,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  navIntroButtonText: {
+    color: colors.border,
+    fontFamily: typefaces.condensed,
+    fontSize: 17,
+    lineHeight: 19,
+  },
   pageFrame: {
     flex: 1,
     marginTop: -4,
@@ -903,12 +1202,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   blurbRightRail: {
-    width: 252,
-    minWidth: 242,
+    width: 392,
+    minWidth: 392,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
     gap: 8,
+    position: "relative",
+  },
+  blurbControlsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   blurbDropdownStack: {
     width: 156,
@@ -949,8 +1254,8 @@ const styles = StyleSheet.create({
   blurbStatValue: {
     color: colors.border,
     fontFamily: typefaces.display,
-    fontSize: 40,
-    lineHeight: 40,
+    fontSize: 30,
+    lineHeight: 30,
     textAlign: "center",
     marginTop: 3,
   },
@@ -966,6 +1271,47 @@ const styles = StyleSheet.create({
   },
   blurbBottomYearDropdownWrap: {
     zIndex: 11,
+  },
+  blurbFiltersDropdownWrap: {
+    width: 116,
+    zIndex: 15,
+    alignSelf: "center",
+  },
+  filterActionButtonShell: {
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  filterActionButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  filterActionButton: {
+    minHeight: 42,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    justifyContent: "center",
+  },
+  filterActionButtonActive: {
+    backgroundColor: "transparent",
+  },
+  filterActionButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  filterActionButtonText: {
+    color: colors.border,
+    fontFamily: typefaces.condensed,
+    fontSize: 16,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  filterActionButtonTextActive: {
+    color: colors.text,
   },
   blurbYearDropdownShell: {
     borderRadius: 17,
@@ -1053,6 +1399,30 @@ const styles = StyleSheet.create({
   blurbYearDropdownOptionTextActive: {
     color: colors.text,
   },
+  filtersModal: {
+    position: "absolute",
+    right: 252,
+    top: 46,
+    width: 236,
+    minHeight: 122,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    zIndex: 20,
+    backgroundColor: "transparent",
+  },
+  filtersModalTitle: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 18,
+    lineHeight: 22,
+    marginBottom: 6,
+  },
+  filtersModalLine: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 14,
+    lineHeight: 18,
+  },
   layout: {
     flexDirection: "row",
     gap: 16,
@@ -1089,9 +1459,45 @@ const styles = StyleSheet.create({
   songListContent: {
     paddingHorizontal: 18,
     paddingTop: 18,
-    paddingBottom: 24,
+    paddingBottom: 12,
     paddingRight: 28,
     gap: 6,
+  },
+  paginationBar: {
+    borderTopWidth: 1,
+    borderTopColor: "rgba(212,224,249,0.28)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  paginationButtonShell: {
+    minWidth: 104,
+    minHeight: 34,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  paginationButtonShellDisabled: {
+    opacity: 0.5,
+  },
+  paginationButtonText: {
+    color: colors.border,
+    fontFamily: typefaces.condensed,
+    fontSize: 13,
+    lineHeight: 15,
+  },
+  paginationLabel: {
+    color: colors.text,
+    fontFamily: typefaces.display,
+    fontSize: 14,
+    lineHeight: 16,
   },
   playingSideContent: {
     paddingHorizontal: 18,
@@ -1138,6 +1544,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: 1,
+  },
+  songTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   songRowTitle: {
     color: colors.border,

@@ -14,12 +14,13 @@ GO
 
 CREATE OR ALTER PROCEDURE sp_GetCountryHiddenGemsPreview
     @CountryCode CHAR(2),
-    @Year        INT
+    @Year        INT,
+    @Limit       INT = 5
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT TOP 5
+    SELECT TOP (@Limit)
         s.song_id,
         s.title         AS song_title,
         a.artist_name,

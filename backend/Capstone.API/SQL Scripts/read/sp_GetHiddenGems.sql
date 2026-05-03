@@ -30,7 +30,8 @@ BEGIN
         s.spotify_id    AS preview_url,
         s.is_explicit,
         hg.countries_charting,
-        hg.trend_score
+        hg.trend_score,
+        COUNT(1) OVER() AS total_count
     FROM HiddenGems hg
     JOIN Country c ON c.country_id = hg.country_id
     JOIN DIM_Song s ON s.song_id = hg.song_id

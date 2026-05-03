@@ -7,12 +7,17 @@ import { typefaces } from "../../theme/typography";
 type Props = {
   countries: Country[];
   activeCountry?: Country;
+  selectedYear?: number;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry?: (countryId: string) => void;
 };
 
-export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCountry }: Props) {
+export function GlobeView({ countries, activeCountry, selectedYear, onSelectCountry, onOpenCountry }: Props) {
   const currentCountry = activeCountry ?? countries[0];
+  const hasHiddenGems = (currentCountry?.hiddenSongs ?? 0) > 0;
+  const noHiddenGemsCopy = selectedYear ? `No Hidden Gems for ${selectedYear}` : "No Hidden Gems for this year";
+  const hasNoSongData = currentCountry ? currentCountry.album === "Unknown Album" && currentCountry.albumArtist === "Unknown Artist" : false;
+  const noSongDataCopy = selectedYear ? `No song data for ${selectedYear}` : "No song data for this year";
 
   return (
     <View style={styles.wrapper}>
@@ -54,8 +59,17 @@ export function GlobeView({ countries, activeCountry, onSelectCountry, onOpenCou
             </View>
             <View style={styles.tooltipDivider} />
             <View style={styles.tooltipBody}>
-              <Text style={styles.tooltipCopy}>Hidden Songs: {currentCountry.hiddenSongs}</Text>
+              <Text style={styles.tooltipCopy}>
+                Hidden Gems: {hasHiddenGems ? `${currentCountry.hiddenSongs}` : noHiddenGemsCopy}
+              </Text>
               <Text style={styles.tooltipCopy}>Genres: {currentCountry.genres.join(", ")}</Text>
+              {hasNoSongData ? (
+                <Text style={styles.tooltipCopy}>Most Popular Album: {noSongDataCopy}</Text>
+              ) : (
+                <Text style={styles.tooltipCopy}>
+                  Most Popular Album: {currentCountry.album} by {currentCountry.albumArtist}
+                </Text>
+              )}
             </View>
           </View>
         </Pressable>

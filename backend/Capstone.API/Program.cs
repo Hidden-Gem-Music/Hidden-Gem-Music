@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddMemoryCache();
 
 // CORS — required for the React Native / Expo web frontend (default port 8081).
 // If the frontend dev port changes, update WithOrigins here and notify the team.
@@ -26,6 +27,7 @@ builder.Services.AddScoped<ICountryRepository, CountryRepository>();
 builder.Services.AddScoped<IHiddenGemsRepository, HiddenGemsRepository>();
 builder.Services.AddScoped<IComparisonRepository, ComparisonRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<IMetadataRepository, MetadataRepository>();
 
 var app = builder.Build();
 

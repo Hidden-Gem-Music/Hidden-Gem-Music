@@ -12,6 +12,7 @@ import { GlobeView } from "./GlobeView";
 type Props = {
   countries: Country[];
   activeCountryId?: string;
+  selectedYear?: number;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry?: (countryId: string) => void;
   title: string;
@@ -26,6 +27,7 @@ type Props = {
 export function GlobePanel({
   countries,
   activeCountryId,
+  selectedYear,
   onSelectCountry,
   onOpenCountry,
   title,
@@ -55,6 +57,7 @@ export function GlobePanel({
         <GlobeView
           countries={countries}
           activeCountry={activeCountry}
+          selectedYear={selectedYear}
           onSelectCountry={onSelectCountry}
           onOpenCountry={onOpenCountry}
           selectOnHover={selectOnHover}
