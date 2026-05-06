@@ -24,7 +24,15 @@ import {
   YAxis,
 } from "recharts";
 
-import Api from "../config/api";
+import {
+  loadDiscoveryGap,
+  loadGapDistribution,
+  loadIsolationLeader,
+  loadIsolationRanking,
+  loadOverlapRate,
+  loadOverlapTrend,
+  loadPeakReach,
+} from "../data/dashboardApi";
 import type {
   ApiDiscoveryGap,
   ApiGapBucket,
@@ -546,13 +554,13 @@ function DashboardScreenContent() {
     const start = "2017-01-01";
     const end = "2025-12-31";
     Promise.all([
-      Api.get<ApiOverlapRate>(`/api/dashboard/overlap-rate?start=${start}&end=${end}`),
-      Api.get<ApiDiscoveryGap>(`/api/dashboard/discovery-gap?start=${start}&end=${end}`),
-      Api.get<ApiIsolationLeader>(`/api/dashboard/isolation-leader?start=${start}&end=${end}`),
-      Api.get<ApiPeakReach>(`/api/dashboard/peak-reach?start=${start}&end=${end}`),
-      Api.get<ApiTrendPoint[]>(`/api/dashboard/overlap-trend?start=${start}&end=${end}`),
-      Api.get<ApiIsolationEntry[]>(`/api/dashboard/isolation-ranking?start=${start}&end=${end}`),
-      Api.get<ApiGapBucket[]>(`/api/dashboard/gap-distribution?start=${start}&end=${end}`),
+      loadOverlapRate(start, end),
+      loadDiscoveryGap(start, end),
+      loadIsolationLeader(start, end),
+      loadPeakReach(start, end),
+      loadOverlapTrend(start, end),
+      loadIsolationRanking(start, end),
+      loadGapDistribution(start, end),
     ])
       .then(([rate, gap, leader, reach, trend, ranking, distribution]) => {
         setOverlapRate(rate);
