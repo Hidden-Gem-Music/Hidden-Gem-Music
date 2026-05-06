@@ -10,20 +10,43 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  ReferenceArea,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
+import Api from "../config/api";
+import type {
+  ApiDiscoveryGap,
+  ApiGapBucket,
+  ApiIsolationEntry,
+  ApiIsolationLeader,
+  ApiOverlapRate,
+  ApiPeakReach,
+  ApiTrendPoint,
+} from "../types/api";
 import { DiscoveryBlurb } from "../components/DiscoveryBlurb";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
-import { Country } from "../types/content";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
-export type Props = {
-  year: number;
-  metrics: Array<{ label: string; value: string; detail: string }>;
-  countries: Country[];
-};
+
+export type Props = Record<string, never>;
+
+// ---------------------------------------------------------------------------
+// Shared layout primitives
+// ---------------------------------------------------------------------------
 
 function DashboardSection({
   children,
@@ -62,117 +85,508 @@ function DashboardSection({
   );
 }
 
-function DashboardStatSquare({ label, value }: { label: string; value: string }) {
+function SectionTitle({
+  title,
+  subtitle,
+  darkText = false,
+}: {
+  title: string;
+  subtitle?: string;
+  darkText?: boolean;
+}) {
   return (
-    <DashboardSection style={styles.statSquare} contentStyle={styles.statSquareContent}>
-      <View style={styles.statSquareValueWrap}>
-        <Text style={styles.statSquareValue} numberOfLines={1} adjustsFontSizeToFit>
-          {value}
-        </Text>
+    <View style={styles.sectionTitleWrap}>
+      <Text style={[styles.sectionTitle, darkText ? styles.darkSectionTitle : null]}>{title}</Text>
+      {subtitle ? (
+        <Text style={[styles.sectionSubtitle, darkText ? styles.darkSectionSubtitle : null]}>{subtitle}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <View style={styles.sectionLabelWrap}>
+      <Text style={styles.sectionLabel}>{label}</Text>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// KPI Cards
+// ---------------------------------------------------------------------------
+
+function KpiBadge({ label, variant }: { label: string; variant: "danger" | "warning" | "success" }) {
+  const bg =
+    variant === "danger"
+      ? "rgba(248,113,113,0.18)"
+      : variant === "warning"
+      ? "rgba(251,146,60,0.18)"
+      : "rgba(74,222,128,0.18)";
+  const textColor =
+    variant === "danger" ? "#f87171" : variant === "warning" ? "#fb923c" : "#4ade80";
+  return (
+    <View style={[styles.kpiBadge, { backgroundColor: bg }]}>
+      <Text style={[styles.kpiBadgeText, { color: textColor }]}>{label}</Text>
+    </View>
+  );
+}
+
+function KpiOverlapRateCard({
+  data,
+  trendDirection,
+}: {
+  data: ApiOverlapRate;
+  trendDirection: "up" | "down" | "flat";
+}) {
+  return (
+    <DashboardSection style={styles.kpiCard}>
+      <Text style={styles.kpiCardLabel}>Global Overlap Rate</Text>
+      <View style={styles.kpiHeadlineRow}>
+        <Text style={styles.kpiHeadlineNumber}>{Math.round(data.overlapPct)}%</Text>
       </View>
-      <Text style={styles.statSquareLabel} numberOfLines={2}>
-        Statistic Here
+      <Text style={styles.kpiCardBody}>of charting songs{"\n"}appear in 2+ countries</Text>
+      <KpiBadge
+        label={trendDirection === "down" ? "▼ siloed market" : "▲ growing overlap"}
+        variant={trendDirection === "down" ? "danger" : "success"}
+      />
+      <Text style={styles.kpiExplainer}>
+        Only {Math.round(data.overlapPct)}% of the {(data.totalUniqueSongs / 1000).toFixed(0)}k unique charting
+        songs in this dataset appeared in more than one country's charts. The remaining{" "}
+        {100 - Math.round(data.overlapPct)}% never crossed a single border — music markets are far more
+        siloed than global streaming access would suggest.
       </Text>
     </DashboardSection>
   );
 }
 
-function SectionTitle({ title, subtitle, darkText = false }: { title: string; subtitle?: string; darkText?: boolean }) {
+function KpiDiscoveryGapCard({ data }: { data: ApiDiscoveryGap }) {
   return (
-    <View style={styles.sectionTitleWrap}>
-      <Text style={[styles.sectionTitle, darkText ? styles.darkSectionTitle : null]}>{title}</Text>
-      {subtitle ? <Text style={[styles.sectionSubtitle, darkText ? styles.darkSectionSubtitle : null]}>{subtitle}</Text> : null}
-    </View>
+    <DashboardSection style={styles.kpiCard}>
+      <Text style={styles.kpiCardLabel}>Avg Discovery Gap</Text>
+      <View style={styles.kpiHeadlineRow}>
+        <Text style={styles.kpiHeadlineNumber}>{data.avgGapDays}</Text>
+        <Text style={styles.kpiHeadlineUnit}> days</Text>
+      </View>
+      <Text style={styles.kpiCardBody}>before a song crosses{"\n"}its first border</Text>
+      <View style={styles.kpiMedianRow}>
+        <Text style={styles.kpiMedianText}>median: {data.medianGapDays} days</Text>
+      </View>
+      <Text style={styles.kpiExplainer}>
+        When a song first charts somewhere, it takes an average of {data.avgGapDays} days before it
+        appears in a second country. The median of {data.medianGapDays} days reveals the story —
+        most crossovers happen fast, but a long tail of slow-traveling songs pulls the mean up significantly.
+      </Text>
+    </DashboardSection>
   );
 }
 
-function PlaceholderLineChart({ darkText = false }: { darkText?: boolean }) {
-  const points = [78, 56, 62, 44, 49, 31, 38, 22, 34];
+function KpiIsolationCard({ data }: { data: ApiIsolationLeader }) {
+  return (
+    <DashboardSection style={styles.kpiCard}>
+      <Text style={styles.kpiCardLabel}>Most Isolated Region</Text>
+      <Text style={styles.kpiIsolationName}>{data.countryName}</Text>
+      <Text style={styles.kpiCardBody}>{Math.round(data.isolationScore)}% locally unique{"\n"}chart songs</Text>
+      <KpiBadge label="highest isolation score" variant="danger" />
+      <Text style={styles.kpiExplainer}>
+        {Math.round(data.isolationScore)}% of songs that charted in {data.countryName} appeared nowhere else
+        in the dataset. This is the highest isolation score of any qualifying country — meaning{" "}
+        {data.countryName}'s chart is the least connected to global music trends out of all 73 markets tracked.
+      </Text>
+    </DashboardSection>
+  );
+}
+
+function KpiPeakReachCard({ data }: { data: ApiPeakReach }) {
+  const peakDateObj = data.peakDate ? new Date(data.peakDate) : null;
+  const year = peakDateObj ? peakDateObj.getFullYear() : null;
+  const month = peakDateObj
+    ? peakDateObj.toLocaleString("default", { month: "short" })
+    : null;
+
+  return (
+    <DashboardSection style={styles.kpiCard}>
+      <Text style={styles.kpiCardLabel}>Peak Cross-Regional Reach</Text>
+      <View style={styles.kpiHeadlineRow}>
+        <Text style={styles.kpiHeadlineNumber}>{data.peakCountryCount}</Text>
+        <Text style={styles.kpiHeadlineUnit}> countries</Text>
+      </View>
+      <Text style={styles.kpiCardBody}>simultaneous chart{"\n"}presence</Text>
+      <View style={styles.kpiVinylMini}>
+        <View style={styles.kpiVinylAlbumArt}>
+          <View style={styles.kpiVinylRecord} />
+        </View>
+        <View style={styles.kpiVinylInfo}>
+          <Text style={styles.kpiVinylTitle} numberOfLines={1}>{data.songTitle}</Text>
+          <Text style={styles.kpiVinylArtist} numberOfLines={1}>{data.artistName}</Text>
+        </View>
+        {month && year ? (
+          <View style={styles.kpiVinylDateBadge}>
+            <Text style={styles.kpiVinylDateText}>{month}{"\n"}{year}</Text>
+          </View>
+        ) : null}
+      </View>
+      <Text style={styles.kpiExplainer}>
+        The ceiling of the discovery gap: {data.songTitle} by {data.artistName} charted simultaneously
+        in {data.peakCountryCount} countries at once. When the average song only reaches{" "}
+        ~4 countries total, a song hitting {data.peakCountryCount} makes the gap between outliers and
+        the norm impossible to ignore.
+      </Text>
+    </DashboardSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Recharts shared style constants
+// ---------------------------------------------------------------------------
+
+const tooltipStyle = {
+  backgroundColor: colors.backgroundRaised,
+  border: "1px solid rgba(117,130,160,0.3)",
+  borderRadius: 8,
+  fontSize: 12,
+};
+const tooltipLabelStyle = { color: colors.textStrong };
+const tooltipItemStyle = { color: colors.text };
+const tickStyle = { fill: colors.text, fontSize: 11, opacity: 0.7 };
+const smallTickStyle = { fill: colors.text, fontSize: 10, opacity: 0.7 };
+
+// ---------------------------------------------------------------------------
+// Chart: Global Overlap Rate Over Time (Recharts Line)
+// ---------------------------------------------------------------------------
+
+function OverlapTrendChart({ data }: { data: ApiTrendPoint[] }) {
+  const chartData = data.map((p) => ({
+    periodLabel: p.periodLabel,
+    overlapPct: p.isGap ? null : p.overlapPct,
+    isGap: p.isGap,
+  }));
+
+  const gapPoints = data.filter((p) => p.isGap);
+  const firstGapLabel = gapPoints[0]?.periodLabel;
+  const lastGapLabel = gapPoints[gapPoints.length - 1]?.periodLabel;
 
   return (
     <View style={styles.lineChartShell}>
-      <View style={styles.lineChartGrid}>
-        {Array.from({ length: 4 }).map((_, index) => (
-          <View key={index} style={styles.lineChartGridLine} />
-        ))}
+      <View style={styles.chartContainer}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(117,130,160,0.15)" vertical={false} />
+            <XAxis dataKey="periodLabel" tick={tickStyle} axisLine={false} tickLine={false} />
+            <YAxis
+              tickFormatter={(v) => `${v}%`}
+              tick={tickStyle}
+              axisLine={false}
+              tickLine={false}
+              width={36}
+            />
+            <Tooltip
+              formatter={(value) =>
+                value !== null ? [`${value}%`, "Overlap rate"] : ["—", "No data"]
+              }
+              contentStyle={tooltipStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={tooltipItemStyle}
+            />
+            {firstGapLabel && lastGapLabel ? (
+              <ReferenceArea
+                x1={firstGapLabel}
+                x2={lastGapLabel}
+                fill="rgba(129,140,248,0.07)"
+                stroke="rgba(129,140,248,0.3)"
+                strokeDasharray="3 3"
+                label={{ value: "data gap", fill: "#818cf8", fontSize: 10 }}
+              />
+            ) : null}
+            <Line
+              type="monotone"
+              dataKey="overlapPct"
+              stroke={colors.accent}
+              strokeWidth={2}
+              dot={{ r: 5, fill: colors.accent, stroke: colors.background, strokeWidth: 2 }}
+              activeDot={{ r: 7 }}
+              connectNulls={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </View>
-      <View style={styles.lineChartPointsRow}>
-        {points.map((value, index) => (
-          <View key={index} style={styles.lineChartPointColumn}>
-            <View style={{ height: value }} />
-            <View style={styles.lineChartPoint} />
-            {index < points.length - 1 ? <View style={styles.lineChartConnector} /> : null}
-          </View>
-        ))}
-      </View>
-      <View style={styles.lineChartLabels}>
-        {["Q1", "Q2", "Q3", "Q4", "Q5"].map((label) => (
-          <Text key={label} style={[styles.chartAxisLabel, darkText ? styles.darkChartAxisLabel : null]}>
-            {label}
-          </Text>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function PlaceholderBars({
-  values,
-  horizontal = false,
-  darkText = false,
-}: {
-  values: number[];
-  horizontal?: boolean;
-  darkText?: boolean;
-}) {
-  return (
-    <View style={horizontal ? styles.horizontalBars : styles.verticalBars}>
-      {values.map((value, index) => (
-        <View key={index} style={horizontal ? styles.horizontalBarRow : styles.verticalBarColumn}>
-          {horizontal ? (
-            <>
-              <Text style={[styles.chartAxisLabel, darkText ? styles.darkChartAxisLabel : null]}>{`Item ${index + 1}`}</Text>
-              <View style={styles.horizontalBarTrack}>
-                <View style={[styles.horizontalBarFill, { width: `${value}%` }]} />
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={[styles.verticalBarFill, { height: `${value}%` }]} />
-              <Text style={[styles.chartAxisLabel, darkText ? styles.darkChartAxisLabel : null]}>{`${index + 1}`}</Text>
-            </>
-          )}
+      <View style={styles.chartLegendRow}>
+        <View style={styles.chartLegendItem}>
+          <View style={[styles.chartLegendSwatch, { backgroundColor: colors.accent }]} />
+          <Text style={styles.chartLegendText}>Overlap rate %</Text>
         </View>
-      ))}
+        <View style={styles.chartLegendItem}>
+          <View
+            style={[
+              styles.chartLegendSwatch,
+              {
+                backgroundColor: "transparent",
+                borderWidth: 1,
+                borderColor: "#818cf8",
+                borderStyle: "dashed" as any,
+              },
+            ]}
+          />
+          <Text style={styles.chartLegendText}>Data gap (22 months)</Text>
+        </View>
+      </View>
     </View>
   );
 }
 
-function PlaceholderDonutLegend({ labels, darkText = false }: { labels: string[]; darkText?: boolean }) {
+// ---------------------------------------------------------------------------
+// Chart: Regional Isolation Scores (Recharts horizontal Bar)
+// ---------------------------------------------------------------------------
+
+const ISOLATION_COLORS: Record<string, string> = {
+  high: "#f87171",
+  mid: "#fb923c",
+  low: "#4ade80",
+};
+
+function IsolationBarChart({ data }: { data: ApiIsolationEntry[] }) {
+  const chartHeight = Math.max(data.length * 38 + 40, 240);
+
   return (
-    <View style={styles.donutLayout}>
-      <View style={styles.donutShell}>
-        <View style={styles.donutInner} />
+    <View style={styles.isolationChartShell}>
+      <View style={{ height: chartHeight }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 4, right: 48, left: 8, bottom: 4 }}
+          >
+            <XAxis
+              type="number"
+              domain={[0, 100]}
+              tickFormatter={(v) => `${v}%`}
+              tick={tickStyle}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              type="category"
+              dataKey="countryName"
+              width={90}
+              tick={{ fill: colors.text, fontSize: 12, opacity: 0.85 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              formatter={(value) => [`${value}%`, "Isolation score"]}
+              contentStyle={tooltipStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={tooltipItemStyle}
+            />
+            <Bar dataKey="isolationScore" radius={[0, 4, 4, 0]} barSize={16}>
+              {data.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={ISOLATION_COLORS[entry.isolationTier] ?? ISOLATION_COLORS.mid}
+                  fillOpacity={0.85}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </View>
-      <View style={styles.donutLegend}>
-        {labels.map((label, index) => (
-          <View key={label} style={styles.legendRow}>
-            <View style={[styles.legendDot, { opacity: 1 - index * 0.14 }]} />
-            <Text style={[styles.legendLabel, darkText ? styles.darkLegendLabel : null]}>{label}</Text>
-          </View>
-        ))}
+      <View style={styles.chartLegendRow}>
+        <View style={styles.chartLegendItem}>
+          <View style={[styles.chartLegendSwatch, { backgroundColor: "#f87171" }]} />
+          <Text style={styles.chartLegendText}>High isolation</Text>
+        </View>
+        <View style={styles.chartLegendItem}>
+          <View style={[styles.chartLegendSwatch, { backgroundColor: "#fb923c" }]} />
+          <Text style={styles.chartLegendText}>Mid</Text>
+        </View>
+        <View style={styles.chartLegendItem}>
+          <View style={[styles.chartLegendSwatch, { backgroundColor: "#4ade80" }]} />
+          <Text style={styles.chartLegendText}>Low isolation</Text>
+        </View>
       </View>
     </View>
   );
 }
 
-function DashboardScreenContent({ year, metrics, countries }: Props) {
+// ---------------------------------------------------------------------------
+// Chart: Discovery Gap Distribution (Recharts vertical Bar)
+// ---------------------------------------------------------------------------
+
+function GapDistributionChart({ data }: { data: ApiGapBucket[] }) {
+  return (
+    <View style={styles.lineChartShell}>
+      <View style={styles.chartContainer}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(117,130,160,0.15)" vertical={false} />
+            <XAxis dataKey="bucketLabel" tick={smallTickStyle} axisLine={false} tickLine={false} />
+            <YAxis
+              tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))}
+              tick={tickStyle}
+              axisLine={false}
+              tickLine={false}
+              width={36}
+            />
+            <Tooltip
+              formatter={(value) => [Number(value).toLocaleString(), "Songs"]}
+              contentStyle={tooltipStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={tooltipItemStyle}
+            />
+            <Bar dataKey="songCount" fill="#818cf8" fillOpacity={0.72} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </View>
+      <View style={styles.chartLegendRow}>
+        <View style={styles.chartLegendItem}>
+          <View style={[styles.chartLegendSwatch, { backgroundColor: "#818cf8", opacity: 0.7 }]} />
+          <Text style={styles.chartLegendText}>Songs by gap length (days)</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Chart: Global Reach Over Time (Recharts vertical Bar)
+// ---------------------------------------------------------------------------
+
+function GlobalReachChart({ data }: { data: ApiTrendPoint[] }) {
+  const nonGapData = data.filter((p) => !p.isGap);
+
+  const CustomXTick = ({ x, y, payload }: any) => {
+    const isPartial = payload.value === 2023;
+    return (
+      <text
+        x={x}
+        y={y + 10}
+        textAnchor="middle"
+        fill={isPartial ? "#fb923c" : "rgba(117,130,160,0.7)"}
+        fontSize={11}
+        fontFamily={typefaces.body}
+      >
+        {payload.value}{isPartial ? "*" : ""}
+      </text>
+    );
+  };
+
+  return (
+    <View style={styles.lineChartShell}>
+      <View style={styles.chartContainer}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={nonGapData} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(117,130,160,0.15)" vertical={false} />
+            <XAxis
+              dataKey="periodYear"
+              tick={<CustomXTick />}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tickFormatter={(v) => Number(v).toFixed(1)}
+              tick={tickStyle}
+              axisLine={false}
+              tickLine={false}
+              width={36}
+            />
+            <Tooltip
+              formatter={(value) => [Number(value).toFixed(2), "Avg countries"]}
+              contentStyle={tooltipStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={tooltipItemStyle}
+              labelFormatter={(label) =>
+                label === 2023 ? `${label} (Oct–Dec only)` : `${label}`
+              }
+            />
+            <Bar dataKey="avgCountries" fill="#34d399" fillOpacity={0.75} radius={[4, 4, 0, 0]}>
+              {nonGapData.map((entry) => (
+                <Cell
+                  key={entry.periodYear}
+                  fill="#34d399"
+                  fillOpacity={entry.periodYear === 2023 ? 0.45 : 0.75}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </View>
+      <View style={styles.chartLegendRow}>
+        <View style={styles.chartLegendItem}>
+          <View style={[styles.chartLegendSwatch, { backgroundColor: "#34d399", opacity: 0.75 }]} />
+          <Text style={styles.chartLegendText}>Avg countries per song</Text>
+        </View>
+        <View style={styles.chartLegendItem}>
+          <View style={[styles.chartLegendSwatch, { backgroundColor: "#34d399", opacity: 0.45 }]} />
+          <Text style={styles.chartLegendText}>Partial year (Oct–Dec only)</Text>
+        </View>
+      </View>
+      <Text style={styles.chartFootnote}>
+        * 2023 reflects Oct–Dec data only. DS2 years (2023–2025) use Top 50 charts vs DS1's Top 200 — averages are not directly comparable across the gap.
+      </Text>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main screen — fetches all dashboard data on mount
+// ---------------------------------------------------------------------------
+
+function DashboardScreenContent() {
+  const [overlapRate, setOverlapRate] = useState<ApiOverlapRate | null>(null);
+  const [discoveryGap, setDiscoveryGap] = useState<ApiDiscoveryGap | null>(null);
+  const [isolationLeader, setIsolationLeader] = useState<ApiIsolationLeader | null>(null);
+  const [peakReach, setPeakReach] = useState<ApiPeakReach | null>(null);
+  const [trendData, setTrendData] = useState<ApiTrendPoint[]>([]);
+  const [isolationRanking, setIsolationRanking] = useState<ApiIsolationEntry[]>([]);
+  const [gapDistribution, setGapDistribution] = useState<ApiGapBucket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const start = "2017-01-01";
+    const end = "2025-12-31";
+    Promise.all([
+      Api.get<ApiOverlapRate>(`/api/dashboard/overlap-rate?start=${start}&end=${end}`),
+      Api.get<ApiDiscoveryGap>(`/api/dashboard/discovery-gap?start=${start}&end=${end}`),
+      Api.get<ApiIsolationLeader>(`/api/dashboard/isolation-leader?start=${start}&end=${end}`),
+      Api.get<ApiPeakReach>(`/api/dashboard/peak-reach?start=${start}&end=${end}`),
+      Api.get<ApiTrendPoint[]>(`/api/dashboard/overlap-trend?start=${start}&end=${end}`),
+      Api.get<ApiIsolationEntry[]>(`/api/dashboard/isolation-ranking?start=${start}&end=${end}`),
+      Api.get<ApiGapBucket[]>(`/api/dashboard/gap-distribution?start=${start}&end=${end}`),
+    ])
+      .then(([rate, gap, leader, reach, trend, ranking, distribution]) => {
+        setOverlapRate(rate);
+        setDiscoveryGap(gap);
+        setIsolationLeader(leader);
+        setPeakReach(reach);
+        setTrendData(trend);
+        setIsolationRanking(ranking);
+        setGapDistribution(distribution);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        setFetchError(err instanceof Error ? err.message : "Failed to load dashboard data");
+        setLoading(false);
+      });
+  }, []);
+
+  const trendDirection = useMemo((): "up" | "down" | "flat" => {
+    const nonGap = trendData.filter((p) => !p.isGap && p.overlapPct > 0);
+    if (nonGap.length < 2) return "flat";
+    const last = nonGap[nonGap.length - 1].overlapPct;
+    const prev = nonGap[nonGap.length - 2].overlapPct;
+    if (last > prev) return "up";
+    if (last < prev) return "down";
+    return "flat";
+  }, [trendData]);
+
   const pageScrollRef = useRef<ScrollView>(null);
   const pageTrackRef = useRef<View>(null);
   const [pageViewportHeight, setPageViewportHeight] = useState(0);
   const [pageContentHeight, setPageContentHeight] = useState(0);
   const [pageScrollY, setPageScrollY] = useState(0);
   const [isDraggingPageScrollbar, setIsDraggingPageScrollbar] = useState(false);
+
   const pageScrollbarVisible = Platform.OS === "web" && pageViewportHeight > 0;
   const pageHasOverflow = pageScrollbarVisible && pageContentHeight > pageViewportHeight;
   const pageTrackHeight = Math.max(pageViewportHeight - 24, 1);
@@ -181,18 +595,20 @@ function DashboardScreenContent({ year, metrics, countries }: Props) {
       ? Math.max((pageViewportHeight / pageContentHeight) * pageViewportHeight, 60)
       : pageTrackHeight
     : 0;
-  const pageThumbTop = pageHasOverflow ? (pageScrollY / (pageContentHeight - pageViewportHeight)) * (pageViewportHeight - pageThumbHeight) : 0;
+  const pageThumbTop = pageHasOverflow
+    ? (pageScrollY / (pageContentHeight - pageViewportHeight)) * (pageViewportHeight - pageThumbHeight)
+    : 0;
 
   const handlePageScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     setPageScrollY(event.nativeEvent.contentOffset.y);
   };
 
   const scrollPageToTrackLocation = (locationY: number) => {
-    if (!pageHasOverflow || pageContentHeight <= pageViewportHeight) {
-      return;
-    }
-
-    const nextThumbTop = Math.min(Math.max(locationY - pageThumbHeight / 2, 0), pageTrackHeight - pageThumbHeight);
+    if (!pageHasOverflow || pageContentHeight <= pageViewportHeight) return;
+    const nextThumbTop = Math.min(
+      Math.max(locationY - pageThumbHeight / 2, 0),
+      pageTrackHeight - pageThumbHeight
+    );
     const nextRatio = nextThumbTop / (pageTrackHeight - pageThumbHeight);
     const nextScrollY = nextRatio * (pageContentHeight - pageViewportHeight);
     pageScrollRef.current?.scrollTo({ y: nextScrollY, animated: false });
@@ -201,33 +617,21 @@ function DashboardScreenContent({ year, metrics, countries }: Props) {
 
   const scrollPageToClientY = (clientY: number) => {
     const rect = (pageTrackRef.current as any)?.getBoundingClientRect?.();
-    if (!rect) {
-      return;
-    }
-
+    if (!rect) return;
     scrollPageToTrackLocation(clientY - rect.top);
   };
 
   useEffect(() => {
-    if (Platform.OS !== "web" || !isDraggingPageScrollbar || typeof document === "undefined") {
-      return;
-    }
-
+    if (Platform.OS !== "web" || !isDraggingPageScrollbar || typeof document === "undefined") return;
     const previousUserSelect = document.body.style.userSelect;
-
     const handleMove = (event: MouseEvent) => {
       event.preventDefault();
       scrollPageToClientY(event.clientY);
     };
-
-    const handleUp = () => {
-      setIsDraggingPageScrollbar(false);
-    };
-
+    const handleUp = () => setIsDraggingPageScrollbar(false);
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", handleMove);
     document.addEventListener("mouseup", handleUp);
-
     return () => {
       document.body.style.userSelect = previousUserSelect;
       document.removeEventListener("mousemove", handleMove);
@@ -235,35 +639,19 @@ function DashboardScreenContent({ year, metrics, countries }: Props) {
     };
   }, [isDraggingPageScrollbar, pageHasOverflow, pageThumbHeight, pageTrackHeight, pageContentHeight, pageViewportHeight]);
 
-  const featuredItems = useMemo(
-    () => [
-      "Featured Thing 1",
-      "Featured Thing 2",
-      "Featured Thing 3",
-      "Featured Thing 4",
-      "Featured Thing 5",
-      "Featured Thing 6",
-      "Featured Thing 7",
-      "Featured Thing 8",
-    ],
-    []
-  );
-  const statItems = useMemo(
-    () => [
-      { label: metrics[0]?.label ?? "Countries Tracked", value: metrics[0]?.value ?? "0", note: metrics[0]?.detail ?? "placeholder" },
-      { label: metrics[1]?.label ?? "Hidden Songs Indexed", value: metrics[1]?.value ?? "0", note: metrics[1]?.detail ?? "placeholder" },
-      {
-        label: metrics[2]?.label ?? "Busiest Region",
-        value: "87",
-        note: metrics[2] ? "Highest hidden-song concentration in current data." : "placeholder",
-      },
-      { label: "Current Year", value: `${year}`, note: "selected year" },
-      { label: "Countries in View", value: `${countries.length}`, note: "current map slice" },
-      { label: "Genre Buckets", value: "12", note: "placeholder" },
-      { label: "Language Buckets", value: "9", note: "placeholder" },
-    ],
-    [countries.length, metrics, year]
-  );
+  if (loading || fetchError) {
+    return (
+      <ScreenScaffold>
+        <View style={styles.pageScrollFrame}>
+          <View style={styles.statusShell}>
+            <Text style={[styles.statusText, fetchError ? styles.statusError : null]}>
+              {fetchError ?? "Loading dashboard data…"}
+            </Text>
+          </View>
+        </View>
+      </ScreenScaffold>
+    );
+  }
 
   return (
     <ScreenScaffold>
@@ -278,119 +666,122 @@ function DashboardScreenContent({ year, metrics, countries }: Props) {
           onScroll={handlePageScroll}
           scrollEventThrottle={16}
         >
+          {/* —— Page header —— */}
           <DiscoveryBlurb
-            heading="Dashboard"
-            body="this is the text inside the blurb that will say things about the page you're on and will guide users through the experience. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+            heading="Global Overlap Dashboard"
+            body="This dashboard is the analytical answer to the Discovery Gap question: which globally trending artists and songs are missing from local markets, and how do those patterns change over time? Every number here is derived from 28 million chart entries across 73 countries spanning 2017–2021 and 2023–2025. The 22-month data gap between datasets is marked clearly wherever it appears in trend charts."
           />
 
-          <View style={styles.topOverviewRow}>
-            <View style={styles.statStripRow}>
-              {statItems.map((item) => (
-                <DashboardStatSquare key={item.label} label={item.label} value={item.value} />
-              ))}
-            </View>
+          {/* —— KPI section —— */}
+          <SectionLabel label="KEY PERFORMANCE INDICATORS" />
 
-            <DashboardSection style={styles.topFillSection} fillVariant="softBlue">
+          <View style={styles.kpiRow}>
+            {overlapRate ? (
+              <KpiOverlapRateCard data={overlapRate} trendDirection={trendDirection} />
+            ) : null}
+            {discoveryGap ? <KpiDiscoveryGapCard data={discoveryGap} /> : null}
+            {isolationLeader ? <KpiIsolationCard data={isolationLeader} /> : null}
+            {peakReach ? <KpiPeakReachCard data={peakReach} /> : null}
+          </View>
+
+          {/* —— Trend analysis section —— */}
+          <SectionLabel label="TREND ANALYSIS" />
+
+          {/* Row 1: Overlap trend + Isolation ranking */}
+          <View style={styles.chartRow}>
+            <DashboardSection style={styles.chartCardWide}>
               <SectionTitle
-                title="Featured Things Example"
-                subtitle="General example summary panel filling the remaining dashboard row space."
-                darkText
+                title="Global Overlap Rate Over Time"
+                subtitle="% of charting songs appearing in 2+ countries — annual, 2017–2025"
               />
+              <Text style={styles.chartExplainer}>
+                This line tracks what share of the global charting song pool was crossing borders in any
+                given year. A rising line means music markets are becoming more connected; a falling line
+                means they're pulling apart. The 22-month data gap (Dec 2021 – Oct 2023) is shaded — do
+                not read continuity across that region.
+              </Text>
+              {trendData.length > 0 ? <OverlapTrendChart data={trendData} /> : null}
             </DashboardSection>
-          </View>
 
-          <View style={styles.heroRow}>
-            <DashboardSection style={styles.heroChartSection} fillVariant="comparisonBlue">
+            <DashboardSection style={styles.chartCardNarrow}>
               <SectionTitle
-                title="Dot Graph Example"
-                subtitle={`General example chart using placeholder movement points for ${year}.`}
-                darkText
+                title="Regional Isolation Scores"
+                subtitle="Countries ranked by % locally unique chart songs"
               />
-              <PlaceholderLineChart darkText />
-            </DashboardSection>
-
-            <View style={styles.heroSideColumn}>
-              <DashboardSection style={styles.stackCard} fillVariant="softBlue">
-                <SectionTitle title="Bar Graph Example" subtitle="General example bar module with placeholder values." darkText />
-                <PlaceholderBars values={[72, 54, 61, 48]} horizontal darkText />
-              </DashboardSection>
-              <DashboardSection style={styles.stackCard}>
-                <SectionTitle title="Bar Graph Example" subtitle="General example vertical chart with placeholder values." />
-                <PlaceholderBars values={[84, 62, 40, 73, 58]} />
-              </DashboardSection>
-            </View>
-          </View>
-
-          <View style={styles.tripleRow}>
-            <DashboardSection style={styles.smallChartSection} fillVariant="softBlue">
-              <SectionTitle title="Pie Chart Example" subtitle="General example mix chart" darkText />
-              <PlaceholderDonutLegend labels={["Segment 1", "Segment 2", "Segment 3", "Segment 4"]} darkText />
-            </DashboardSection>
-
-            <DashboardSection style={styles.smallChartSection} fillVariant="comparisonBlue">
-              <SectionTitle title="Pie Chart Example" subtitle="General example mix chart" darkText />
-              <PlaceholderDonutLegend labels={["Slice A", "Slice B", "Slice C", "Slice D"]} darkText />
-            </DashboardSection>
-
-            <DashboardSection style={styles.smallChartSection}>
-              <SectionTitle title="Bar Graph Example" subtitle="General example ranking chart" />
-              <PlaceholderBars values={[88, 72, 61, 43, 31]} horizontal />
+              <Text style={styles.chartExplainer}>
+                A country's isolation score = the share of its charting songs that appeared nowhere else.
+                High scores (red) mean a market that barely intersects with global trends. Low scores
+                (green) mean a market whose charts closely mirror what's popular everywhere.
+              </Text>
+              {isolationRanking.length > 0 ? <IsolationBarChart data={isolationRanking} /> : null}
             </DashboardSection>
           </View>
 
-          <DashboardSection style={styles.wideSection} fillVariant="softBlue">
-            <SectionTitle title="Featured Things Example" subtitle="General example feature grouping using placeholder items." darkText />
-            <View style={styles.countryChipRow}>
-              {featuredItems.map((item) => (
-                <View key={item} style={styles.countryChip}>
-                  <Text style={[styles.countryChipText, styles.darkCountryChipText]}>{item}</Text>
-                </View>
-              ))}
-            </View>
-            <PlaceholderBars values={[76, 64, 59, 55, 48, 37]} horizontal />
-          </DashboardSection>
-
-          <View style={styles.bottomRow}>
-            <DashboardSection style={styles.bottomSection}>
-              <SectionTitle title="List Example" subtitle="General example ranked placeholder list" />
-              <View style={styles.rankList}>
-                {["List Item A", "List Item B", "List Item C", "List Item D", "List Item E"].map((label, index) => (
-                  <View key={label} style={styles.rankRow}>
-                    <Text style={styles.rankNumber}>{index + 1}</Text>
-                    <Text style={styles.rankLabel}>{label}</Text>
-                    <Text style={styles.rankValue}>{`${92 - index * 7}%`}</Text>
-                  </View>
-                ))}
-              </View>
+          {/* Row 2: Gap distribution + Global reach */}
+          <View style={styles.chartRow}>
+            <DashboardSection style={styles.chartCardHalf}>
+              <SectionTitle
+                title="Discovery Gap Distribution"
+                subtitle="How many days until songs cross their first border"
+              />
+              <Text style={styles.chartExplainer}>
+                Each bar shows how many songs took that long to appear in a second country after their
+                debut chart entry. Most songs that cross a border do so within the first week — the 0-7 
+                day bucket reflects how quickly streaming-era music spreads when it gains momentum, and 
+                is partly driven by Viral 50 chart entries which capture simultaneous cross-market momentum 
+                by design. The average of 38 days is pulled higher by a long tail of songs that took months 
+                to travel or barely reached a second market. The gap between the median (4 days) and mean
+                (38 days) is itself a finding: crossover is either fast or it doesn't happen. Songs in the 
+                "90d+" bucket either took a very long time to travel or only barely made it to one other market
+                before dropping off entirely.
+              </Text>
+              {gapDistribution.length > 0 ? <GapDistributionChart data={gapDistribution} /> : null}
             </DashboardSection>
 
-            <DashboardSection style={styles.bottomSection} fillVariant="comparisonBlue">
-              <SectionTitle title="Dot Graph Example" subtitle="General example grid with placeholder emphasis points." darkText />
-              <View style={styles.matrixGrid}>
-                {Array.from({ length: 12 }).map((_, index) => (
-                  <View key={index} style={[styles.matrixCell, { opacity: 0.28 + (index % 4) * 0.14 }]} />
-                ))}
-              </View>
+            <DashboardSection style={styles.chartCardHalf}>
+              <SectionTitle
+                title="Global Reach Over Time"
+                subtitle="Avg countries per charting song — annual, 2017–2025"
+              />
+              <Text style={styles.chartExplainer}>
+                On average, how many countries did a charting song appear in that year? This is the
+                macro view of the Discovery Gap: if the number stays low, most music stays local
+                regardless of global streaming access.{"\n\n"}
+                Two important caveats: DS1 years (2017–2021) draw from the Top 200 and Viral 50
+                charts across 70+ countries, while DS2 years (2023–2025) draw from a Top 50 chart
+                only — the smaller chart pool naturally produces lower averages and is not directly
+                comparable. Additionally, 2023 reflects only Oct–Dec data, so its bar represents
+                a partial year. Gap year 2022 is omitted entirely rather than shown as zero.
+              </Text>
+              {trendData.length > 0 ? <GlobalReachChart data={trendData} /> : null}
             </DashboardSection>
           </View>
 
-          <DashboardSection style={styles.wideSection}>
-            <SectionTitle
-              title="Featured Things Example"
-              subtitle="General example card set showing placeholder dashboard modules."
-            />
-            <View style={styles.placeholderCardGrid}>
-              {["Example Card A", "Example Card B", "Example Card C", "Example Card D"].map((label) => (
-                <View key={label} style={styles.placeholderCard}>
-                  <Text style={styles.placeholderCardTitle}>{label}</Text>
-                  <View style={styles.placeholderCardLines}>
-                    <View style={styles.placeholderCardLineLong} />
-                    <View style={styles.placeholderCardLineShort} />
-                    <View style={styles.placeholderCardLineMedium} />
-                  </View>
-                </View>
-              ))}
-            </View>
+          {/* —— Methodology note —— */}
+          <DashboardSection style={styles.methodologyCard}>
+            <SectionTitle title="About This Data" />
+            <Text style={styles.methodologyBody}>
+              All metrics on this dashboard are derived from two Kaggle datasets: Spotify Historical
+              Charts (2017–2021) covering the Top 200 and Viral 50 across 70+ countries, and Top Spotify
+              Songs in 73 Countries (2023–2025) covering daily Top 50 charts. Combined, these datasets
+              represent approximately 28 million chart entries.
+            </Text>
+            <Text style={styles.methodologyBody}>
+              <Text style={styles.methodologyBold}>Popularity metrics cannot be compared across datasets.</Text>
+              {" "}Dataset 1 uses raw stream counts; Dataset 2 uses Spotify's proprietary 0–100 popularity
+              score. These are stored separately and never merged.
+            </Text>
+            <Text style={styles.methodologyBody}>
+              <Text style={styles.methodologyBold}>The 22-month data gap (Dec 2021 – Oct 2023)</Text>
+              {" "}is a known limitation. No data exists for this period. Trend lines are broken — not
+              interpolated — across this gap, and every time-series visualization on this page marks it
+              explicitly.
+            </Text>
+            <Text style={styles.methodologyBody}>
+              KPI calculations run in pre-computed SQL summary tables server-side and are never derived
+              live from the raw 28M-row fact table. This ensures response times remain fast regardless
+              of filter state.
+            </Text>
           </DashboardSection>
         </ScrollView>
 
@@ -412,7 +803,12 @@ function DashboardScreenContent({ year, metrics, countries }: Props) {
                 } as any)
               : {})}
           >
-            <View style={[styles.pageScrollbarThumb, { height: pageThumbHeight, transform: [{ translateY: pageThumbTop }] }]} />
+            <View
+              style={[
+                styles.pageScrollbarThumb,
+                { height: pageThumbHeight, transform: [{ translateY: pageThumbTop }] },
+              ]}
+            />
           </View>
         ) : null}
       </View>
@@ -420,11 +816,16 @@ function DashboardScreenContent({ year, metrics, countries }: Props) {
   );
 }
 
-export function DashboardScreen(props: Props) {
-  return <DashboardScreenContent {...props} />;
+export function DashboardScreen(_props: Props) {
+  return <DashboardScreenContent />;
 }
 
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+
 const styles = StyleSheet.create({
+  // —— Scroll frame ——
   pageScrollFrame: {
     flex: 1,
     position: "relative",
@@ -442,9 +843,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: 20,
-    paddingBottom: 24,
+    paddingBottom: 32,
     paddingRight: 18,
   },
+
+  // —— Scrollbar ——
   pageScrollbarTrack: {
     position: "absolute",
     top: 12,
@@ -460,6 +863,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: colors.scrollbarThumb,
   },
+
+  // —— Section primitives ——
   sectionPanel: {
     backgroundColor: "transparent",
     padding: 0,
@@ -470,16 +875,16 @@ const styles = StyleSheet.create({
   },
   sectionContent: {
     padding: 18,
-    gap: 16,
+    gap: 14,
   },
   sectionTitleWrap: {
-    gap: 6,
+    gap: 5,
   },
   sectionTitle: {
     color: colors.textStrong,
     fontFamily: typefaces.display,
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 20,
+    lineHeight: 24,
   },
   darkSectionTitle: {
     color: "rgba(15,16,21,0.92)",
@@ -487,386 +892,287 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
   darkSectionSubtitle: {
     color: "rgba(15,16,21,0.8)",
   },
-  kpiRow: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
+
+  // —— Section label ——
+  sectionLabelWrap: {
+    paddingHorizontal: 2,
   },
-  topOverviewRow: {
-    flexDirection: "row",
-    gap: 16,
-    alignItems: "stretch",
-    flexWrap: "wrap",
-  },
-  statStripRow: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "nowrap",
-    alignItems: "stretch",
-    justifyContent: "flex-start",
-  },
-  topFillSection: {
-    flex: 1,
-    minWidth: 220,
-    height: 96,
-  },
-  statSquare: {
-    width: 96,
-    minWidth: 96,
-    maxWidth: 96,
-    height: 96,
-    flexShrink: 0,
-    borderWidth: 2,
-    borderColor: "rgba(117, 82, 107, 0.42)",
-    shadowColor: colors.accent,
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-  },
-  statSquareContent: {
-    flex: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    gap: 3,
-    justifyContent: "space-between",
-  },
-  statSquareValueWrap: {
-    flex: 1,
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "visible",
-  },
-  statSquareLabel: {
+  sectionLabel: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 10,
-    lineHeight: 12,
-    textAlign: "center",
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 1.4,
+    textTransform: "uppercase" as any,
+    opacity: 0.7,
   },
-  statSquareValue: {
-    color: colors.textStrong,
-    fontFamily: typefaces.display,
-    fontSize: 30,
-    lineHeight: 32,
-    textAlign: "center",
-    paddingHorizontal: 3,
-    overflow: "visible",
-  },
-  heroRow: {
+
+  // —— KPI cards ——
+  kpiRow: {
     flexDirection: "row",
-    gap: 16,
-    alignItems: "stretch",
+    gap: 12,
     flexWrap: "wrap",
   },
-  heroChartSection: {
-    flex: 1.35,
-    minWidth: 420,
-    minHeight: 560,
-  },
-  heroSideColumn: {
-    flex: 0.85,
-    minWidth: 300,
-    gap: 16,
-  },
-  stackCard: {
-    minHeight: 172,
-  },
-  tripleRow: {
-    flexDirection: "row",
-    gap: 16,
-    flexWrap: "wrap",
-  },
-  smallChartSection: {
+  kpiCard: {
     flex: 1,
-    minWidth: 260,
-    minHeight: 240,
+    minWidth: 200,
+    maxWidth: 320,
   },
-  wideSection: {
-    minHeight: 260,
-  },
-  bottomRow: {
-    flexDirection: "row",
-    gap: 16,
-    flexWrap: "wrap",
-  },
-  bottomSection: {
-    flex: 1,
-    minWidth: 360,
-    minHeight: 300,
-  },
-  lineChartShell: {
-    flex: 1,
-    minHeight: 420,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: "rgba(15,16,21,0.42)",
-    backgroundColor: "rgba(22,26,38,0.16)",
-    padding: 16,
-    justifyContent: "space-between",
-    position: "relative",
-    overflow: "hidden",
-  },
-  lineChartGrid: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "space-evenly",
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-  },
-  lineChartGridLine: {
-    height: 1,
-    backgroundColor: "rgba(15,16,21,0.24)",
-  },
-  lineChartPointsRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    flex: 1,
-    paddingTop: 12,
-  },
-  lineChartPointColumn: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    position: "relative",
-  },
-  lineChartPoint: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.textStrong,
-    borderWidth: 2,
-    borderColor: colors.border,
-    zIndex: 2,
-  },
-  lineChartConnector: {
-    position: "absolute",
-    right: "-50%",
-    top: "50%",
-    width: "100%",
-    height: 2,
-    backgroundColor: colors.accent,
-    opacity: 0.6,
-  },
-  lineChartLabels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  chartAxisLabel: {
+  kpiCardLabel: {
     color: colors.text,
     fontFamily: typefaces.body,
     fontSize: 12,
     lineHeight: 16,
+    opacity: 0.72,
   },
-  darkChartAxisLabel: {
-    color: "rgba(15,16,21,0.78)",
-  },
-  verticalBars: {
+  kpiHeadlineRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    minHeight: 150,
-    gap: 10,
+    alignItems: "baseline",
+    flexWrap: "wrap",
   },
-  verticalBarColumn: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 8,
-    minHeight: 150,
+  kpiHeadlineNumber: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 52,
+    lineHeight: 56,
   },
-  verticalBarFill: {
-    width: "100%",
-    maxWidth: 34,
-    minHeight: 18,
+  kpiHeadlineUnit: {
+    color: colors.text,
+    fontFamily: typefaces.display,
+    fontSize: 22,
+    lineHeight: 28,
+    marginLeft: 2,
+  },
+  kpiIsolationName: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 36,
+    lineHeight: 40,
+  },
+  kpiCardBody: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  kpiBadge: {
+    alignSelf: "flex-start",
     borderRadius: 999,
-    backgroundColor: colors.accent,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  horizontalBars: {
-    gap: 10,
+  kpiBadgeText: {
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
   },
-  horizontalBarRow: {
-    gap: 6,
-  },
-  horizontalBarTrack: {
-    width: "100%",
-    height: 14,
+  kpiMedianRow: {
     borderRadius: 999,
-    overflow: "hidden",
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: "rgba(15,16,21,0.24)",
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  horizontalBarFill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: colors.backgroundSoft,
+  kpiMedianText: {
+    color: colors.textStrong,
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    lineHeight: 16,
   },
-  donutLayout: {
+  kpiExplainer: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    lineHeight: 17,
+    opacity: 0.75,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(117,130,160,0.2)",
+    paddingTop: 10,
+    marginTop: 2,
+  },
+
+  // —— KPI Vinyl mini ——
+  kpiVinylMini: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    flex: 1,
+    gap: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "rgba(22,26,38,0.4)",
+    padding: 10,
   },
-  donutShell: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: colors.backgroundSoft,
+  kpiVinylAlbumArt: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "rgba(108,119,142,0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
-  donutInner: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.surfaceSecondary,
-    borderWidth: 2,
-    borderColor: colors.border,
+  kpiVinylRecord: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(15,16,21,0.8)",
+    borderWidth: 4,
+    borderColor: "rgba(108,119,142,0.5)",
   },
-  donutLegend: {
+  kpiVinylInfo: {
     flex: 1,
-    gap: 8,
+    gap: 2,
   },
-  legendRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  kpiVinylTitle: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 14,
+    lineHeight: 17,
   },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  kpiVinylArtist: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    lineHeight: 15,
+    opacity: 0.8,
+  },
+  kpiVinylDateBadge: {
     backgroundColor: colors.accent,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    alignItems: "center",
   },
-  legendLabel: {
+  kpiVinylDateText: {
+    color: colors.textStrong,
+    fontFamily: typefaces.body,
+    fontSize: 10,
+    lineHeight: 13,
+    textAlign: "center",
+    fontWeight: "700",
+  },
+
+  // —— Chart rows ——
+  chartRow: {
+    flexDirection: "row",
+    gap: 16,
+    flexWrap: "wrap",
+    alignItems: "stretch",
+  },
+  chartCardWide: {
+    flex: 1.3,
+    minWidth: 380,
+    minHeight: 440,
+  },
+  chartCardNarrow: {
+    flex: 0.9,
+    minWidth: 300,
+    minHeight: 440,
+  },
+  chartCardHalf: {
     flex: 1,
+    minWidth: 320,
+    minHeight: 400,
+  },
+
+  // —— Recharts wrapper ——
+  chartContainer: {
+    height: 220,
+  },
+
+  // —— Explainer text in chart cards ——
+  chartExplainer: {
     color: colors.text,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
+    opacity: 0.75,
   },
-  darkLegendLabel: {
-    color: "rgba(15,16,21,0.82)",
-  },
-  countryChipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  countryChip: {
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: "rgba(22,26,38,0.16)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  countryChipText: {
-    color: colors.textStrong,
+  
+  // —— Footnote text in chart cards ——
+  chartFootnote: {
+    color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 15,
+    opacity: 0.55,
+    paddingTop: 6,
   },
-  darkCountryChipText: {
-    color: "rgba(15,16,21,0.88)",
+
+  // —— Legend ——
+  chartLegendRow: {
+    flexDirection: "row",
+    gap: 16,
+    flexWrap: "wrap",
+    paddingTop: 4,
   },
-  rankList: {
-    gap: 10,
-  },
-  rankRow: {
+  chartLegendItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: "rgba(22,26,38,0.16)",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: 6,
   },
-  rankNumber: {
-    width: 24,
-    color: colors.textStrong,
-    fontFamily: typefaces.display,
-    fontSize: 18,
-    lineHeight: 20,
+  chartLegendSwatch: {
+    width: 14,
+    height: 14,
+    borderRadius: 3,
   },
-  rankLabel: {
+  chartLegendText: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    lineHeight: 16,
+    opacity: 0.8,
+  },
+
+  // —— Line/bar chart shell ——
+  lineChartShell: {
     flex: 1,
+    minHeight: 240,
+    flexDirection: "column",
+    gap: 8,
+  },
+  isolationChartShell: {
+    flex: 1,
+    gap: 8,
+  },
+
+  // —— Methodology note ——
+  methodologyCard: {
+    marginTop: 4,
+  },
+  methodologyBody: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 19,
+    opacity: 0.75,
+  },
+  methodologyBold: {
     color: colors.textStrong,
+    fontWeight: "600",
+    opacity: 1,
+  },
+
+  // —— Loading / error state ——
+  statusShell: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusText: {
+    color: colors.text,
     fontFamily: typefaces.body,
     fontSize: 14,
-    lineHeight: 18,
+    lineHeight: 20,
   },
-  rankValue: {
-    color: colors.text,
-    fontFamily: typefaces.body,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  matrixGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  matrixCell: {
-    width: "23%",
-    minWidth: 92,
-    aspectRatio: 1,
-    borderRadius: 16,
-    backgroundColor: colors.textStrong,
-  },
-  placeholderCardGrid: {
-    flexDirection: "row",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  placeholderCard: {
-    flex: 1,
-    minWidth: 220,
-    minHeight: 150,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: "rgba(22,26,38,0.16)",
-    padding: 14,
-    gap: 14,
-  },
-  placeholderCardTitle: {
-    color: colors.textStrong,
-    fontFamily: typefaces.display,
-    fontSize: 20,
-    lineHeight: 24,
-  },
-  darkPlaceholderCardTitle: {
-    color: "rgba(15,16,21,0.9)",
-  },
-  placeholderCardLines: {
-    gap: 10,
-  },
-  placeholderCardLineLong: {
-    width: "100%",
-    height: 12,
-    borderRadius: 999,
-    backgroundColor: "rgba(108,119,142,0.5)",
-  },
-  placeholderCardLineMedium: {
-    width: "72%",
-    height: 12,
-    borderRadius: 999,
-    backgroundColor: "rgba(108,119,142,0.36)",
-  },
-  placeholderCardLineShort: {
-    width: "48%",
-    height: 12,
-    borderRadius: 999,
-    backgroundColor: "rgba(108,119,142,0.28)",
+  statusError: {
+    color: "#f87171",
   },
 });

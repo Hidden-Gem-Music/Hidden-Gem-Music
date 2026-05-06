@@ -1,7 +1,6 @@
 import { LinkingOptions } from "@react-navigation/native";
 import * as ExpoLinking from "expo-linking";
 
-import { availableYears } from "../data/mockData";
 import { ScreenRoute } from "../types/navigation";
 
 export type RootStackParamList = {
@@ -11,7 +10,7 @@ export type RootStackParamList = {
   hiddenGems: { country?: string; year?: number } | undefined;
   comparisonSelect: { year?: number } | undefined;
   comparisonResults: { year?: number } | undefined;
-  dashboard: { year?: number } | undefined;
+  dashboard: undefined;
   credits: undefined;
 };
 
@@ -35,7 +34,7 @@ const routeByPath: Record<string, ScreenRoute> = {
 
 function parseYearValue(value: string | null | undefined) {
   const parsedYear = Number(value);
-  return availableYears.includes(parsedYear) ? parsedYear : undefined;
+  return Number.isInteger(parsedYear) && parsedYear > 1000 && parsedYear < 3000 ? parsedYear : undefined;
 }
 
 export const linking: LinkingOptions<RootStackParamList> = {
@@ -76,7 +75,6 @@ export function getRouteParams(route: ScreenRoute, selectedYear: number, selecte
     case "discovery":
     case "comparisonSelect":
     case "comparisonResults":
-    case "dashboard":
       return { year: selectedYear };
     case "country":
     case "hiddenGems":
