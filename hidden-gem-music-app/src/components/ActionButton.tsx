@@ -103,6 +103,7 @@ const styles = StyleSheet.create({
     color: colors.border,
     fontFamily: typefaces.condensed,
     fontSize: 15,
+    fontWeight: "800",
     textAlign: "center",
   },
   labelActive: {
