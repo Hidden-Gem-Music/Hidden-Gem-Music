@@ -498,3 +498,6 @@ appsettings.Local.json
 
 # Claude Code
 .claude/
+
+Dashboard_Brief.md
+
