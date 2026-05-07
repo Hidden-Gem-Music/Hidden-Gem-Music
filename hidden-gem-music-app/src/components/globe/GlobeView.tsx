@@ -1,7 +1,4 @@
-import { Platform } from "react-native";
-
 import { Country } from "../../types/content";
-import { GlobeView as NativeGlobeView } from "./GlobeView.native";
 import { GlobeView as WebGlobeView } from "./GlobeView.web";
 
 type Props = {
@@ -14,5 +11,5 @@ type Props = {
 };
 
 export function GlobeView(props: Props) {
-  return Platform.OS === "web" ? <WebGlobeView {...props} /> : <NativeGlobeView {...props} />;
+  return <WebGlobeView {...props} />;
 }
