@@ -2,6 +2,23 @@ mp3li implementation timeline document
 
 Updated: May 2, 2026
 
+How To Run (Local Backend Config - mp3li personal setup)
+- Purpose: run backend on Mac using local Docker SQL bridge without changing shared team backend config.
+- Local backend config file:
+  - `backend/Capstone.API/appsettings.Local.json`
+  - `DefaultConnection` should use:
+    - `Server=localhost,1433;Database=HiddenGemMusic;User Id=sa;Password=Capstone123!;TrustServerCertificate=True;`
+- Start SQL bridge/container first (Docker Desktop running):
+  - `docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"`
+  - Confirm SQL container shows `0.0.0.0:1433->1433/tcp`
+- Run backend in Local environment:
+  - `cd "/Users/stellar/School/Music_Capstone/backend/Capstone.API" && ASPNETCORE_ENVIRONMENT=Local dotnet run`
+- Verify backend data endpoints in browser:
+  - `http://localhost:5140/api/metadata/years`
+  - `http://localhost:5140/api/discovery/countries?year=2020`
+- Run frontend:
+  - `cd "/Users/stellar/School/Music_Capstone/hidden-gem-music-app" && npm run web`
+
 Leena Review Bundle Closure + Continued Runtime Stabilization + UI Changes (May 2, 2026)
 - Objective: fully close Leena review items across Discovery, Country Detail, Comparison Mode, and Hidden Gems while preserving currently working behavior and avoiding regressions.
 
