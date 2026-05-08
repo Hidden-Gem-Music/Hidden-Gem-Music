@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { ScreenRoute } from "../types/navigation";
 import { colors } from "../theme/colors";
@@ -14,6 +14,11 @@ const mobileNavItems: Array<{ label: string; route: ScreenRoute }> = [
   { label: "Credits", route: "credits" },
 ];
 const mobileSearchItem = { label: "Search", route: "search" as const };
+const discoveryIconSource = require("../assets/images/discoveryglobeicon Background Removed.png");
+const comparisonIconSource = require("../assets/images/comparisonmodeicon.png");
+const hiddenGemsIconSource = require("../assets/images/hiddengemsicon.png");
+const dashboardIconSource = require("../assets/images/dashboardicon.png");
+const searchIconSource = require("../assets/images/searchicon.png");
 
 type Props = {
   currentRoute: ScreenRoute;
@@ -86,6 +91,23 @@ export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggle
       <View style={styles.row}>
         {mobileNavItems.map((item) => {
           const isActive = !searchOpen && currentRoute === item.route;
+          const iconSource =
+            item.route === "discovery"
+              ? discoveryIconSource
+              : item.route === "comparisonSelect"
+                ? comparisonIconSource
+                : item.route === "hiddenGems"
+                  ? hiddenGemsIconSource
+                  : item.route === "dashboard"
+                    ? dashboardIconSource
+                  : null;
+          const customIconStyle =
+            item.route === "hiddenGems"
+              ? styles.customIconLarge
+              : item.route === "dashboard"
+                ? styles.customIconLarge
+                : styles.customIcon;
+          const iconDimStyle = isActive ? styles.iconActive : styles.iconDimmed;
           return (
             <Pressable
               key={item.route}
@@ -96,7 +118,11 @@ export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggle
               style={styles.item}
             >
               <View style={styles.iconSlot}>
-                <GemIcon size={24} style={styles.iconGem} />
+                {iconSource ? (
+                  <Image source={iconSource} style={[customIconStyle, iconDimStyle]} resizeMode="contain" />
+                ) : (
+                  <GemIcon size={30} style={[styles.iconGem, iconDimStyle]} />
+                )}
               </View>
               <View style={styles.labelSlot}>
                 <Text style={[styles.label, isActive ? styles.labelActive : null]}>{item.label}</Text>
@@ -107,10 +133,11 @@ export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggle
         {/** search item */}
         {(() => {
           const isActive = searchOpen;
+          const iconDimStyle = isActive ? styles.iconActive : styles.iconDimmed;
           return (
         <Pressable onPress={onToggleSearch} style={styles.item}>
           <View style={styles.iconSlot}>
-            <GemIcon size={24} style={styles.iconGem} />
+            <Image source={searchIconSource} style={[styles.customIcon, iconDimStyle]} resizeMode="contain" />
           </View>
           <View style={styles.labelSlot}>
             <Text style={[styles.label, isActive ? styles.labelActive : null]}>Search</Text>
@@ -160,7 +187,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   iconSlot: {
-    height: 24,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 0,
@@ -175,6 +202,22 @@ const styles = StyleSheet.create({
   iconGem: {
     opacity: 1,
     marginBottom: 0,
+    transform: [{ translateY: 2 }],
+  },
+  iconDimmed: {
+    opacity: 0.48,
+  },
+  iconActive: {
+    opacity: 0.8,
+  },
+  customIcon: {
+    width: 32,
+    height: 32,
+    transform: [{ translateY: 1 }],
+  },
+  customIconLarge: {
+    width: 36,
+    height: 36,
     transform: [{ translateY: 1 }],
   },
   label: {
