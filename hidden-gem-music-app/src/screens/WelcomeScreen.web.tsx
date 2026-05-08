@@ -1,4 +1,3 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
@@ -57,7 +56,7 @@ export function WelcomeScreen({ countries, availableYears, onNavigate, onSelectC
   );
 
   return (
-    <ScreenScaffold alwaysScrollableOnWeb>
+    <ScreenScaffold alwaysScrollableOnWeb disableScroll={isWelcomeModalVisible}>
       <View style={styles.previewStack}>
         <DiscoveryBlurb />
         <View style={[styles.previewLayout, isStacked ? styles.previewLayoutStacked : null]}>
@@ -68,26 +67,7 @@ export function WelcomeScreen({ countries, availableYears, onNavigate, onSelectC
 
       {isWelcomeModalVisible ? (
         <Pressable style={styles.overlay} onPress={() => setIsWelcomeModalVisible(false)}>
-          <View style={styles.overlayGradientWrap}>
-            <LinearGradient
-              colors={["rgba(22,26,38,0.62)", "rgba(22,26,38,0.36)", "rgba(66,72,101,0.18)"]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={styles.overlayGradient}
-            />
-            <LinearGradient
-              colors={["rgba(117,82,107,0.16)", "rgba(117,82,107,0.05)", "rgba(117,82,107,0.00)"]}
-              start={{ x: 0.0, y: 0.04 }}
-              end={{ x: 1.0, y: 0.72 }}
-              style={styles.overlayGradient}
-            />
-            <LinearGradient
-              colors={["rgba(108,119,142,0.16)", "rgba(108,119,142,0.05)", "rgba(108,119,142,0.00)"]}
-              start={{ x: 1.0, y: 0.0 }}
-              end={{ x: 0.08, y: 0.94 }}
-              style={styles.overlayGradient}
-            />
-          </View>
+          <View style={styles.overlayBackdrop} />
           <Pressable style={styles.modalPressTarget} onPress={(event) => event.stopPropagation()}>
             <Panel style={styles.modal}>
               <Text style={styles.brand}>Hidden Gem Music</Text>
@@ -143,11 +123,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 24,
   },
-  overlayGradientWrap: {
+  overlayBackdrop: {
     ...StyleSheet.absoluteFillObject,
-  },
-  overlayGradient: {
-    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(22,26,38,0.56)",
   },
   modal: {
     width: "100%",
@@ -156,6 +134,9 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     paddingHorizontal: 24,
     backgroundColor: colors.panel,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: "rgba(169, 176, 209, 0.24)",
     gap: 22,
   },
   modalPressTarget: {

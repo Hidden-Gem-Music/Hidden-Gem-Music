@@ -10,6 +10,7 @@ import {
   StyleProp,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   ViewStyle,
 } from "react-native";
@@ -862,6 +863,8 @@ function HiddenSongsCarouselSection({
   loadingText: string;
   onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
 }) {
+  const { width } = useWindowDimensions();
+  const isCompact = width < 980;
   const songCount = songs.length;
   const [activeIndex, setActiveIndex] = useState(songCount > 0 ? Math.floor(songCount / 2) : 0);
   const slots = [-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7] as const;
@@ -906,15 +909,20 @@ function HiddenSongsCarouselSection({
 
   return (
     <CountryPageSection style={styles.hiddenSongsCarouselSection} contentStyle={styles.hiddenSongsCarouselSectionContent}>
-      <View style={styles.hiddenSongsCarouselHeader}>
-        <View style={styles.hiddenSongsCarouselHeaderLeft}>
+      <View style={[styles.hiddenSongsCarouselHeader, isCompact ? styles.hiddenSongsCarouselHeaderCompact : null]}>
+        <View style={[styles.hiddenSongsCarouselHeaderLeft, isCompact ? styles.hiddenSongsCarouselHeaderLeftCompact : null]}>
           <Text style={styles.panelTitle}>Preview {countryName}'s Hidden Gems</Text>
-          <Text style={styles.hiddenSongsCarouselHelper}>
+          <Text style={[styles.hiddenSongsCarouselHelper, isCompact ? styles.hiddenSongsCarouselHelperCompact : null]}>
             {isLoading ? loadingText : "Click a song to listen to a 30 second preview on the Hidden Gems page."}
           </Text>
         </View>
-        <Pressable onPress={() => onOpenHiddenGems()} style={styles.hiddenSongsCarouselHelperAction}>
-          <Text style={styles.hiddenSongsCarouselHelperActionText}>{`Click here to view all of ${countryName}'s hidden gems`}</Text>
+        <Pressable
+          onPress={() => onOpenHiddenGems()}
+          style={[styles.hiddenSongsCarouselHelperAction, isCompact ? styles.hiddenSongsCarouselHelperActionCompact : null]}
+        >
+          <Text style={[styles.hiddenSongsCarouselHelperActionText, isCompact ? styles.hiddenSongsCarouselHelperActionTextCompact : null]}>
+            {`Click here to view all of ${countryName}'s hidden gems`}
+          </Text>
         </Pressable>
       </View>
       <View style={styles.hiddenSongsCarouselBody}>
@@ -1497,6 +1505,8 @@ export function ComparisonResultsScreen({
   onOpenCountry,
   onOpenHiddenGemsForCountry,
 }: Props) {
+  const { width } = useWindowDimensions();
+  const isMobileStack = width < 980;
   const leftCountry = countries[0];
   const rightCountry = countries[1];
   const [leftPaneYear, setLeftPaneYear] = useState(selectedYear);
@@ -1505,10 +1515,17 @@ export function ComparisonResultsScreen({
   return (
     <ScreenScaffold>
       <View style={styles.screen}>
-        <View style={styles.topBar}>
+        {isMobileStack ? (
+          <View style={styles.mobileComparisonHeader}>
+            <Text style={styles.mobileComparisonHeaderText}>
+              {(leftCountry?.name ?? "Country")} & {(rightCountry?.name ?? "Country")}
+            </Text>
+          </View>
+        ) : null}
+        <View style={[styles.topBar, isMobileStack ? styles.topBarMobile : null]}>
           <ActionButton label="Back to Comparison Mode" onPress={onBack} />
         </View>
-        <View style={styles.panesRow}>
+        <View style={[styles.panesRow, isMobileStack ? styles.panesRowMobile : null]}>
           {leftCountry ? (
             <ComparisonCountryPane
               availableCountries={availableCountries}
@@ -1553,11 +1570,27 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
   },
+  topBarMobile: {
+    justifyContent: "flex-start",
+  },
+  mobileComparisonHeader: {
+    width: "100%",
+    alignItems: "flex-start",
+  },
+  mobileComparisonHeaderText: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 24,
+    lineHeight: 28,
+  },
   panesRow: {
     flex: 1,
     minHeight: 0,
     flexDirection: "row",
     gap: 14,
+  },
+  panesRowMobile: {
+    flexDirection: "column",
   },
   paneShell: {
     flex: 1,
@@ -2036,10 +2069,18 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 20,
   },
+  hiddenSongsCarouselHeaderCompact: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 10,
+  },
   hiddenSongsCarouselHeaderLeft: {
     flex: 1,
     maxWidth: 620,
     gap: 6,
+  },
+  hiddenSongsCarouselHeaderLeftCompact: {
+    maxWidth: "100%",
   },
   hiddenSongsCarouselHelper: {
     color: colors.textLight,
@@ -2049,10 +2090,18 @@ const styles = StyleSheet.create({
     textAlign: "left",
     maxWidth: 620,
   },
+  hiddenSongsCarouselHelperCompact: {
+    maxWidth: "100%",
+    flexShrink: 1,
+  },
   hiddenSongsCarouselHelperAction: {
     alignSelf: "flex-start",
     maxWidth: 460,
     marginTop: 6,
+  },
+  hiddenSongsCarouselHelperActionCompact: {
+    maxWidth: "100%",
+    marginTop: 0,
   },
   hiddenSongsCarouselHelperActionText: {
     color: colors.textLight,
@@ -2062,6 +2111,9 @@ const styles = StyleSheet.create({
     textAlign: "right",
     textDecorationLine: "underline",
     flexShrink: 1,
+  },
+  hiddenSongsCarouselHelperActionTextCompact: {
+    textAlign: "left",
   },
   hiddenSongsCarouselBody: {
     flexDirection: "row",

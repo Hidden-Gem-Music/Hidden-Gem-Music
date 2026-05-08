@@ -12,11 +12,12 @@ type Props = {
   selectedYear?: number;
   selected?: boolean;
   onPress: () => void;
+  onPressIn?: () => void;
   onTitlePress?: () => void;
   onHover?: () => void;
 };
 
-export function CountryCard({ country, selectedYear, selected, onPress, onTitlePress, onHover }: Props) {
+export function CountryCard({ country, selectedYear, selected, onPress, onPressIn, onTitlePress, onHover }: Props) {
   const [hovered, setHovered] = useState(false);
   const hasHiddenGems = country.hiddenSongs > 0;
   const noHiddenGemsCopy = selectedYear ? `No Hidden Gems for ${selectedYear}` : "No Hidden Gems for this year";
@@ -26,6 +27,7 @@ export function CountryCard({ country, selectedYear, selected, onPress, onTitleP
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={onPressIn}
       onHoverIn={() => {
         setHovered(true);
         onHover?.();

@@ -323,10 +323,12 @@ function FeaturedArtistsSection({
   country,
   selectedYear,
   artists,
+  useLoadingLabels = false,
 }: {
   country: Country;
   selectedYear: number;
   artists: string[];
+  useLoadingLabels?: boolean;
 }) {
   const scrollRef = useRef<ScrollView>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -396,7 +398,7 @@ function FeaturedArtistsSection({
   return (
     <Panel style={styles.snapshotPanel}>
       <SecondarySurfaceFill />
-      <Text style={styles.panelTitle}>{`${country.name}'s Favorite Artists in ${selectedYear}`}</Text>
+      <Text style={styles.panelTitle}>{`${useLoadingLabels ? "Loading..." : country.name}'s Favorite Artists in ${selectedYear}`}</Text>
       <View style={styles.favoriteArtistsScrollFrame}>
         <ScrollView
           ref={scrollRef}
@@ -412,7 +414,7 @@ function FeaturedArtistsSection({
           {artistRows.map((artist, index) => (
             <View key={`${artist}-${index}`} style={styles.favoriteArtistItem}>
               <CdCase size={104} artColor={rowBackdropColors[index % rowBackdropColors.length]} />
-              <Text style={styles.favoriteArtistName}>{artist}</Text>
+              <Text style={styles.favoriteArtistName}>{useLoadingLabels ? "Loading..." : artist}</Text>
               <Text style={styles.favoriteArtistSongName} />
             </View>
           ))}
@@ -463,6 +465,8 @@ function PlayingSidePanel({
 }) {
   const scrollbar = useCustomScrollbar();
   const [isHoveringMainCd, setIsHoveringMainCd] = useState(false);
+  const [showTouchControls, setShowTouchControls] = useState(false);
+  const showControls = isHoveringMainCd || showTouchControls;
 
   return (
     <Panel style={[styles.secondaryPanel, styles.playingPanel]}>
@@ -481,6 +485,7 @@ function PlayingSidePanel({
           <View style={styles.blankCdCaseWrap}>
             <View
               style={styles.mainCdHoverTarget}
+              onTouchStart={() => setShowTouchControls(true)}
               {...(Platform.OS === "web"
                 ? ({
                     onMouseEnter: () => setIsHoveringMainCd(true),
@@ -489,7 +494,7 @@ function PlayingSidePanel({
                 : {})}
             >
               <BlankCdCase />
-              {isHoveringMainCd ? (
+              {showControls ? (
                 <View style={styles.mainCdControlsOverlay}>
                   <Pressable style={styles.mainCdControlButton} onPress={onPreviousSong}>
                     <LinearGradient
@@ -630,7 +635,7 @@ export function HiddenGemsScreen({
   const [isFilterButtonHovered, setIsFilterButtonHovered] = useState(false);
   const [isFilterButtonPressed, setIsFilterButtonPressed] = useState(false);
   const [introCountryId, setIntroCountryId] = useState(country.id);
-  const [introYear, setIntroYear] = useState(selectedYear);
+  const [introYear, setIntroYear] = useState<number | null>(null);
   const [isIntroCountryDropdownOpen, setIsIntroCountryDropdownOpen] = useState(false);
   const [isIntroYearDropdownOpen, setIsIntroYearDropdownOpen] = useState(false);
   const yearOptions = useMemo(
@@ -646,16 +651,31 @@ export function HiddenGemsScreen({
   const showYearDropdownGradient = isYearDropdownHovered || isYearDropdownPressed || isYearDropdownOpen;
   const showFilterButtonGradient = isFiltersOpen || isFilterButtonHovered || isFilterButtonPressed;
   const introCountryLabel = countryOptions.find((item) => item.id === introCountryId)?.name ?? "Select Country";
+  const fallbackSong: Song = {
+    id: `${country.code}-${selectedYear}-placeholder`,
+    title: "Loading...",
+    artist: "Loading...",
+    album: "Loading...",
+    genres: ["Loading..."],
+    languages: ["Loading..."],
+    year: selectedYear,
+    duration: "",
+    description: "",
+    spotifySearchUrl: "",
+  };
+  const selectedSong = safeSelectedSong ?? fallbackSong;
+  const shouldShowNavIntro = showNavIntro || hiddenGemSongs.length === 0;
+  const displayCountryName = shouldShowNavIntro ? "Loading..." : country.name;
 
   useEffect(() => {
-    if (!showNavIntro) {
+    if (!shouldShowNavIntro) {
       return;
     }
     setIntroCountryId(country.id);
-    setIntroYear(selectedYear);
+    setIntroYear(null);
     setIsIntroCountryDropdownOpen(false);
     setIsIntroYearDropdownOpen(false);
-  }, [country.id, selectedYear, showNavIntro]);
+  }, [country.id, selectedYear, shouldShowNavIntro]);
 
   useEffect(() => {
     setPage(1);
@@ -767,15 +787,7 @@ export function HiddenGemsScreen({
     return selectedArtists;
   }, [apiProfile]);
 
-  if (!safeSelectedSong) {
-    return (
-      <ScreenScaffold>
-        <View style={styles.pageFrame} />
-      </ScreenScaffold>
-    );
-  }
-
-  const selectedSongIndex = hiddenGemSongs.findIndex((song) => song.id === safeSelectedSong.id);
+  const selectedSongIndex = hiddenGemSongs.findIndex((song) => song.id === selectedSong.id);
 
   const setSongSelection = (songId: string) => {
     setActiveSongId(songId);
@@ -802,8 +814,8 @@ export function HiddenGemsScreen({
   };
 
   const toggleSelectedSongPreview = () => {
-    if (previewSongId !== safeSelectedSong.id) {
-      setPreviewSongId(safeSelectedSong.id);
+    if (previewSongId !== selectedSong.id) {
+      setPreviewSongId(selectedSong.id);
       setIsPreviewPlaying(true);
       return;
     }
@@ -811,7 +823,7 @@ export function HiddenGemsScreen({
   };
 
   return (
-    <ScreenScaffold>
+    <ScreenScaffold disableScroll={shouldShowNavIntro}>
       <View style={styles.pageFrame}>
         <Panel style={styles.blurbPanel}>
           <LinearGradient
@@ -824,7 +836,7 @@ export function HiddenGemsScreen({
           <View style={[styles.blurbContent, isBlurbStacked ? styles.blurbContentStacked : null]}>
             <View style={[styles.blurbCopy, isBlurbStacked ? styles.blurbCopyStacked : null]}>
               <Text style={styles.blurbText}>
-                <Text style={styles.blurbHeading}>{country.name}&apos;s Hidden Gems</Text>
+                <Text style={styles.blurbHeading}>{displayCountryName}&apos;s Hidden Gems</Text>
                 {"  "}
                 <GemIcon size={16} style={styles.blurbIcon} />
                 {"  "}
@@ -902,7 +914,7 @@ export function HiddenGemsScreen({
                         showCountryDropdownGradient ? styles.blurbYearDropdownButtonActive : null,
                       ]}
                     >
-                      <Text style={styles.blurbYearDropdownText}>{country.name}</Text>
+                      <Text style={styles.blurbYearDropdownText}>{displayCountryName}</Text>
                       <Text style={styles.blurbYearDropdownChevron}>{isCountryDropdownOpen ? "-" : "+"}</Text>
                     </View>
                   </Pressable>
@@ -1120,8 +1132,8 @@ export function HiddenGemsScreen({
         <View style={[styles.layout, isStacked ? styles.layoutStacked : null]}>
           <View style={styles.panelColumn}>
             <PlayingSidePanel
-              selectedSong={safeSelectedSong}
-              isPlayingPreview={isPreviewPlaying && previewSongId === safeSelectedSong.id}
+              selectedSong={selectedSong}
+              isPlayingPreview={isPreviewPlaying && previewSongId === selectedSong.id}
               onTogglePreview={toggleSelectedSongPreview}
               onPreviousSong={() => stepSong(-1)}
               onNextSong={() => stepSong(1)}
@@ -1130,7 +1142,7 @@ export function HiddenGemsScreen({
           <View style={styles.panelColumn}>
             <HiddenSongListPanel
               songs={hiddenGemSongs}
-              selectedSongId={safeSelectedSong.id}
+              selectedSongId={selectedSong.id}
               onSelectSong={setSongSelection}
               onPlaySong={selectSongAndAutoPlay}
               page={page}
@@ -1145,10 +1157,15 @@ export function HiddenGemsScreen({
               }}
             />
           </View>
-          <FeaturedArtistsSection country={country} selectedYear={selectedYear} artists={favoriteArtists} />
+          <FeaturedArtistsSection
+            country={country}
+            selectedYear={selectedYear}
+            artists={favoriteArtists}
+            useLoadingLabels={shouldShowNavIntro}
+          />
         </View>
       </View>
-      {showNavIntro ? (
+      {shouldShowNavIntro ? (
         <View style={styles.navIntroOverlay}>
           <View style={styles.navIntroOverlayGradientWrap}>
             <LinearGradient
@@ -1227,7 +1244,9 @@ export function HiddenGemsScreen({
                   style={styles.blurbYearDropdownShell}
                 >
                   <View style={styles.blurbYearDropdownButton}>
-                    <Text style={styles.blurbYearDropdownText}>{introYear}</Text>
+                    <Text style={[styles.blurbYearDropdownText, introYear == null ? styles.blurbYearDropdownTextPlaceholder : null]}>
+                      {introYear == null ? "Select Year" : introYear}
+                    </Text>
                     <Text style={styles.blurbYearDropdownChevron}>{isIntroYearDropdownOpen ? "-" : "+"}</Text>
                   </View>
                 </Pressable>
@@ -1271,7 +1290,7 @@ export function HiddenGemsScreen({
                 if (introCountryId !== country.id) {
                   onSelectCountry(introCountryId);
                 }
-                if (introYear !== selectedYear) {
+                if (introYear != null && introYear !== selectedYear) {
                   onChangeYear(introYear);
                 }
                 onDismissNavIntro?.();
@@ -1294,6 +1313,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
+    zIndex: 15000,
+    elevation: 15000,
+    ...(Platform.OS === "web"
+      ? ({
+          position: "fixed",
+        } as ViewStyle)
+      : null),
   },
   navIntroOverlayGradientWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -1566,6 +1592,9 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.condensed,
     fontSize: 15,
     lineHeight: 18,
+  },
+  blurbYearDropdownTextPlaceholder: {
+    opacity: 0.78,
   },
   blurbYearDropdownChevron: {
     color: colors.border,

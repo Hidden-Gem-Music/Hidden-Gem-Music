@@ -10,10 +10,16 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddMemoryCache();
 
-// CORS — required for the React Native / Expo web frontend (default port 8081).
-// If the frontend dev port changes, update WithOrigins here and notify the team.
+// CORS:
+// - Local/Development: allow Expo Go (exp://...) and LAN hosts used during mobile testing.
+// - Other envs: keep explicit localhost web origin.
 builder.Services.AddCors(options =>
 {
+    options.AddPolicy("AllowFrontendDev", policy =>
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+
     options.AddPolicy("AllowFrontend", policy =>
         policy.WithOrigins("http://localhost:8081")
               .AllowAnyHeader()
@@ -36,8 +42,16 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
-app.UseHttpsRedirection();
-app.UseCors("AllowFrontend");
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Local"))
+{
+    app.UseHttpsRedirection();
+}
+
+var corsPolicy = app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Local")
+    ? "AllowFrontendDev"
+    : "AllowFrontend";
+
+app.UseCors(corsPolicy);
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

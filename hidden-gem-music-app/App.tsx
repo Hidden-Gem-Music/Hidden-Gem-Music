@@ -122,7 +122,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
   }
 
   private handleReset = () => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && typeof window.location?.assign === "function") {
       try {
         window.localStorage.removeItem(APP_STATE_STORAGE_KEY);
       } catch {
@@ -231,10 +231,11 @@ export default function App() {
       }
 
       if (currentRoute === "country" || currentRoute === "hiddenGems") {
+        const inferredCode = selectedCountryId && selectedCountryId.length <= 3 ? selectedCountryId.toUpperCase() : featuredCountry.code;
         return {
           ...featuredCountry,
           id: selectedCountryId || featuredCountry.id,
-          code: featuredCountry.code,
+          code: inferredCode,
           name: "Loading country...",
           region: "Loading country data...",
           hiddenSongs: 0,
@@ -788,8 +789,12 @@ export default function App() {
       setLoadingMessage(null);
       return;
     }
+    if (showHiddenGemsNavIntro) {
+      setLoadingMessage(null);
+      return;
+    }
     setLoadingMessage(loading ? "Loading hidden gems..." : null);
-  }, [currentRoute]);
+  }, [currentRoute, showHiddenGemsNavIntro]);
 
   if (!fontsLoaded) {
     return <View style={styles.appShell} />;

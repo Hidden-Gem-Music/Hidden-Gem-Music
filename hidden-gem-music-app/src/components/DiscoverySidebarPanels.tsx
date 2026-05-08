@@ -321,6 +321,7 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
                       onSelectCountry(country.id);
                       onOpenCountry(country.id);
                     }}
+                    onPressIn={() => onSelectCountry(country.id)}
                   />
                 </View>
               ))}

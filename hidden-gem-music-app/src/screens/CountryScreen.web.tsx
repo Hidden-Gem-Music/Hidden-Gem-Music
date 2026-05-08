@@ -445,14 +445,14 @@ function MainComparisonArea({
           ) : null}
           {songs.map((song, index) => (
             <Pressable
-              key={`${title}-${song.title}-${song.artist}`}
+              key={`${title}-${song.title}-${song.artist}-${index}`}
               onPress={() => onOpenHiddenGems({ songTitle: song.title, artist: song.artist })}
-              onHoverIn={() => setHoveredSongKey(`${title}-${song.title}-${song.artist}`)}
-              onHoverOut={() => setHoveredSongKey((current) => (current === `${title}-${song.title}-${song.artist}` ? null : current))}
+              onHoverIn={() => setHoveredSongKey(`${title}-${song.title}-${song.artist}-${index}`)}
+              onHoverOut={() => setHoveredSongKey((current) => (current === `${title}-${song.title}-${song.artist}-${index}` ? null : current))}
               style={styles.songRowShell}
             >
               {({ pressed }) => {
-                const songKey = `${title}-${song.title}-${song.artist}`;
+                const songKey = `${title}-${song.title}-${song.artist}-${index}`;
                 const showGradient = hoveredSongKey === songKey || pressed;
 
                 return (

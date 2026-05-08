@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { Country } from "../types/content";
@@ -67,6 +67,8 @@ export function AppHeader({
   const isTight = width < 680;
   const [hoveredRoute, setHoveredRoute] = useState<ScreenRoute | null>(null);
   const [hoveringSearch, setHoveringSearch] = useState(false);
+  const [pressedBreadcrumbIndex, setPressedBreadcrumbIndex] = useState<number | null>(null);
+  const activeBreadcrumbIndex = useMemo(() => Math.max(breadcrumbs.length - 1, 0), [breadcrumbs.length]);
 
   const handleNavigate = (route: ScreenRoute) => {
     onCloseSearch();
@@ -143,11 +145,24 @@ export function AppHeader({
             return (
               <View key={`${crumb.label}-${index}`} style={styles.breadcrumbItem}>
                 {crumb.route && !isLast ? (
-                  <Pressable onPress={() => handleNavigate(crumb.route!)} hitSlop={6}>
-                    <Text style={[styles.breadcrumbText, index === 0 ? styles.breadcrumbHome : styles.breadcrumbLink]}>{crumb.label}</Text>
+                  <Pressable
+                    onPress={() => handleNavigate(crumb.route!)}
+                    onPressIn={() => setPressedBreadcrumbIndex(index)}
+                    onPressOut={() => setPressedBreadcrumbIndex((current) => (current === index ? null : current))}
+                    hitSlop={6}
+                  >
+                    <Text
+                      style={[
+                        styles.breadcrumbText,
+                        index === activeBreadcrumbIndex ? styles.breadcrumbActive : styles.breadcrumbLink,
+                        pressedBreadcrumbIndex === index ? styles.breadcrumbPressed : null,
+                      ]}
+                    >
+                      {crumb.label}
+                    </Text>
                   </Pressable>
                 ) : (
-                  <Text style={[styles.breadcrumbText, isLast ? styles.breadcrumbCurrent : null]}>{crumb.label}</Text>
+                  <Text style={[styles.breadcrumbText, isLast ? styles.breadcrumbActive : null]}>{crumb.label}</Text>
                 )}
                 {!isLast ? <Text style={styles.breadcrumbSeparator}> / </Text> : null}
               </View>
@@ -162,22 +177,24 @@ export function AppHeader({
 
 const styles = StyleSheet.create({
   wrapper: {
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl + 4,
     paddingHorizontal: spacing.lg,
     paddingBottom: 0,
     position: "relative",
-    zIndex: 20,
+    zIndex: 500,
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 24,
+    marginTop: 20,
   },
   brandRowCompact: {
     justifyContent: "space-between",
     alignItems: "center",
     gap: 16,
     flexWrap: "wrap",
+    marginTop: 16,
   },
   brandPressable: {
     flexShrink: 0,
@@ -187,9 +204,11 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 10,
     flexWrap: "wrap",
+    marginTop: 2,
   },
   brandLockupCompact: {
     gap: 8,
+    marginTop: 0,
   },
   brandWord: {
     flexDirection: "row",
@@ -201,9 +220,13 @@ const styles = StyleSheet.create({
     fontSize: 42,
     fontWeight: "600",
     letterSpacing: -2,
+    lineHeight: 46,
+    transform: [{ translateY: 13 }],
   },
   brandTextCompact: {
     fontSize: 34,
+    lineHeight: 38,
+    transform: [{ translateY: 12 }],
   },
   hiddenIWrap: {
     width: 14,
@@ -229,7 +252,7 @@ const styles = StyleSheet.create({
   },
   hiddenIText: {
     lineHeight: 42,
-    transform: [{ translateY: -4 }],
+    transform: [{ translateY: -2 }],
   },
   hiddenITextCompact: {
     fontSize: 29,
@@ -294,11 +317,11 @@ const styles = StyleSheet.create({
   breadcrumbLink: {
     textDecorationLine: "none",
   },
-  breadcrumbHome: {
+  breadcrumbActive: {
     textDecorationLine: "underline",
   },
-  breadcrumbCurrent: {
-    color: colors.textLight,
+  breadcrumbPressed: {
+    color: colors.accent,
   },
   breadcrumbSeparator: {
     color: colors.textLight,

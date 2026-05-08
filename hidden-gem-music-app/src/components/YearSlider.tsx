@@ -125,6 +125,9 @@ export function YearSlider({ year, onChangeYear, years, displayLabel }: Props) {
 
   const updateFromLocation = (locationX: number) => {
     const nextYear = getYearFromLocation(locationX);
+    if (nextYear === dragYearRef.current) {
+      return;
+    }
     dragYearRef.current = nextYear;
     setDragYear(nextYear);
   };
@@ -152,14 +155,12 @@ export function YearSlider({ year, onChangeYear, years, displayLabel }: Props) {
           onMoveShouldSetResponderCapture={() => true}
           onStartShouldSetResponder={() => true}
           onMoveShouldSetResponder={() => true}
-          onTouchStart={(event) => {
-            event.preventDefault?.();
-          }}
           onResponderGrant={(event) => {
             setIsDragging(true);
             updateFromLocation(event.nativeEvent.locationX);
           }}
           onResponderMove={(event) => updateFromLocation(event.nativeEvent.locationX)}
+          onResponderTerminationRequest={() => false}
           onResponderRelease={() => {
             setIsDragging(false);
             onChangeYear(dragYearRef.current);

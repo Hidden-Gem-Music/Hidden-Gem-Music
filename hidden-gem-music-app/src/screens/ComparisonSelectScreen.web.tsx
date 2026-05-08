@@ -187,6 +187,9 @@ function ComparisonBlurb({
   onSelectYear: (year: number) => void;
   onDone: () => void;
 }) {
+  const { width } = useWindowDimensions();
+  const isCompact = width < 980;
+
   return (
     <Panel style={styles.blurbPanel}>
       <LinearGradient
@@ -196,8 +199,8 @@ function ComparisonBlurb({
         end={{ x: 0.5, y: 1 }}
         style={styles.blurbFill}
       />
-      <View style={styles.blurbContent}>
-        <View style={styles.blurbCopy}>
+      <View style={[styles.blurbContent, isCompact ? styles.blurbContentCompact : null]}>
+        <View style={[styles.blurbCopy, isCompact ? styles.blurbCopyCompact : null]}>
           <Text style={styles.blurbText}>
             <Text style={styles.blurbHeading}>Comparison View</Text>
             {"  "}
@@ -208,7 +211,7 @@ function ComparisonBlurb({
             </Text>
           </Text>
         </View>
-        <View style={styles.blurbActions}>
+        <View style={[styles.blurbActions, isCompact ? styles.blurbActionsCompact : null]}>
           <YearDropdown selectedYear={selectedYear} availableYears={availableYears} onSelectYear={onSelectYear} />
           <ActionButton label="Done" size="small" onPress={onDone} />
         </View>
@@ -240,6 +243,8 @@ function ComparisonSidebarPanels({
   languageOptions: string[];
   genreOptions: string[];
 }) {
+  const { width } = useWindowDimensions();
+  const isCompact = width < 980;
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("list");
   const [hoveredFilterOption, setHoveredFilterOption] = useState<string | null>(null);
   const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
@@ -475,12 +480,14 @@ function ComparisonSidebarPanels({
           style={styles.sectionFill}
         />
         <Pressable
-          style={styles.sectionHeader}
+          style={[styles.sectionHeader, isCompact ? styles.sectionHeaderCompact : null]}
           onPress={() => setExpandedPanel((current) => (current === "filters" ? "list" : "filters"))}
         >
-          <View style={styles.sectionHeaderCopy}>
+          <View style={[styles.sectionHeaderCopy, isCompact ? styles.sectionHeaderCopyCompact : null]}>
             <Text style={styles.sectionTitle}>Add Your Filters</Text>
-            <Text style={styles.sectionHelper}>Add optional filters before you select two countries.</Text>
+            <Text style={[styles.sectionHelper, isCompact ? styles.sectionHelperCompact : null]}>
+              Add optional filters before you select two countries.
+            </Text>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "filters" ? "-" : "+"}</Text>
         </Pressable>
@@ -496,7 +503,7 @@ function ComparisonSidebarPanels({
               onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => setFilterScrollY(event.nativeEvent.contentOffset.y)}
               scrollEventThrottle={16}
             >
-              {renderInlineFilterRow("Sort By", "sort", ["All", "A--Z", "Z--A"])}
+              {renderInlineFilterRow("Sort By", "sort", ["A--Z", "Z--A"])}
               {renderInlineFilterRow("Popularity", "popularity", ["Biggest Hits", "Fast Rising Songs", "All Songs"])}
               {renderInlineFilterRow("Hidden Gems", "hiddenGems", ["All", "Only Show Countries with Hidden Gems", "Show Countries Without Hidden Gems", "Most Hidden Gems to Least", "Least Hidden Gems to Most"])}
               {renderInlineFilterRow("Region", "region", ["All", ...regionOptions])}
@@ -550,12 +557,12 @@ function ComparisonSidebarPanels({
           style={styles.sectionFill}
         />
         <Pressable
-          style={styles.sectionHeader}
+          style={[styles.sectionHeader, isCompact ? styles.sectionHeaderCompact : null]}
           onPress={() => setExpandedPanel((current) => (current === "list" ? "filters" : "list"))}
         >
-          <View style={styles.sectionHeaderCopy}>
+          <View style={[styles.sectionHeaderCopy, isCompact ? styles.sectionHeaderCopyCompact : null]}>
             <Text style={styles.sectionTitle}>Select Two Countries</Text>
-            <View style={styles.selectionSummaryRow}>
+            <View style={[styles.selectionSummaryRow, isCompact ? styles.selectionSummaryRowCompact : null]}>
               {expandedPanel === "list" ? (
                 <Pressable
                   onPress={(event) => {
@@ -587,7 +594,9 @@ function ComparisonSidebarPanels({
                   </View>
                 </Pressable>
               ) : null}
-              <Text style={styles.sectionHelper}>{`${selectedCountryIds.length} out of 2 countries selected.`}</Text>
+              <Text style={[styles.sectionHelper, isCompact ? styles.sectionHelperCompact : null]}>
+                {`${selectedCountryIds.length} out of 2 countries selected.`}
+              </Text>
             </View>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "list" ? "-" : "+"}</Text>
@@ -695,7 +704,7 @@ export function ComparisonSelectScreen({
     region: ["All"],
     language: ["All"],
     genre: ["All"],
-    sort: ["All"],
+    sort: ["A--Z"],
     hiddenGems: ["All"],
   });
   const regionOptions = useMemo(
@@ -813,7 +822,7 @@ export function ComparisonSelectScreen({
         onSelectCountry={onToggleCountry}
         title=""
         showHeader={false}
-        frameStyle={styles.comparisonGlobeFrame}
+        frameStyle={[styles.comparisonGlobeFrame, isStacked ? styles.comparisonGlobeFrameStacked : null]}
         selectOnHover={false}
       />
     </View>
@@ -897,9 +906,17 @@ const styles = StyleSheet.create({
     gap: 20,
     flexWrap: "wrap",
   },
+  blurbContentCompact: {
+    alignItems: "stretch",
+    gap: 12,
+  },
   blurbCopy: {
     flex: 1,
     minWidth: 340,
+  },
+  blurbCopyCompact: {
+    minWidth: 0,
+    width: "100%",
   },
   blurbText: {
     textAlign: "left",
@@ -925,6 +942,11 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     gap: 12,
     zIndex: 7,
+  },
+  blurbActionsCompact: {
+    width: "100%",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
   },
   yearDropdownWrap: {
     position: "relative",
@@ -1054,6 +1076,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderWidth: 3,
   },
+  comparisonGlobeFrameStacked: {
+    minHeight: 566,
+  },
   sidebarFrame: {
     minHeight: 642,
     maxHeight: 642,
@@ -1082,12 +1107,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 16,
   },
+  sectionHeaderCompact: {
+    alignItems: "flex-start",
+    gap: 10,
+  },
   sectionHeaderCopy: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 16,
+  },
+  sectionHeaderCopyCompact: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    justifyContent: "flex-start",
+    gap: 8,
   },
   sectionTitle: {
     color: colors.border,
@@ -1104,12 +1139,21 @@ const styles = StyleSheet.create({
     maxWidth: 300,
     flexShrink: 1,
   },
+  sectionHelperCompact: {
+    maxWidth: "100%",
+    textAlign: "left",
+  },
   selectionSummaryRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
     gap: 10,
     flexShrink: 1,
+  },
+  selectionSummaryRowCompact: {
+    width: "100%",
+    justifyContent: "flex-start",
+    flexWrap: "wrap",
   },
   clearSelectionButtonShell: {
     position: "relative",

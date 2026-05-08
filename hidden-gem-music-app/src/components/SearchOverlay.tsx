@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, ViewStyle } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, ViewStyle } from "react-native";
 
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
@@ -14,9 +14,9 @@ type Props = {
 };
 
 export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Props) {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const isMobileWidth = width < 980;
-  const mobileTop = Math.max(72, Math.round((height - 440) / 2));
+  const isNative = Platform.OS !== "web";
   const [query, setQuery] = useState("");
   const containerRef = useRef<View>(null);
 
@@ -52,19 +52,20 @@ export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Pr
     return null;
   }
 
-  return (
+  const content = (
     <View
       ref={containerRef}
       style={[
         styles.popover,
-        isMobileWidth
+        isNative
+          ? styles.popoverNative
+          : null,
+        isMobileWidth && !isNative
           ? [
               styles.popoverMobile,
-              {
-                top: mobileTop,
-              },
             ]
           : null,
+        isNative ? { width: Math.min(width - 24, 420), maxWidth: 420 } : null,
       ]}
     >
       <Panel style={styles.panel}>
@@ -108,6 +109,18 @@ export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Pr
       </Panel>
     </View>
   );
+
+  if (isNative) {
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+        <Pressable style={styles.nativeModalBackdrop} onPress={onClose}>
+          <Pressable onPress={(event) => event.stopPropagation()}>{content}</Pressable>
+        </Pressable>
+      </Modal>
+    );
+  }
+
+  return content;
 }
 
 const styles = StyleSheet.create({
@@ -125,9 +138,9 @@ const styles = StyleSheet.create({
           marginTop: 12,
         }),
     width: 360,
-    maxWidth: "92vw" as any,
-    zIndex: 300,
-    elevation: 300,
+    ...(Platform.OS === "web" ? ({ maxWidth: "92vw" } as any) : null),
+    zIndex: 6000,
+    elevation: 6000,
     backgroundColor: "transparent",
   },
   popoverMobile: {
@@ -143,7 +156,23 @@ const styles = StyleSheet.create({
           transform: [{ translateX: -180 }],
         }),
   },
+  popoverNative: {
+    position: "relative",
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    marginTop: 0,
+  },
+  nativeModalBackdrop: {
+    flex: 1,
+    justifyContent: "flex-start",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.01)",
+    paddingTop: 72,
+  },
   panel: {
+    width: "100%",
     gap: 12,
     paddingVertical: 18,
     backgroundColor: colors.surfaceSecondary,
