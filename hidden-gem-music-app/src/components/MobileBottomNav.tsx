@@ -56,8 +56,14 @@ export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggle
     ? (["rgba(117,82,107,1)", "rgba(117,82,107,0.72)", "rgba(117,82,107,0)"] as const)
     : isRightEdge
       ? (["rgba(117,82,107,0)", "rgba(117,82,107,0.72)", "rgba(117,82,107,1)"] as const)
-      : (["rgba(117,82,107,0)", "rgba(117,82,107,0.95)", "rgba(117,82,107,0)"] as const);
-  const edgeGradientLocations = [0, 0.5, 1] as const;
+      : ([
+          "rgba(117,82,107,0)",
+          "rgba(117,82,107,0.58)",
+          "rgba(117,82,107,0.82)",
+          "rgba(117,82,107,0.58)",
+          "rgba(117,82,107,0)",
+        ] as const);
+  const edgeGradientLocations = isLeftEdge || isRightEdge ? ([0, 0.5, 1] as const) : ([0, 0.3, 0.5, 0.7, 1] as const);
   const formatLabel = (label: string) => (label.includes(" ") ? label.replace(" ", "\n") : label);
 
   return (

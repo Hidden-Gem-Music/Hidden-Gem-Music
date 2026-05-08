@@ -19,8 +19,8 @@ import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
-import { loadHiddenGemsPage } from "../data/countryApi";
-import { mapApiHiddenGemPage } from "../data/apiMappers";
+import { loadCountryProfile, loadHiddenGemsPage } from "../data/countryApi";
+import { mapApiCountryProfile, mapApiHiddenGemPage } from "../data/apiMappers";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
@@ -162,12 +162,33 @@ function BlankCdCase() {
   );
 }
 
+function CdCase({ size, artColor }: { size: number; artColor: string }) {
+  return (
+    <View style={[styles.cdCaseFrame, { width: size, height: size }]}>
+      <View style={styles.cdCaseBackdropWrap}>
+        <View
+          style={[
+            styles.cdCaseBackdrop,
+            {
+              width: size * 0.82,
+              height: size * 0.82,
+              backgroundColor: artColor,
+            },
+          ]}
+        />
+      </View>
+      <Image source={cdCaseSource} style={[styles.cdCaseImage, { width: size, height: size }]} resizeMode="contain" />
+    </View>
+  );
+}
+
 function HiddenSongListPanel({
   songs,
   selectedSongId,
   onSelectSong,
   onPlaySong,
   page,
+  totalPages,
   hasPreviousPage,
   hasNextPage,
   onPreviousPage,
@@ -178,6 +199,7 @@ function HiddenSongListPanel({
   onSelectSong: (songId: string) => void;
   onPlaySong: (songId: string) => void;
   page: number;
+  totalPages: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
   onPreviousPage: () => void;
@@ -262,7 +284,7 @@ function HiddenSongListPanel({
           >
             <Text style={styles.paginationButtonText}>Previous Page</Text>
           </Pressable>
-          <Text style={styles.paginationLabel}>Page {page}</Text>
+          <Text style={styles.paginationLabel}>{`Page ${page} of ${totalPages}`}</Text>
           <Pressable
             onPress={onNextPage}
             disabled={!hasNextPage}
@@ -297,6 +319,135 @@ function HiddenSongListPanel({
   );
 }
 
+function FeaturedArtistsSection({
+  country,
+  selectedYear,
+  artists,
+}: {
+  country: Country;
+  selectedYear: number;
+  artists: string[];
+}) {
+  const scrollRef = useRef<ScrollView>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
+  const [scrollX, setScrollX] = useState(0);
+  const [isDraggingArtistScrollbar, setIsDraggingArtistScrollbar] = useState(false);
+  const trackRef = useRef<View>(null);
+  const artistRows = Array.from({ length: 8 }, (_, index) => artists[index] ?? "");
+  const showArtistScrollbar = Platform.OS === "web" && viewportWidth > 0;
+  const artistOverflow = showArtistScrollbar && contentWidth > viewportWidth;
+  const artistTrackWidth = Math.max(viewportWidth, 1);
+  const artistThumbWidth = artistOverflow
+    ? Math.max((viewportWidth / contentWidth) * viewportWidth, 52)
+    : artistTrackWidth;
+  const artistThumbLeft =
+    artistOverflow && contentWidth > viewportWidth
+      ? (scrollX / (contentWidth - viewportWidth)) * (viewportWidth - artistThumbWidth)
+      : 0;
+
+  const scrollArtistsToTrackLocation = (locationX: number) => {
+    if (!artistOverflow || contentWidth <= viewportWidth) {
+      return;
+    }
+
+    const nextThumbLeft = Math.min(Math.max(locationX - artistThumbWidth / 2, 0), artistTrackWidth - artistThumbWidth);
+    const nextRatio = nextThumbLeft / (artistTrackWidth - artistThumbWidth);
+    const nextScrollX = nextRatio * (contentWidth - viewportWidth);
+    scrollRef.current?.scrollTo({ x: nextScrollX, animated: false });
+    setScrollX(nextScrollX);
+  };
+
+  const scrollArtistsToClientX = (clientX: number) => {
+    const rect = (trackRef.current as any)?.getBoundingClientRect?.();
+    if (!rect) {
+      return;
+    }
+    scrollArtistsToTrackLocation(clientX - rect.left);
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || !isDraggingArtistScrollbar || typeof document === "undefined") {
+      return;
+    }
+
+    const previousUserSelect = document.body.style.userSelect;
+
+    const handleMove = (event: MouseEvent) => {
+      event.preventDefault();
+      scrollArtistsToClientX(event.clientX);
+    };
+
+    const handleUp = () => {
+      setIsDraggingArtistScrollbar(false);
+    };
+
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+    };
+  }, [artistOverflow, artistThumbWidth, artistTrackWidth, contentWidth, viewportWidth, isDraggingArtistScrollbar]);
+
+  return (
+    <Panel style={styles.snapshotPanel}>
+      <SecondarySurfaceFill />
+      <Text style={styles.panelTitle}>{`${country.name}'s Favorite Artists in ${selectedYear}`}</Text>
+      <View style={styles.favoriteArtistsScrollFrame}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.favoriteArtistsScroll}
+          contentContainerStyle={styles.favoriteArtistsRow}
+          onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
+          onContentSizeChange={(width) => setContentWidth(width)}
+          onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => setScrollX(event.nativeEvent.contentOffset.x)}
+          scrollEventThrottle={16}
+        >
+          {artistRows.map((artist, index) => (
+            <View key={`${artist}-${index}`} style={styles.favoriteArtistItem}>
+              <CdCase size={104} artColor={rowBackdropColors[index % rowBackdropColors.length]} />
+              <Text style={styles.favoriteArtistName}>{artist}</Text>
+              <Text style={styles.favoriteArtistSongName} />
+            </View>
+          ))}
+        </ScrollView>
+        {showArtistScrollbar ? (
+          <View
+            ref={trackRef}
+            style={styles.favoriteArtistsScrollbarTrack}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={(event) => scrollArtistsToTrackLocation(event.nativeEvent.locationX)}
+            onResponderMove={(event) => scrollArtistsToTrackLocation(event.nativeEvent.locationX)}
+            {...(Platform.OS === "web"
+              ? ({
+                  onMouseDown: (event: any) => {
+                    event.preventDefault();
+                    setIsDraggingArtistScrollbar(true);
+                    scrollArtistsToClientX(event.clientX);
+                  },
+                } as any)
+              : {})}
+          >
+            <View
+              style={[
+                styles.favoriteArtistsScrollbarThumb,
+                { width: artistThumbWidth, transform: [{ translateX: artistThumbLeft }] },
+              ]}
+            />
+          </View>
+        ) : null}
+      </View>
+    </Panel>
+  );
+}
+
 function PlayingSidePanel({
   selectedSong,
   isPlayingPreview,
@@ -314,7 +465,7 @@ function PlayingSidePanel({
   const [isHoveringMainCd, setIsHoveringMainCd] = useState(false);
 
   return (
-    <Panel style={styles.secondaryPanel}>
+    <Panel style={[styles.secondaryPanel, styles.playingPanel]}>
       <SecondarySurfaceFill />
       <View style={styles.secondaryPanelScrollFrame}>
         <ScrollView
@@ -456,8 +607,11 @@ export function HiddenGemsScreen({
 }: Props) {
   const { width } = useWindowDimensions();
   const isStacked = width < 1120;
+  const isBlurbStacked = width < 1380;
+  const [apiProfile, setApiProfile] = useState<ReturnType<typeof mapApiCountryProfile> | null>(null);
   const [apiSongs, setApiSongs] = useState<Song[] | null>(null);
   const [hasNextPage, setHasNextPage] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const hiddenGemSongs = useMemo(() => apiSongs ?? [], [apiSongs]);
@@ -509,6 +663,26 @@ export function HiddenGemsScreen({
 
   useEffect(() => {
     let isCancelled = false;
+    loadCountryProfile(country.code, selectedYear)
+      .then((profilePayload) => {
+        if (isCancelled) {
+          return;
+        }
+        setApiProfile(mapApiCountryProfile(profilePayload));
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setApiProfile(null);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [country.code, selectedYear]);
+
+  useEffect(() => {
+    let isCancelled = false;
     onSetLoading?.(true);
     loadHiddenGemsPage(country.code, selectedYear, 2, page, 25)
       .then((response) => {
@@ -537,12 +711,14 @@ export function HiddenGemsScreen({
         }));
         setApiSongs(nextSongs);
         setHasNextPage(safeResponse.hasMore);
+        setTotalPages(Math.max(1, Math.ceil(safeResponse.totalCount / safeResponse.pageSize)));
         onSetLoading?.(false);
       })
       .catch(() => {
         if (!isCancelled) {
           setApiSongs([]);
           setHasNextPage(false);
+          setTotalPages(1);
           onSetLoading?.(false);
         }
       });
@@ -565,6 +741,31 @@ export function HiddenGemsScreen({
     }
     setActiveSongId(hiddenGemSongs[0].id);
   }, [activeSongId, hiddenGemSongs]);
+
+  const favoriteArtists = useMemo(() => {
+    if (!apiProfile) {
+      return [];
+    }
+
+    const selectedArtists: string[] = [];
+    const seen = new Set<string>();
+    const addArtist = (name: string) => {
+      const normalized = name.trim().toLowerCase();
+      if (!normalized || seen.has(normalized) || selectedArtists.length >= 8) {
+        return;
+      }
+
+      seen.add(normalized);
+      selectedArtists.push(name);
+    };
+
+    apiProfile.topUniqueSongs.forEach((song) => addArtist(song.artist));
+    if (selectedArtists.length < 8) {
+      apiProfile.topSharedSongs.forEach((song) => addArtist(song.artist));
+    }
+
+    return selectedArtists;
+  }, [apiProfile]);
 
   if (!safeSelectedSong) {
     return (
@@ -620,8 +821,8 @@ export function HiddenGemsScreen({
             end={{ x: 0.5, y: 1 }}
             style={styles.blurbFill}
           />
-          <View style={styles.blurbContent}>
-            <View style={styles.blurbCopy}>
+          <View style={[styles.blurbContent, isBlurbStacked ? styles.blurbContentStacked : null]}>
+            <View style={[styles.blurbCopy, isBlurbStacked ? styles.blurbCopyStacked : null]}>
               <Text style={styles.blurbText}>
                 <Text style={styles.blurbHeading}>{country.name}&apos;s Hidden Gems</Text>
                 {"  "}
@@ -635,8 +836,8 @@ export function HiddenGemsScreen({
                 </Text>
               </Text>
             </View>
-            <View style={styles.blurbRightRail}>
-              <View style={styles.blurbControlsRow}>
+            <View style={[styles.blurbRightRail, isBlurbStacked ? styles.blurbRightRailStacked : null]}>
+              <View style={[styles.blurbControlsRow, isBlurbStacked ? styles.blurbControlsRowStacked : null]}>
                 <View style={styles.blurbFiltersDropdownWrap}>
                   <Pressable
                     onPress={() => {
@@ -918,12 +1119,22 @@ export function HiddenGemsScreen({
         </Panel>
         <View style={[styles.layout, isStacked ? styles.layoutStacked : null]}>
           <View style={styles.panelColumn}>
+            <PlayingSidePanel
+              selectedSong={safeSelectedSong}
+              isPlayingPreview={isPreviewPlaying && previewSongId === safeSelectedSong.id}
+              onTogglePreview={toggleSelectedSongPreview}
+              onPreviousSong={() => stepSong(-1)}
+              onNextSong={() => stepSong(1)}
+            />
+          </View>
+          <View style={styles.panelColumn}>
             <HiddenSongListPanel
               songs={hiddenGemSongs}
               selectedSongId={safeSelectedSong.id}
               onSelectSong={setSongSelection}
               onPlaySong={selectSongAndAutoPlay}
               page={page}
+              totalPages={totalPages}
               hasPreviousPage={page > 1}
               hasNextPage={hasNextPage}
               onPreviousPage={() => setPage((current) => Math.max(1, current - 1))}
@@ -934,15 +1145,7 @@ export function HiddenGemsScreen({
               }}
             />
           </View>
-          <View style={styles.panelColumn}>
-            <PlayingSidePanel
-              selectedSong={safeSelectedSong}
-              isPlayingPreview={isPreviewPlaying && previewSongId === safeSelectedSong.id}
-              onTogglePreview={toggleSelectedSongPreview}
-              onPreviousSong={() => stepSong(-1)}
-              onNextSong={() => stepSong(1)}
-            />
-          </View>
+          <FeaturedArtistsSection country={country} selectedYear={selectedYear} artists={favoriteArtists} />
         </View>
       </View>
       {showNavIntro ? (
@@ -1176,12 +1379,21 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 10,
   },
+  blurbContentStacked: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 12,
+  },
   blurbCopy: {
     flex: 1,
     minWidth: 0,
     paddingRight: 18,
     justifyContent: "flex-start",
     transform: [{ translateY: 1 }],
+  },
+  blurbCopyStacked: {
+    width: "100%",
+    paddingRight: 0,
   },
   blurbText: {
     textAlign: "left",
@@ -1210,10 +1422,21 @@ const styles = StyleSheet.create({
     gap: 8,
     position: "relative",
   },
+  blurbRightRailStacked: {
+    width: "100%",
+    minWidth: 0,
+    justifyContent: "flex-end",
+  },
   blurbControlsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    marginLeft: "auto",
+  },
+  blurbControlsRowStacked: {
+    flexWrap: "wrap",
+    rowGap: 8,
+    justifyContent: "flex-end",
   },
   blurbDropdownStack: {
     width: 156,
@@ -1424,17 +1647,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   layout: {
-    flexDirection: "row",
-    gap: 16,
-    flexWrap: "wrap",
+    flexDirection: "column",
+    gap: 12,
     alignItems: "stretch",
   },
   layoutStacked: {
     flexDirection: "column",
   },
   panelColumn: {
-    flex: 1,
-    minWidth: 340,
+    width: "100%",
+    minWidth: 0,
   },
   secondaryPanel: {
     minHeight: 618,
@@ -1457,10 +1679,10 @@ const styles = StyleSheet.create({
       : null),
   },
   songListContent: {
-    paddingHorizontal: 18,
+    paddingLeft: 14,
+    paddingRight: 24,
     paddingTop: 18,
     paddingBottom: 12,
-    paddingRight: 28,
     gap: 6,
   },
   paginationBar: {
@@ -1500,12 +1722,16 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   playingSideContent: {
-    paddingHorizontal: 18,
+    paddingLeft: 14,
+    paddingRight: 24,
     paddingTop: 2,
     paddingBottom: 24,
-    paddingRight: 28,
     gap: 10,
     alignItems: "center",
+  },
+  playingPanel: {
+    minHeight: 760,
+    maxHeight: 760,
   },
   songRowShell: {
     position: "relative",
@@ -1673,6 +1899,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
     position: "relative",
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.34,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
   },
   mainCdControlButtonPrimary: {
     width: 66,
@@ -1685,6 +1916,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
     position: "relative",
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.38,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 12,
   },
   mainCdControlFill: {
     ...StyleSheet.absoluteFillObject,
@@ -1776,10 +2012,10 @@ const styles = StyleSheet.create({
   },
   scrollbarTrack: {
     position: "absolute",
-    top: 12,
-    right: 8,
-    bottom: 12,
-    width: 14,
+    top: 10,
+    right: 6,
+    bottom: 10,
+    width: 9,
     borderRadius: 999,
     backgroundColor: "rgba(108,118,143,0.45)",
   },
@@ -1787,5 +2023,91 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 999,
     backgroundColor: "rgba(117,82,107,0.58)",
+  },
+  snapshotPanel: {
+    minWidth: 0,
+    overflow: "hidden",
+  },
+  panelTitle: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 22,
+    lineHeight: 26,
+    marginBottom: 10,
+  },
+  favoriteArtistsRow: {
+    flexDirection: "row",
+    paddingTop: 4,
+    paddingBottom: 0,
+    gap: 10,
+    flexWrap: "nowrap",
+    alignItems: "flex-start",
+    paddingRight: 12,
+    justifyContent: "flex-start",
+  },
+  favoriteArtistsScroll: {
+    width: "100%",
+    borderRadius: 16,
+    ...(Platform.OS === "web"
+      ? ({
+          overflowX: "scroll",
+          scrollbarWidth: "thin",
+        } as ViewStyle)
+      : null),
+  },
+  favoriteArtistsScrollFrame: {
+    width: "100%",
+    gap: 6,
+  },
+  favoriteArtistsScrollbarTrack: {
+    width: "100%",
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(108,118,143,0.45)",
+    overflow: "hidden",
+  },
+  favoriteArtistsScrollbarThumb: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "rgba(117,82,107,0.58)",
+  },
+  favoriteArtistItem: {
+    alignItems: "center",
+    gap: 10,
+    width: 118,
+    flexShrink: 0,
+  },
+  favoriteArtistName: {
+    color: colors.textLight,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 17,
+    textAlign: "center",
+  },
+  favoriteArtistSongName: {
+    color: colors.textLight,
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: "center",
+    minHeight: 16,
+  },
+  cdCaseFrame: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cdCaseBackdropWrap: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: 14,
+  },
+  cdCaseBackdrop: {
+    borderRadius: 14,
+  },
+  cdCaseImage: {
+    maxWidth: "100%",
+    maxHeight: "100%",
   },
 });

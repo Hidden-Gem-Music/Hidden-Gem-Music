@@ -1097,7 +1097,70 @@ function FavoriteArtistsSection({
   sectionAvailable: boolean;
   onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
 }) {
+  const scrollRef = useRef<ScrollView>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
+  const [scrollX, setScrollX] = useState(0);
+  const [isDraggingArtistScrollbar, setIsDraggingArtistScrollbar] = useState(false);
+  const trackRef = useRef<View>(null);
   const artistRows = Array.from({ length: 8 }, (_, index) => artists[index] ?? "");
+  const showArtistScrollbar = Platform.OS === "web" && viewportWidth > 0;
+  const artistOverflow = showArtistScrollbar && contentWidth > viewportWidth;
+  const artistTrackWidth = Math.max(viewportWidth, 1);
+  const artistThumbWidth = artistOverflow
+    ? Math.max((viewportWidth / contentWidth) * viewportWidth, 52)
+    : artistTrackWidth;
+  const artistThumbLeft =
+    artistOverflow && contentWidth > viewportWidth
+      ? (scrollX / (contentWidth - viewportWidth)) * (viewportWidth - artistThumbWidth)
+      : 0;
+
+  const scrollArtistsToTrackLocation = (locationX: number) => {
+    if (!artistOverflow || contentWidth <= viewportWidth) {
+      return;
+    }
+
+    const nextThumbLeft = Math.min(Math.max(locationX - artistThumbWidth / 2, 0), artistTrackWidth - artistThumbWidth);
+    const nextRatio = nextThumbLeft / (artistTrackWidth - artistThumbWidth);
+    const nextScrollX = nextRatio * (contentWidth - viewportWidth);
+    scrollRef.current?.scrollTo({ x: nextScrollX, animated: false });
+    setScrollX(nextScrollX);
+  };
+
+  const scrollArtistsToClientX = (clientX: number) => {
+    const rect = (trackRef.current as any)?.getBoundingClientRect?.();
+    if (!rect) {
+      return;
+    }
+    scrollArtistsToTrackLocation(clientX - rect.left);
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || !isDraggingArtistScrollbar || typeof document === "undefined") {
+      return;
+    }
+
+    const previousUserSelect = document.body.style.userSelect;
+
+    const handleMove = (event: MouseEvent) => {
+      event.preventDefault();
+      scrollArtistsToClientX(event.clientX);
+    };
+
+    const handleUp = () => {
+      setIsDraggingArtistScrollbar(false);
+    };
+
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+    };
+  }, [artistOverflow, artistThumbWidth, artistTrackWidth, contentWidth, viewportWidth, isDraggingArtistScrollbar]);
 
   return (
     <CountryPageSection style={styles.snapshotPanel}>
@@ -1109,23 +1172,61 @@ function FavoriteArtistsSection({
           </Text>
         </View>
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator style={styles.favoriteArtistsScroll} contentContainerStyle={styles.favoriteArtistsRow}>
-          {artistRows.map((artist, index) => (
-            <Pressable
-              key={`${artist}-${index}`}
-              onPress={() => {
-                if (!isLoading && artist) {
-                  onOpenHiddenGems({ artist });
-                }
-              }}
-              style={styles.favoriteArtistItem}
+        <View style={styles.favoriteArtistsScrollFrame}>
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.favoriteArtistsScroll}
+            contentContainerStyle={styles.favoriteArtistsRow}
+            onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
+            onContentSizeChange={(width) => setContentWidth(width)}
+            onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => setScrollX(event.nativeEvent.contentOffset.x)}
+            scrollEventThrottle={16}
+          >
+            {artistRows.map((artist, index) => (
+              <Pressable
+                key={`${artist}-${index}`}
+                onPress={() => {
+                  if (!isLoading && artist) {
+                    onOpenHiddenGems({ artist });
+                  }
+                }}
+                style={styles.favoriteArtistItem}
+              >
+                <CdCase size={104} artColor={carouselBackdropColors[index % carouselBackdropColors.length]} />
+                <Text style={styles.favoriteArtistName}>{isLoading ? "Loading..." : artist}</Text>
+                <Text style={styles.favoriteArtistSongName}>{isLoading ? "Loading..." : ""}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          {showArtistScrollbar ? (
+            <View
+              ref={trackRef}
+              style={styles.favoriteArtistsScrollbarTrack}
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderGrant={(event) => scrollArtistsToTrackLocation(event.nativeEvent.locationX)}
+              onResponderMove={(event) => scrollArtistsToTrackLocation(event.nativeEvent.locationX)}
+              {...(Platform.OS === "web"
+                ? ({
+                    onMouseDown: (event: any) => {
+                      event.preventDefault();
+                      setIsDraggingArtistScrollbar(true);
+                      scrollArtistsToClientX(event.clientX);
+                    },
+                  } as any)
+                : {})}
             >
-              <CdCase size={104} artColor={carouselBackdropColors[index % carouselBackdropColors.length]} />
-              <Text style={styles.favoriteArtistName}>{isLoading ? "Loading..." : artist}</Text>
-              <Text style={styles.favoriteArtistSongName}>{isLoading ? "Loading..." : ""}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+              <View
+                style={[
+                  styles.favoriteArtistsScrollbarThumb,
+                  { width: artistThumbWidth, transform: [{ translateX: artistThumbLeft }] },
+                ]}
+              />
+            </View>
+          ) : null}
+        </View>
       )}
     </CountryPageSection>
   );
@@ -2671,21 +2772,39 @@ const styles = StyleSheet.create({
   },
   favoriteArtistsRow: {
     flexDirection: "row",
+    paddingTop: 0,
+    paddingBottom: 0,
     gap: 10,
     flexWrap: "nowrap",
     alignItems: "flex-start",
     paddingRight: 12,
-    minWidth: "100%",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
   },
   favoriteArtistsScroll: {
     width: "100%",
     borderRadius: 16,
     ...(Platform.OS === "web"
       ? ({
+          overflowX: "scroll",
           scrollbarWidth: "thin",
         } as ViewStyle)
       : null),
+  },
+  favoriteArtistsScrollFrame: {
+    width: "100%",
+    gap: 6,
+  },
+  favoriteArtistsScrollbarTrack: {
+    width: "100%",
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(108,118,143,0.45)",
+    overflow: "hidden",
+  },
+  favoriteArtistsScrollbarThumb: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "rgba(117,82,107,0.58)",
   },
   favoriteArtistsFallbackText: {
     color: colors.textLight,
@@ -2700,6 +2819,7 @@ const styles = StyleSheet.create({
     gap: 10,
     width: 118,
     flexShrink: 0,
+    transform: [{ translateY: 10 }],
   },
   favoriteArtistName: {
     color: colors.textLight,
