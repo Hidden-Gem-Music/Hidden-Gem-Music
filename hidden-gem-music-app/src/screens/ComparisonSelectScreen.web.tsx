@@ -496,9 +496,9 @@ function ComparisonSidebarPanels({
               onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => setFilterScrollY(event.nativeEvent.contentOffset.y)}
               scrollEventThrottle={16}
             >
-              {renderInlineFilterRow("Sort By", "sort", ["All", "A--Z", "Z--A", "Most Hidden Gems to Least", "Least Hidden Gems to Most"])}
+              {renderInlineFilterRow("Sort By", "sort", ["All", "A--Z", "Z--A"])}
               {renderInlineFilterRow("Popularity", "popularity", ["Biggest Hits", "Fast Rising Songs", "All Songs"])}
-              {renderInlineFilterRow("Hidden Gems", "hiddenGems", ["All", "Only Show Countries with Hidden Gems", "Show Countries Without Hidden Gems"])}
+              {renderInlineFilterRow("Hidden Gems", "hiddenGems", ["All", "Only Show Countries with Hidden Gems", "Show Countries Without Hidden Gems", "Most Hidden Gems to Least", "Least Hidden Gems to Most"])}
               {renderInlineFilterRow("Region", "region", ["All", ...regionOptions])}
               {renderInlineFilterRow("Language", "language", ["All", ...languageOptions])}
               {renderInlineFilterRow("Genre", "genre", ["All", ...genreOptions])}
@@ -769,10 +769,10 @@ export function ComparisonSelectScreen({
       if (filters.sort.includes("Z--A")) {
         return filtered.sort((a, b) => b.name.localeCompare(a.name));
       }
-      if (filters.sort.includes("Most Hidden Gems to Least")) {
+      if (filters.hiddenGems.includes("Most Hidden Gems to Least")) {
         return filtered.sort((a, b) => b.hiddenSongs - a.hiddenSongs || a.name.localeCompare(b.name));
       }
-      if (filters.sort.includes("Least Hidden Gems to Most")) {
+      if (filters.hiddenGems.includes("Least Hidden Gems to Most")) {
         return filtered.sort((a, b) => a.hiddenSongs - b.hiddenSongs || a.name.localeCompare(b.name));
       }
 
