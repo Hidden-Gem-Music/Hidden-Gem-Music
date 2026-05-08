@@ -56,7 +56,8 @@ BEGIN
            AND bsa_inner.artist_order = 1
         LEFT JOIN DIM_Artist a_inner ON a_inner.artist_id = bsa_inner.artist_id
         WHERE ce.country_id IS NOT NULL
-          AND YEAR(ce.snapshot_date) = @Year
+          AND ce.snapshot_date >= DATEFROMPARTS(@Year, 1, 1)
+          AND ce.snapshot_date <  DATEFROMPARTS(@Year + 1, 1, 1)
         GROUP BY ce.country_id, ce.song_id, s_inner.album_name, a_inner.artist_name
     ) top_song ON top_song.country_id = c.country_id AND top_song.rn = 1
     WHERE c.latitude  IS NOT NULL

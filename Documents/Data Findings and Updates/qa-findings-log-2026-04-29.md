@@ -17,6 +17,7 @@ Three data inconsistencies were identified during live dashboard integration tes
 | 1 | Avg Discovery Gap KPI contradicts Distribution chart | Resolved | SP rewrite + repopulate |
 | 2 | Global Reach values inconsistent with Overlap Rate KPI | Resolved | UI labeling only |
 | 3 | Argentina 2023 hidden gems dominated by Christmas songs | Known limitation | UI labeling only |
+| 4 | Viral 50 / Top 200 treated as equivalent charting events across all metrics | Known limitation — flagged for future iteration | UI copy + ADR documentation |
 
 ---
 
@@ -146,6 +147,45 @@ Any 2023 year filter across the entire application returns a Q4-only, seasonally
 
 ---
 
+## Issue 4 — Viral 50 / Top 200 Chart Type Conflation (May 6, 2026)
+
+**Severity:** Medium — affects interpretation of multiple dashboard metrics  
+**Status:** Known limitation, documented. Flagged for future iteration.  
+**Session:** May 6, 2026 — identified during dashboard design review
+
+### What was observed
+
+During dashboard narrative design review, it was identified that the Top 200 and Viral 50 chart types in Dataset 1 measure fundamentally different phenomena but are treated as equivalent charting events in all current stored procedures.
+
+- **Top 200:** sustained listener demand — streams-based, reflects adoption
+- **Viral 50:** rate-of-spread — a song can enter with minimal total streams by spreading simultaneously across markets
+
+### Metrics affected
+
+| Metric | How it's affected |
+|--------|------------------|
+| Discovery Gap mean (38d) / median (4d) | 0–7d bucket driven in part by Viral 50 simultaneous-spread events, compressing measured crossover speed |
+| Global Overlap Rate (26%) | Inflated by Viral 50 entries that technically cross borders but reflect sharing behavior, not adoption |
+| Peak Cross-Regional Reach (70 countries — abcdefu) | Almost certainly a Viral 50 result; represents viral spread, not sustained Top 200 charting across 70 markets |
+| Global Reach Over Time avg countries (2.9–3.2) | Pulled upward by Viral 50 entries throughout DS1 years |
+
+### Why no SP changes were made
+
+All SPs are functioning correctly given the data they receive. This is a measurement design concern, not a logic bug. Fixing it requires either a `@ChartTypeFilter` parameter addition to the gap SPs (low risk, WHERE clause only) or a full chart-type breakdown output (higher effort). Neither is being pursued at this time given project timeline.
+
+### Resolution
+
+- No SP changes
+- ADR updated with full analysis and recommended future fixes (`adr-discovery-gap-data-quality.md` Issue 4)
+- `dashboard-about-this-data-copy.md` updated with a prominent ⚠ known limitation entry
+- This QA log updated
+
+### Connection to prior findings
+
+The Viral 50 contribution to the 0–7d bucket was first noted during the April 29 QA session (Issue 1, Root Cause C decision) and accepted as a data characteristic. May 6 review elevated this from "data characteristic" to "measurement design limitation" given its impact on multiple metrics and user interpretation.
+
+---
+
 ## Queries Used During Investigation
 
 All diagnostic queries used during this session are preserved here for reference.
@@ -205,6 +245,7 @@ WHERE TABLE_NAME = 'DiscoveryGapByDay' ORDER BY ORDINAL_POSITION;
 - [ ] Apply "2023 (Oct–Dec)" year selector label across all screens — Hidden Gems, Country Profile, Country Comparison, Globe filter panel
 - [ ] Confirm `sp_GetDiscoveryGapDistribution` date range filter is correctly wired from the frontend date params
 - [ ] Issue 2 (Global Reach) frontend changes need to be verified on mobile layout as well as web
-- [ ] Consider whether to filter Viral 50 chart type separately in the distribution chart in a future enhancement — currently mixed with Top 200 and Top 50 data
+- [ ] **Issue 4 — Future iteration:** Add `@ChartTypeFilter` parameter to `sp_GetAverageDiscoveryGap` and `sp_GetDiscoveryGapDistribution` to enable Top 200-only calculation. See ADR Issue 4 for recommended SQL pattern.
+- [ ] **Issue 4 — Future iteration:** Consider chart type toggle on Discovery Gap Distribution chart in UI (All charts / Top 200 only / Viral 50 only) to make the Viral 50 vs adoption distinction visible and explorable.
 
 *HiddenGemMusic Capstone | QA Session April 29, 2026*

@@ -3,7 +3,7 @@
 
 **Project:** HiddenGemMusic Capstone  
 **Author:** Leena Komenski  
-**Date:** April 29, 2026  
+**Date:** April 29, 2026 — updated May 6, 2026  
 **Status:** Accepted  
 **Track:** BDA  
 
@@ -148,7 +148,79 @@ Any year filter in the application that includes 2023 is showing a Q4-only slice
 
 ---
 
-## 5. Affected Stored Procedures — Final State
+## 5. Issue 4 — Viral 50 / Top 200 Chart Type Conflation (May 6, 2026)
+
+### ⚠ KNOWN LIMITATION — Flagged for future iteration
+
+This issue was identified during dashboard design review on May 6, 2026. It does not represent a bug in any stored procedure — all SPs are functioning correctly given the data they receive. The issue is a measurement design concern with meaningful implications for interpretation.
+
+### What the problem is
+
+Dataset 1 contains two fundamentally different chart types mixed together in `FACT_ChartEntry`:
+
+- **Top 200** — demand-driven. A song earns its rank by accumulating streams. Reflects sustained listener adoption.
+- **Viral 50** — momentum-driven. A song enters based on rate-of-spread, not total streams. A track can appear on the Viral 50 the day it's released with almost no total plays, purely because it's being shared simultaneously across markets.
+
+All current stored procedures that query `FACT_ChartEntry` for DS1 data treat these two chart types as equivalent "charting events." They are not equivalent. They measure different phenomena.
+
+### Specific metrics affected
+
+**`sp_GetAverageDiscoveryGap` and `sp_GetDiscoveryGapDistribution`**
+
+The Viral 50 is the primary driver of the large 0–7d bucket (21,936 songs). Songs that go viral simultaneously across markets do not "discover" a new market — they explode everywhere at once by design. This compresses the measured discovery gap and causes the median (4 days) to understate the true time it takes for organic listener adoption to cross a border.
+
+The current interpretation note ("Viral 50 chart entries capture simultaneous cross-market momentum by design") acknowledges this but does not correct for it. A Top 200-only calculation would produce a more meaningful measure of organic crossover speed.
+
+**`sp_GetGlobalOverlapRate`**
+
+The 26% global overlap rate is inflated by Viral 50 entries. Songs that technically appear in multiple countries' Viral 50 charts simultaneously are counted as crossover events, but this reflects sharing behavior, not listener adoption in those markets. The true adoption-based overlap rate is likely lower than 26%.
+
+**`sp_GetPeakCrossRegionalReach`**
+
+Peak simultaneous country reach (70 countries — abcdefu by GAYLE) is almost certainly a Viral 50 phenomenon. This is a different kind of "global reach" than sustained Top 200 charting across many markets. It is not incorrect, but the distinction is meaningful and is currently absent from all UI copy.
+
+**`sp_GetGlobalReachOverTime`**
+
+Average countries per charting song per year is pulled upward by Viral 50 entries. DS1 years (2.9–3.2 average) are not purely measures of sustained global adoption — they include viral spread events.
+
+### Why this was not caught earlier
+
+The Viral 50 contamination of discovery gap metrics was noted during the April 29 QA session (see Issue 1 resolution, Root Cause C) but was accepted as a data characteristic rather than a measurement design problem. On reflection, the distinction matters more than initially assessed — particularly for any user-facing copy that describes the discovery gap as a measure of how long music takes to "travel" between markets.
+
+### Decision: Document and flag for future iteration
+
+No SP changes are being made at this time. The following applies:
+
+1. All affected metrics remain in the dashboard as-is
+2. UI copy for the Discovery Gap Distribution chart and KPI Card 2 must include a visible note that Viral 50 entries compress the measured gap (already present — verify it is prominent)
+3. The "About This Data" section must include the chart type conflation note (see updated copy in `dashboard-about-this-data-copy.md`)
+4. This limitation is to be treated as **visible and important** — not buried in fine print
+
+### Recommended future fix (Option 1 — low risk)
+
+Add a `@ChartTypeFilter` parameter to `sp_GetAverageDiscoveryGap` and `sp_GetDiscoveryGapDistribution` that defaults to `NULL` (all chart types) but accepts `'Top 200'` to produce a Top 200-only calculation. This is a WHERE clause addition, not a repopulation, and does not affect any other SP or summary table.
+
+```sql
+-- Proposed addition to SongFirstCrossing CTE
+WHERE days_to_spread > 0
+  AND (@ChartTypeFilter IS NULL 
+       OR EXISTS (
+           SELECT 1 FROM FACT_ChartEntry ce
+           JOIN ChartType ct ON ct.chart_type_id = ce.chart_type_id
+           WHERE ce.song_id = dgd.song_id
+             AND ct.name = @ChartTypeFilter
+       ))
+```
+
+A chart type toggle on the Discovery Gap Distribution chart in the UI would then allow users to compare "All charts" vs "Top 200 only" — which itself tells a meaningful story about the difference between virality and adoption.
+
+### Recommended future fix (Option 2 — more work, more insight)
+
+Add `chart_type_breakdown` output to `sp_GetGlobalOverlapRate` and `sp_GetDiscoveryGapDistribution` — returning separate rows for Top 200, Viral 50, and Top 50 — to enable direct comparison in the UI. This is a more significant SP change but produces genuinely interesting data.
+
+---
+
+## 6. Affected Stored Procedures — Final State
 
 | Procedure | Changed | Nature of Change |
 |-----------|---------|-----------------|
@@ -158,16 +230,17 @@ Any year filter in the application that includes 2023 is showing a Q4-only slice
 | `sp_PopulateSongCountryPresence` | No | Audited and confirmed correct. No changes. |
 | `sp_PopulateGlobalOverlapByYear` | No | Audited and confirmed correct. No changes. |
 | `sp_PopulateHiddenGems` | No | Audited and confirmed correct. Partial-year issue is a data scope limitation, not a logic bug. |
-| `sp_GetGlobalOverlapRate` | No | Not audited today. Not implicated in any of the three issues. |
-| `sp_GetPeakCrossRegionalReach` | No | Not audited today. Not implicated in any of the three issues. |
+| `sp_GetGlobalOverlapRate` | No | Not audited April 29. Affected by Issue 4 (chart type conflation) — see above. No changes pending. |
+| `sp_GetPeakCrossRegionalReach` | No | Not audited April 29. Affected by Issue 4 (likely Viral 50 result) — see above. No changes pending. |
 
 ---
 
-## 6. Consequences
+## 7. Consequences
 
 - `DiscoveryGapByDay` was truncated and repopulated after SP changes. All read SPs that query it now return clean data.
 - The dashboard Discovery Gap Distribution histogram now shows a shape that peaks at 0–7d, which is correct and consistent with the average and median KPI values.
 - The 22-month data gap (Dec 2021 – Oct 2023) and the 2023 partial year are now treated as first-class labeling concerns across the entire application, not just the dashboard.
 - Any future stored procedure that uses `YEAR(snapshot_date)` to filter or group by 2023 must account for the partial-year scope.
+- **Issue 4 (May 6, 2026):** Viral 50 / Top 200 conflation is a known, documented limitation affecting discovery gap metrics and overlap rate. No SP changes were made. UI copy and About This Data section updated to make this limitation visible. Recommended fixes documented above for a future iteration.
 
 *HiddenGemMusic Capstone | April 29, 2026*
