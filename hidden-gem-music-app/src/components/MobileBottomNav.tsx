@@ -1,4 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useState } from "react";
 import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { ScreenRoute } from "../types/navigation";
@@ -19,6 +20,7 @@ const comparisonIconSource = require("../assets/images/comparisonmodeicon.png");
 const hiddenGemsIconSource = require("../assets/images/hiddengemsicon.png");
 const dashboardIconSource = require("../assets/images/dashboardicon.png");
 const searchIconSource = require("../assets/images/searchicon.png");
+const SHOW_MOBILE_NAV_ICONS = false;
 
 type Props = {
   currentRoute: ScreenRoute;
@@ -30,6 +32,7 @@ type Props = {
 
 export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggleSearch, onCloseSearch }: Props) {
   const { width } = useWindowDimensions();
+  const [labelWidths, setLabelWidths] = useState<Record<string, number>>({});
   if (width >= 980) {
     return null;
   }
@@ -61,6 +64,7 @@ export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggle
       ? (["rgba(117,82,107,0)", "rgba(117,82,107,0.72)", "rgba(117,82,107,1)"] as const)
       : (["rgba(117,82,107,0)", "rgba(117,82,107,0.95)", "rgba(117,82,107,0)"] as const);
   const edgeGradientLocations = [0, 0.5, 1] as const;
+  const formatLabel = (label: string) => (label.includes(" ") ? label.replace(" ", "\n") : label);
 
   return (
     <LinearGradient
@@ -117,15 +121,36 @@ export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggle
               }}
               style={styles.item}
             >
-              <View style={styles.iconSlot}>
-                {iconSource ? (
-                  <Image source={iconSource} style={[customIconStyle, iconDimStyle]} resizeMode="contain" />
-                ) : (
-                  <GemIcon size={30} style={[styles.iconGem, iconDimStyle]} />
-                )}
-              </View>
+              {SHOW_MOBILE_NAV_ICONS ? (
+                <View style={styles.iconSlot}>
+                  {iconSource ? (
+                    <Image source={iconSource} style={[customIconStyle, iconDimStyle]} resizeMode="contain" />
+                  ) : (
+                    <GemIcon size={30} style={[styles.iconGem, iconDimStyle]} />
+                  )}
+                </View>
+              ) : null}
               <View style={styles.labelSlot}>
-                <Text style={[styles.label, isActive ? styles.labelActive : null]}>{item.label}</Text>
+                <Text
+                  numberOfLines={2}
+                  onLayout={(event) => {
+                    const measuredWidth = Math.ceil(event.nativeEvent.layout.width);
+                    setLabelWidths((current) =>
+                      current[item.route] === measuredWidth ? current : { ...current, [item.route]: measuredWidth }
+                    );
+                  }}
+                  style={[styles.label, isActive ? styles.labelActive : null]}
+                >
+                  {formatLabel(item.label)}
+                </Text>
+                {isActive ? (
+                  <View
+                    style={[
+                      styles.activeUnderline,
+                      { width: Math.max(24, Math.min(84, (labelWidths[item.route] ?? 26) + 10)) },
+                    ]}
+                  />
+                ) : null}
               </View>
             </Pressable>
           );
@@ -136,11 +161,32 @@ export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggle
           const iconDimStyle = isActive ? styles.iconActive : styles.iconDimmed;
           return (
         <Pressable onPress={onToggleSearch} style={styles.item}>
-          <View style={styles.iconSlot}>
-            <Image source={searchIconSource} style={[styles.customIcon, iconDimStyle]} resizeMode="contain" />
-          </View>
+          {SHOW_MOBILE_NAV_ICONS ? (
+            <View style={styles.iconSlot}>
+              <Image source={searchIconSource} style={[styles.customIcon, iconDimStyle]} resizeMode="contain" />
+            </View>
+          ) : null}
           <View style={styles.labelSlot}>
-            <Text style={[styles.label, isActive ? styles.labelActive : null]}>Search</Text>
+            <Text
+              numberOfLines={2}
+              onLayout={(event) => {
+                const measuredWidth = Math.ceil(event.nativeEvent.layout.width);
+                setLabelWidths((current) =>
+                  current.search === measuredWidth ? current : { ...current, search: measuredWidth }
+                );
+              }}
+              style={[styles.label, isActive ? styles.labelActive : null]}
+            >
+              Search
+            </Text>
+            {isActive ? (
+              <View
+                style={[
+                  styles.activeUnderline,
+                  { width: Math.max(24, Math.min(84, (labelWidths.search ?? 26) + 10)) },
+                ]}
+              />
+            ) : null}
           </View>
         </Pressable>
           );
@@ -180,7 +226,7 @@ const styles = StyleSheet.create({
   item: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     paddingTop: 2,
     paddingBottom: 2,
     minHeight: 54,
@@ -193,11 +239,17 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   labelSlot: {
-    minHeight: 24,
+    minHeight: 18,
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "center",
     paddingHorizontal: 1,
-    paddingTop: 2,
+    paddingTop: 0,
+  },
+  activeUnderline: {
+    marginTop: 2,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.panel,
   },
   iconGem: {
     opacity: 1,
@@ -224,8 +276,9 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontFamily: typefaces.display,
     fontSize: 12,
-    lineHeight: 13,
+    lineHeight: 12,
     textAlign: "center",
+    alignSelf: "center",
   },
   labelActive: {
     color: colors.textLight,
