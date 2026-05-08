@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   ViewStyle,
 } from "react-native";
@@ -540,6 +541,8 @@ function GlobalReachChart({ data }: { data: ApiTrendPoint[] }) {
 // ---------------------------------------------------------------------------
 
 function DashboardScreenContent() {
+  const { width } = useWindowDimensions();
+  const isMobileWidth = width < 980;
   const [overlapRate, setOverlapRate] = useState<ApiOverlapRate | null>(null);
   const [discoveryGap, setDiscoveryGap] = useState<ApiDiscoveryGap | null>(null);
   const [isolationLeader, setIsolationLeader] = useState<ApiIsolationLeader | null>(null);
@@ -711,7 +714,7 @@ function DashboardScreenContent() {
               {trendData.length > 0 ? <OverlapTrendChart data={trendData} /> : null}
             </DashboardSection>
 
-            <DashboardSection style={styles.chartCardNarrow}>
+            <DashboardSection style={[styles.chartCardNarrow, isMobileWidth ? styles.chartCardNarrowMobile : null]}>
               <SectionTitle
                 title="Regional Isolation Scores"
                 subtitle="Countries ranked by % locally unique chart songs"
@@ -1083,6 +1086,15 @@ const styles = StyleSheet.create({
     flex: 0.9,
     minWidth: 300,
     minHeight: 440,
+  },
+  chartCardNarrowMobile: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: "100%",
+    alignSelf: "stretch",
+    width: "100%",
+    maxWidth: "100%",
+    minWidth: 320,
   },
   chartCardHalf: {
     flex: 1,

@@ -21,10 +21,9 @@ import { typefaces } from "../theme/typography";
 const creditSections = [
   "Leena Komenski - Insert Role, Role.",
   "mp3li - Insert role, insert role",
-  "Landin Mohr - Role",
 ] as const;
 
-const memberLinkSections = ["Leena Komenski", "mp3li", "Landin Mohr"] as const;
+const memberLinkSections = ["Leena Komenski", "mp3li"] as const;
 
 function CreditsSurface({
   children,

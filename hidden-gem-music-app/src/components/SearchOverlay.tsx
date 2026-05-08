@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, ViewStyle } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, ViewStyle } from "react-native";
 
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
@@ -14,6 +14,9 @@ type Props = {
 };
 
 export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Props) {
+  const { width, height } = useWindowDimensions();
+  const isMobileWidth = width < 980;
+  const mobileTop = Math.max(72, Math.round((height - 440) / 2));
   const [query, setQuery] = useState("");
   const containerRef = useRef<View>(null);
 
@@ -50,7 +53,20 @@ export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Pr
   }
 
   return (
-    <View ref={containerRef} style={styles.popover}>
+    <View
+      ref={containerRef}
+      style={[
+        styles.popover,
+        isMobileWidth
+          ? [
+              styles.popoverMobile,
+              {
+                top: mobileTop,
+              },
+            ]
+          : null,
+      ]}
+    >
       <Panel style={styles.panel}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Search</Text>
@@ -113,6 +129,19 @@ const styles = StyleSheet.create({
     zIndex: 300,
     elevation: 300,
     backgroundColor: "transparent",
+  },
+  popoverMobile: {
+    ...(Platform.OS === "web"
+      ? ({
+          left: "50%",
+          right: "auto",
+          transform: [{ translateX: -180 }],
+        } as unknown as ViewStyle)
+      : {
+          left: "50%",
+          right: "auto",
+          transform: [{ translateX: -180 }],
+        }),
   },
   panel: {
     gap: 12,
