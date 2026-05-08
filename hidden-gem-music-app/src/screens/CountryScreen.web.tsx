@@ -253,15 +253,17 @@ function StatSquare({
   note,
   valueOffsetY = 0,
   useLoadingStyle = false,
+  style,
 }: {
   label: string;
   value: ReactNode;
   note: string;
   valueOffsetY?: number;
   useLoadingStyle?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <CountryPageSection style={styles.statSquare} contentStyle={styles.statSquareContent}>
+    <CountryPageSection style={[styles.statSquare, style]} contentStyle={styles.statSquareContent}>
       <Text style={styles.statSquareLabel}>{label}</Text>
       <Text
         style={[
@@ -1183,9 +1185,9 @@ export function CountryScreen({
   const { width } = useWindowDimensions();
   const isStacked = width < 1120;
   const isCompact = width < 760;
-  const statsTwoByTwo = width < 920;
-  const splitStatsAndInsights = width < 1340;
-  const stackHiddenGemsHeaderText = width < 1080;
+  const splitStatsAndInsights = width < 1280;
+  const statsTwoByTwo = width < 980;
+  const stackHiddenGemsHeaderText = width < 1120;
   const fallbackProfile = useMemo(() => buildCountryProfile(country, selectedYear), [country, selectedYear]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [apiProfile, setApiProfile] = useState<ReturnType<typeof mapApiCountryProfile> | null>(null);
@@ -1635,7 +1637,7 @@ export function CountryScreen({
         />
 
         <View style={[styles.statSquaresAndGenreSectionRow, splitStatsAndInsights ? styles.stackRow : null]}>
-          <View style={styles.statSquaresBlock}>
+          <View style={[styles.statSquaresBlock, !splitStatsAndInsights ? styles.statSquaresBlockWide : null]}>
             <View style={[styles.statSquaresGrid, statsTwoByTwo ? styles.statSquaresGridTwoByTwo : styles.statSquaresGridSingleRow]}>
               <StatSquare
                 label="Songs in This View"
@@ -1643,6 +1645,7 @@ export function CountryScreen({
                 note="songs"
                 valueOffsetY={6}
                 useLoadingStyle={isCoreLoading}
+                style={splitStatsAndInsights && !statsTwoByTwo ? styles.statSquareWide : statsTwoByTwo ? styles.statSquareHalf : null}
               />
               <StatSquare
                 label="Loved in This Country"
@@ -1650,12 +1653,14 @@ export function CountryScreen({
                 note="songs"
                 valueOffsetY={6}
                 useLoadingStyle={isCoreLoading}
+                style={splitStatsAndInsights && !statsTwoByTwo ? styles.statSquareWide : statsTwoByTwo ? styles.statSquareHalf : null}
               />
               <StatSquare
                 label="Loved Here and Elsewhere"
                 value={isCoreLoading ? loadingText : `${profileStats.sharedCount}`}
                 note="songs"
                 useLoadingStyle={isCoreLoading}
+                style={splitStatsAndInsights && !statsTwoByTwo ? styles.statSquareWide : statsTwoByTwo ? styles.statSquareHalf : null}
               />
               <StatSquare
                 label="Loved Here and Elsewhere"
@@ -1669,10 +1674,17 @@ export function CountryScreen({
                 )}
                 note="% of this view"
                 useLoadingStyle={isCoreLoading}
+                style={splitStatsAndInsights && !statsTwoByTwo ? styles.statSquareWide : statsTwoByTwo ? styles.statSquareHalf : null}
               />
             </View>
           </View>
-          <View style={[styles.genreAndLanguageSections, statsTwoByTwo ? styles.stackRow : null]}>
+          <View
+            style={[
+              styles.genreAndLanguageSections,
+              !splitStatsAndInsights ? styles.genreAndLanguageSectionsWide : null,
+              statsTwoByTwo ? styles.stackRow : null,
+            ]}
+          >
             <GenreSection
               title={`${country.name}'s Loved Genres`}
               subtitle="Genres most loved in this country view"
@@ -2023,7 +2035,7 @@ const styles = StyleSheet.create({
   },
   statSquaresGridTwoByTwo: {
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    justifyContent: "center",
   },
   statSquaresAndGenreSectionRow: {
     flexDirection: "row",
@@ -2035,12 +2047,21 @@ const styles = StyleSheet.create({
     width: "100%",
     flexShrink: 1,
   },
+  statSquaresBlockWide: {
+    width: 688,
+    maxWidth: 688,
+    flexShrink: 0,
+  },
   genreAndLanguageSections: {
     width: "100%",
     minWidth: 320,
     flexDirection: "row",
     gap: 16,
     alignItems: "stretch",
+  },
+  genreAndLanguageSectionsWide: {
+    flex: 1,
+    minWidth: 0,
   },
   statSquare: {
     width: 156,
@@ -2051,6 +2072,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
+  },
+  statSquareWide: {
+    flex: 1,
+    minWidth: 0,
+    width: "auto",
+    height: 136,
+  },
+  statSquareHalf: {
+    width: "48%",
+    maxWidth: "48%",
+    minWidth: 0,
   },
   statSquareContent: {
     height: "100%",
@@ -2474,6 +2506,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 390,
     marginTop: -6,
+    marginHorizontal: -18,
   },
   sectionFallbackBody: {
     minHeight: 170,
@@ -2509,13 +2542,13 @@ const styles = StyleSheet.create({
   },
   hiddenSongsCarouselArrowButtonLeft: {
     position: "absolute",
-    left: 6,
+    left: 18,
     top: "50%",
     marginTop: -36,
   },
   hiddenSongsCarouselArrowButtonRight: {
     position: "absolute",
-    right: 6,
+    right: 18,
     top: "50%",
     marginTop: -36,
   },
@@ -2638,13 +2671,21 @@ const styles = StyleSheet.create({
   },
   favoriteArtistsRow: {
     flexDirection: "row",
-    gap: 14,
+    gap: 10,
     flexWrap: "nowrap",
     alignItems: "flex-start",
     paddingRight: 12,
+    minWidth: "100%",
+    justifyContent: "space-between",
   },
   favoriteArtistsScroll: {
     width: "100%",
+    borderRadius: 16,
+    ...(Platform.OS === "web"
+      ? ({
+          scrollbarWidth: "thin",
+        } as ViewStyle)
+      : null),
   },
   favoriteArtistsFallbackText: {
     color: colors.text,

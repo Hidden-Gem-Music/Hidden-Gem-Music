@@ -79,6 +79,33 @@ function areRouteParamsEqual(currentParams?: RouteParams, nextParams?: RoutePara
   return currentParams?.year === nextParams?.year && currentParams?.country === nextParams?.country;
 }
 
+function normalizeCountryKey(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function findCountryByIdentifier(list: Country[], identifier: string) {
+  const normalized = normalizeCountryKey(identifier);
+  return list.find(
+    (country) =>
+      normalizeCountryKey(country.id) === normalized || normalizeCountryKey(country.code) === normalized
+  );
+}
+
+function toInitialStackRoute(route: ScreenRoute): keyof RootStackParamList {
+  switch (route) {
+    case "discovery":
+    case "country":
+    case "hiddenGems":
+    case "comparisonSelect":
+    case "comparisonResults":
+    case "dashboard":
+    case "credits":
+      return route;
+    default:
+      return "welcome";
+  }
+}
+
 class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
     super(props);
@@ -95,6 +122,11 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 
   private handleReset = () => {
     if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(APP_STATE_STORAGE_KEY);
+      } catch {
+        // Ignore localStorage failures during crash recovery.
+      }
       window.location.assign("/welcome");
       return;
     }
@@ -140,6 +172,7 @@ export default function App() {
   const initialNavigationSeedRef = useRef(getInitialNavigationSeed());
   const persistedAppStateRef = useRef(readPersistedAppState());
   const initialNavigationSeed = initialNavigationSeedRef.current;
+  const initialStackRoute = toInitialStackRoute(initialNavigationSeed.route);
   const persistedAppState = persistedAppStateRef.current;
   const initialYear = initialNavigationSeed.year ?? persistedAppState.selectedYear ?? 2021;
   const initialFeaturedCountry = getFeaturedCountry(initialYear);
@@ -185,11 +218,38 @@ export default function App() {
   const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
 
   const selectedCountry = useMemo(
-    () =>
-      discoveryCountries.find((country) => country.id === selectedCountryId || country.code === selectedCountryId) ??
-      getCountryByYear(selectedCountryId, selectedYear) ??
-      featuredCountry,
-    [discoveryCountries, selectedCountryId, selectedYear, featuredCountry]
+    () => {
+      const fromDiscovery = findCountryByIdentifier(discoveryCountries, selectedCountryId);
+      if (fromDiscovery) {
+        return fromDiscovery;
+      }
+
+      const fromCurrentYear = findCountryByIdentifier(countries, selectedCountryId);
+      if (fromCurrentYear) {
+        return fromCurrentYear;
+      }
+
+      if (currentRoute === "country" || currentRoute === "hiddenGems") {
+        return {
+          ...featuredCountry,
+          id: selectedCountryId || featuredCountry.id,
+          code: featuredCountry.code,
+          name: "Loading country...",
+          region: "Loading country data...",
+          hiddenSongs: 0,
+          genres: ["Loading..."],
+          album: "Loading...",
+          albumArtist: "Loading...",
+          topSong: "Loading...",
+          languages: ["Loading..."],
+          sceneNote: "Loading country data...",
+          featuredArtists: ["Loading..."],
+        };
+      }
+
+      return featuredCountry;
+    },
+    [countries, currentRoute, discoveryCountries, featuredCountry, selectedCountryId]
   );
 
   const selectedComparisonCountries = useMemo(
@@ -397,7 +457,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (currentRoute === "discovery") {
+    if (currentRoute === "discovery" || currentRoute === "country" || currentRoute === "hiddenGems") {
       return;
     }
 
@@ -695,7 +755,7 @@ export default function App() {
     } catch {
       // Ignore localStorage write failures.
     }
-  }, [comparisonIds, selectedCountryId, selectedYear]);
+  }, [comparisonIds, currentRoute, selectedCountryId, selectedYear]);
 
   const handleYearChange = (nextYear: number, context: string) => {
     if (nextYear === selectedYear) {
@@ -759,7 +819,7 @@ export default function App() {
           />
           <View style={styles.screenArea}>
             <Stack.Navigator
-              initialRouteName="welcome"
+              initialRouteName={initialStackRoute}
               screenOptions={{
                 headerShown: false,
                 animation: "none",
