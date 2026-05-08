@@ -21,7 +21,6 @@ import {
   availableYears,
   getCountriesForYear,
   getCountryByYear,
-  getDashboardMetrics,
   getFeaturedCountry,
 } from "./src/data/mockData";
 import { getInitialNavigationSeed, getRouteParams, linking, RootStackParamList } from "./src/navigation/linking";
@@ -200,7 +199,6 @@ export default function App() {
     [comparisonIds, discoveryCountries]
   );
 
-  const dashboardMetrics = useMemo(() => getDashboardMetrics(selectedYear, countries), [countries, selectedYear]);
   const breadcrumbs = useMemo(() => {
     switch (currentRoute) {
       case "welcome":
@@ -301,7 +299,7 @@ export default function App() {
         navigationRef.navigate("comparisonResults", getRouteParams("comparisonResults", selectedYear, selectedCountryId));
         break;
       case "dashboard":
-        navigationRef.navigate("dashboard", getRouteParams("dashboard", selectedYear, selectedCountryId));
+        navigationRef.navigate("dashboard");
         break;
       case "credits":
         navigationRef.navigate("credits");
@@ -871,7 +869,7 @@ export default function App() {
               </Stack.Screen>
 
               <Stack.Screen name="dashboard" options={{ title: "Dashboard" }}>
-                {() => <DashboardScreen year={selectedYear} metrics={dashboardMetrics} countries={countries} />}
+                {() => <DashboardScreen />}
               </Stack.Screen>
 
               <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />
