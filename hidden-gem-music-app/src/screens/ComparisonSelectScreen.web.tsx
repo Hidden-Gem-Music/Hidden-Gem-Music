@@ -908,13 +908,13 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 1 }],
   },
   blurbHeading: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 22,
     lineHeight: 26,
   },
   blurbBody: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 15,
     lineHeight: 28,
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   yearDropdownOptionTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   layout: {
     flexDirection: "row",
@@ -1039,7 +1039,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyStateText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 15,
     lineHeight: 18,
@@ -1224,7 +1224,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   countryRowTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   inlineFilterRow: {
     borderRadius: 16,
@@ -1273,7 +1273,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   inlineFilterChipTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   inlineFilterChipTextHovered: {
     color: colors.border,
@@ -1315,14 +1315,14 @@ const styles = StyleSheet.create({
     gap: 22,
   },
   modalBrand: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 40,
     lineHeight: 46,
     textAlign: "center",
   },
   modalSummary: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 18,
     lineHeight: 28,

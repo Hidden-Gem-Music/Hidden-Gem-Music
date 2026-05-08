@@ -1122,14 +1122,14 @@ const styles = StyleSheet.create({
     zIndex: 220,
   },
   navIntroTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 26,
     lineHeight: 30,
     textAlign: "center",
   },
   navIntroBody: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 15,
     lineHeight: 22,
@@ -1190,13 +1190,13 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 1 }],
   },
   blurbHeading: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 22,
     lineHeight: 26,
   },
   blurbBody: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 20,
@@ -1311,7 +1311,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   filterActionButtonTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   blurbYearDropdownShell: {
     borderRadius: 17,
@@ -1397,7 +1397,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   blurbYearDropdownOptionTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   filtersModal: {
     position: "absolute",
@@ -1411,14 +1411,14 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   filtersModalTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 18,
     lineHeight: 22,
     marginBottom: 6,
   },
   filtersModalLine: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 18,
@@ -1494,7 +1494,7 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   paginationLabel: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 14,
     lineHeight: 16,
@@ -1563,7 +1563,7 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   songTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   miniCdCaseFrame: {
     width: 54,
@@ -1607,7 +1607,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   miniCdPlayIcon: {
-    color: colors.text,
+    color: colors.textLight,
     fontSize: 16,
     lineHeight: 16,
     width: 16,
@@ -1690,7 +1690,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   mainCdControlIcon: {
-    color: colors.text,
+    color: colors.textLight,
     fontSize: 22,
     lineHeight: 22,
     width: 22,
@@ -1703,7 +1703,7 @@ const styles = StyleSheet.create({
     transform: [{ translateX: 1 }],
   },
   mainCdControlIconPrimary: {
-    color: colors.text,
+    color: colors.textLight,
     fontSize: 28,
     lineHeight: 28,
     width: 28,
@@ -1725,19 +1725,19 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   playingSongName: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 27,
     lineHeight: 31,
   },
   playingSongBy: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 22,
     lineHeight: 31,
   },
   playingSongArtistInline: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 22,
     lineHeight: 31,
@@ -1756,20 +1756,20 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   playingMetaLine: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 16,
     lineHeight: 22,
     textAlign: "left",
   },
   playingMetaLabel: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 17,
     lineHeight: 22,
   },
   playingMetaValue: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 16,
     lineHeight: 22,

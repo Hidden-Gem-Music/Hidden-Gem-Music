@@ -63,7 +63,7 @@ export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Pr
           value={query}
           onChangeText={setQuery}
           placeholder="Search for a country"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.textLight}
           style={styles.input}
           autoFocus
         />
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 26,
   },
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: colors.border,
     backgroundColor: colors.panel,
-    color: colors.textStrong,
+    color: colors.textLight,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontFamily: typefaces.body,
@@ -160,18 +160,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   resultText: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 18,
   },
   resultMeta: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 14,
     fontWeight: "700",
   },
   copy: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 15,
     lineHeight: 22,

@@ -33,9 +33,9 @@ function HiddenWord({ compact }: { compact: boolean }) {
   return (
     <View style={styles.brandWord}>
       <Text style={[styles.brandText, compact ? styles.brandTextCompact : null]}>H</Text>
-      <View style={styles.hiddenIWrap}>
-        <GemIcon size={14} style={styles.hiddenIGem} />
-        <Text style={[styles.brandText, styles.hiddenIText]}>ı</Text>
+      <View style={[styles.hiddenIWrap, compact ? styles.hiddenIWrapCompact : null]}>
+        <GemIcon size={compact ? 11 : 14} style={[styles.hiddenIGem, compact ? styles.hiddenIGemCompact : null]} />
+        <Text style={[styles.brandText, styles.hiddenIText, compact ? styles.hiddenITextCompact : null]}>ı</Text>
       </View>
       <Text style={[styles.brandText, compact ? styles.brandTextCompact : null]}>dden</Text>
     </View>
@@ -65,18 +65,15 @@ export function AppHeader({
   const { width } = useWindowDimensions();
   const isCompact = width < 980;
   const isTight = width < 680;
-  const [menuOpen, setMenuOpen] = useState(false);
   const [hoveredRoute, setHoveredRoute] = useState<ScreenRoute | null>(null);
   const [hoveringSearch, setHoveringSearch] = useState(false);
 
   const handleNavigate = (route: ScreenRoute) => {
-    setMenuOpen(false);
     onCloseSearch();
     onNavigate(route);
   };
 
   const handleToggleSearch = () => {
-    setMenuOpen(false);
     onToggleSearch();
   };
 
@@ -110,33 +107,7 @@ export function AppHeader({
         </Pressable>
 
         {isCompact ? (
-          <View style={styles.mobileMenuWrap}>
-            <Pressable onPress={() => setMenuOpen((open) => !open)} style={styles.menuButton}>
-              <GemIcon size={20} />
-              <Text style={styles.menuButtonText}>Menu</Text>
-            </Pressable>
-
-            {menuOpen ? (
-              <View style={styles.mobileMenuPanel}>
-                {navItems.map((item) => (
-                  <Pressable
-                    key={item.route}
-                    onPress={() => handleNavigate(item.route)}
-                    style={[styles.mobileMenuItem, currentRoute === item.route ? styles.mobileMenuItemActive : null]}
-                  >
-                    <Text style={[styles.mobileMenuText, currentRoute === item.route ? styles.mobileMenuTextActive : null]}>{item.label}</Text>
-                  </Pressable>
-                ))}
-                <Pressable onPress={handleToggleSearch} style={[styles.mobileMenuItem, searchOpen ? styles.mobileMenuItemActive : null]}>
-                  <View style={styles.mobileSearchRow}>
-                    <Text style={[styles.mobileMenuText, searchOpen ? styles.mobileMenuTextActive : null]}>Search</Text>
-                    <Text style={styles.searchIcon}>⌕</Text>
-                  </View>
-                </Pressable>
-              </View>
-            ) : null}
-
-          </View>
+          <View style={styles.mobileMenuWrap} />
         ) : (
           <View style={[styles.nav, isTight ? styles.navCompact : null]}>
             <View style={[styles.navLinks, isTight ? styles.navLinksTight : null]}>
@@ -242,13 +213,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 1,
   },
+  hiddenIWrapCompact: {
+    width: 12,
+    height: 38,
+    marginRight: 0,
+  },
   hiddenIGem: {
     position: "absolute",
     top: -3,
     right: -7,
   },
+  hiddenIGemCompact: {
+    top: 0,
+    right: -5,
+  },
   hiddenIText: {
     lineHeight: 42,
+    transform: [{ translateY: -4 }],
+  },
+  hiddenITextCompact: {
+    fontSize: 29,
+    lineHeight: 32,
     transform: [{ translateY: -4 }],
   },
   nav: {
@@ -301,7 +286,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   breadcrumbText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
@@ -313,10 +298,10 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
   breadcrumbCurrent: {
-    color: colors.text,
+    color: colors.textLight,
   },
   breadcrumbSeparator: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
@@ -356,58 +341,6 @@ const styles = StyleSheet.create({
   },
   mobileMenuWrap: {
     marginLeft: "auto",
-    minWidth: 150,
-    position: "relative",
-  },
-  menuButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    minWidth: 150,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.button,
-    borderWidth: 4,
-    borderColor: colors.border,
-    borderRadius: 18,
-  },
-  menuButtonText: {
-    color: colors.border,
-    fontFamily: typefaces.condensed,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  mobileMenuPanel: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 18,
-    borderWidth: 4,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceSecondary,
-    gap: 8,
-  },
-  mobileMenuItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  mobileMenuItemActive: {
-    backgroundColor: "rgba(117,82,107,0.18)",
-  },
-  mobileMenuText: {
-    color: colors.textStrong,
-    fontFamily: typefaces.display,
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  mobileMenuTextActive: {
-    color: colors.border,
-  },
-  mobileSearchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
+    minWidth: 1,
   },
 });

@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   countryName: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 20,
     textDecorationLine: "underline",
@@ -120,13 +120,13 @@ const styles = StyleSheet.create({
     color: colors.accent,
   },
   region: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 15,
     fontWeight: "700",
   },
   detail: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 16,
     fontWeight: "700",

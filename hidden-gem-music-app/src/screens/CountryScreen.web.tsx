@@ -1936,16 +1936,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   headerDropdownOptionTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   pageTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 52,
     lineHeight: 54,
   },
   pageSubtitle: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 18,
     lineHeight: 24,
@@ -1976,7 +1976,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   countrySummarySectionHeader: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 23,
     lineHeight: 27,
@@ -2002,7 +2002,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   countrySummarySectionDetailTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 19,
     lineHeight: 24,
@@ -2019,7 +2019,7 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   countrySummarySectionDetailText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 15,
     lineHeight: 24,
@@ -2098,13 +2098,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   statSquareLabel: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 18,
   },
   statSquareValue: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 42,
     lineHeight: 46,
@@ -2118,7 +2118,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   statSquareNote: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
@@ -2182,13 +2182,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.scrollbarThumb,
   },
   panelEyebrow: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 18,
   },
   panelTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 23,
     lineHeight: 27,
@@ -2251,7 +2251,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   songTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 17,
     lineHeight: 20,
@@ -2260,7 +2260,7 @@ const styles = StyleSheet.create({
     color: colors.border,
   },
   songMeta: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 17,
@@ -2269,7 +2269,7 @@ const styles = StyleSheet.create({
     color: colors.border,
   },
   songTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   songTextActiveDark: {
     color: colors.border,
@@ -2280,7 +2280,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   songListLoadingText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 17,
@@ -2402,7 +2402,7 @@ const styles = StyleSheet.create({
   },
   genreSectionBreakdownLabel: {
     width: 110,
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 18,
@@ -2424,7 +2424,7 @@ const styles = StyleSheet.create({
   genreSectionBreakdownValue: {
     width: 42,
     textAlign: "right",
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 18,
@@ -2433,7 +2433,7 @@ const styles = StyleSheet.create({
     minWidth: 320,
   },
   snapshotCopy: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 16,
     lineHeight: 25,
@@ -2472,7 +2472,7 @@ const styles = StyleSheet.create({
     maxWidth: "100%",
   },
   hiddenSongsCarouselHelper: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 15,
     lineHeight: 20,
@@ -2492,7 +2492,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   hiddenSongsCarouselHelperActionText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 16,
     lineHeight: 21,
@@ -2516,7 +2516,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   sectionFallbackText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 15,
     lineHeight: 22,
@@ -2591,7 +2591,7 @@ const styles = StyleSheet.create({
   },
   hiddenSongsCarouselSongTitle: {
     width: "100%",
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 20,
     lineHeight: 22,
@@ -2600,7 +2600,7 @@ const styles = StyleSheet.create({
   },
   hiddenSongsCarouselSongArtist: {
     width: "100%",
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 18,
@@ -2645,11 +2645,11 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   comparisonModeFooterText: {
-    color: colors.text,
+    color: colors.textLight,
     textAlign: "center",
   },
   comparisonModeFooterTextActive: {
-    color: colors.textStrong,
+    color: colors.textLight,
   },
   comparisonModeFooterLead: {
     fontFamily: typefaces.display,
@@ -2688,7 +2688,7 @@ const styles = StyleSheet.create({
       : null),
   },
   favoriteArtistsFallbackText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 20,
@@ -2702,14 +2702,14 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   favoriteArtistName: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 17,
     textAlign: "center",
   },
   favoriteArtistSongName: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 12,
     lineHeight: 16,

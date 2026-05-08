@@ -254,10 +254,10 @@ const tooltipStyle = {
   borderRadius: 8,
   fontSize: 12,
 };
-const tooltipLabelStyle = { color: colors.textStrong };
-const tooltipItemStyle = { color: colors.text };
-const tickStyle = { fill: colors.text, fontSize: 11, opacity: 0.7 };
-const smallTickStyle = { fill: colors.text, fontSize: 10, opacity: 0.7 };
+const tooltipLabelStyle = { color: colors.textLight };
+const tooltipItemStyle = { color: colors.textLight };
+const tickStyle = { fill: colors.textLight, fontSize: 11, opacity: 0.7 };
+const smallTickStyle = { fill: colors.textLight, fontSize: 10, opacity: 0.7 };
 
 // ---------------------------------------------------------------------------
 // Chart: Global Overlap Rate Over Time (Recharts Line)
@@ -376,7 +376,7 @@ function IsolationBarChart({ data }: { data: ApiIsolationEntry[] }) {
               type="category"
               dataKey="countryName"
               width={90}
-              tick={{ fill: colors.text, fontSize: 12, opacity: 0.85 }}
+              tick={{ fill: colors.textLight, fontSize: 12, opacity: 0.85 }}
               axisLine={false}
               tickLine={false}
             />
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   sectionTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 20,
     lineHeight: 24,
@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
     color: "rgba(15,16,21,0.92)",
   },
   sectionSubtitle: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   sectionLabel: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 11,
     lineHeight: 14,
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
   kpiCardLabel: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 12,
     lineHeight: 16,
@@ -945,26 +945,26 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   kpiHeadlineNumber: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 52,
     lineHeight: 56,
   },
   kpiHeadlineUnit: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 22,
     lineHeight: 28,
     marginLeft: 2,
   },
   kpiIsolationName: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 36,
     lineHeight: 40,
   },
   kpiCardBody: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
@@ -990,13 +990,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   kpiMedianText: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 12,
     lineHeight: 16,
   },
   kpiExplainer: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 12,
     lineHeight: 17,
@@ -1039,13 +1039,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   kpiVinylTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 14,
     lineHeight: 17,
   },
   kpiVinylArtist: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 12,
     lineHeight: 15,
@@ -1059,7 +1059,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   kpiVinylDateText: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 10,
     lineHeight: 13,
@@ -1097,7 +1097,7 @@ const styles = StyleSheet.create({
 
   // —— Explainer text in chart cards ——
   chartExplainer: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
   
   // —— Footnote text in chart cards ——
   chartFootnote: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 11,
     lineHeight: 15,
@@ -1132,7 +1132,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   chartLegendText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 12,
     lineHeight: 16,
@@ -1156,14 +1156,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   methodologyBody: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 19,
     opacity: 0.75,
   },
   methodologyBold: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontWeight: "600",
     opacity: 1,
   },
@@ -1175,7 +1175,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   statusText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 20,

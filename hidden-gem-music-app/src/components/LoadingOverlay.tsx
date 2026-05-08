@@ -24,7 +24,7 @@ export function LoadingOverlay({
       <Panel style={styles.modal}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.message}>{message}</Text>
-        <ActivityIndicator size="large" color={colors.accentSoft} />
+        <ActivityIndicator size="large" color={colors.accent} />
       </Panel>
     </View>
   );
@@ -48,12 +48,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(44, 46, 75, 0.96)",
   },
   title: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 34,
   },
   message: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     textAlign: "center",
     fontSize: 18,

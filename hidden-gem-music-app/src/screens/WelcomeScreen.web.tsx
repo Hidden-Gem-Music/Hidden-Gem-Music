@@ -163,14 +163,14 @@ const styles = StyleSheet.create({
     maxWidth: 760,
   },
   brand: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 52,
     fontWeight: "700",
     textAlign: "center",
   },
   summary: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 18,
     fontWeight: "700",

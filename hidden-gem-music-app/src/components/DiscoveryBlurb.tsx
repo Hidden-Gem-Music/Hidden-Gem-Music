@@ -60,13 +60,13 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 1 }],
   },
   heading: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 22,
     lineHeight: 26,
   },
   body: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 15,
     lineHeight: 28,

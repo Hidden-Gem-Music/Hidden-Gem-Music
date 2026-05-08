@@ -41,7 +41,7 @@ export function SearchScreen({
         value={query}
         onChangeText={setQuery}
         placeholder="Search countries, albums, artists, songs, or genres"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={colors.textLight}
         style={styles.input}
       />
       <Panel style={styles.panel}>
@@ -76,7 +76,7 @@ export function SearchScreen({
 
 const styles = StyleSheet.create({
   title: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 56,
     fontWeight: "700",
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: colors.border,
     backgroundColor: colors.surfaceSecondary,
-    color: colors.textStrong,
+    color: colors.textLight,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontFamily: typefaces.body,
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   sectionHeading: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 22,
   },
@@ -105,12 +105,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   resultText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 18,
   },
   copy: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 18,
     lineHeight: 28,

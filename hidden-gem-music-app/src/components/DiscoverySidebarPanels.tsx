@@ -387,13 +387,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   sectionTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 22,
     lineHeight: 26,
   },
   sectionHelper: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 16,
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     maxWidth: 220,
   },
   sectionToggle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 28,
     fontWeight: "800",
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   filterButtonTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   panelArea: {
     flex: 1,

@@ -611,7 +611,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   modalTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 30,
     fontWeight: "700",
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   closeButtonTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   modalScroll: {
     flex: 1,
@@ -667,12 +667,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(169, 176, 209, 0.18)",
   },
   filterSectionTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 22,
   },
   filterSectionHint: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
@@ -729,6 +729,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   filterButtonTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
 });

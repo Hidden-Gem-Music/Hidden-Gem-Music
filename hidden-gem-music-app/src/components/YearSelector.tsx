@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   label: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 20,
   },
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.button,
   },
   chipText: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 16,
   },

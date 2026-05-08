@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader } from "./src/components/AppHeader";
 import { LoadingOverlay } from "./src/components/LoadingOverlay";
+import { MobileBottomNav } from "./src/components/MobileBottomNav";
 import { ComparisonResultsScreen } from "./src/screens/ComparisonResultsScreen";
 import { ComparisonSelectScreen } from "./src/screens/ComparisonSelectScreen";
 import { CountryScreen } from "./src/screens/CountryScreen";
@@ -937,6 +938,13 @@ export default function App() {
               <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />
             </Stack.Navigator>
           </View>
+          <MobileBottomNav
+            currentRoute={currentRoute}
+            searchOpen={searchOpen}
+            onNavigate={navigateToRoute}
+            onToggleSearch={() => setSearchOpen((open) => !open)}
+            onCloseSearch={() => setSearchOpen(false)}
+          />
           <LoadingOverlay
             visible={Boolean(loadingMessage)}
             message={loadingMessage ?? undefined}
