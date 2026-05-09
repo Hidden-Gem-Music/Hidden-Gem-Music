@@ -1,6 +1,193 @@
 mp3li implementation timeline document
 
-Updated: May 8, 2026
+Updated: May 9, 2026
+
+Additional API Endpoint Documentation Completion + Continued Live-Enrichment UI Stabilization + Where I Left Off (May 9, 2026)
+- Objective:
+  - Finish documenting the external API/provider route for additional song metadata in a durable repo folder instead of leaving the knowledge scattered across tool code, backend code, and local memory.
+  - Continue stabilizing the live Deezer enrichment UI after real browser/mobile testing exposed several loading-state and stale-data problems.
+  - Leave a very explicit handoff of exactly what was just changed, what the intended behavior now is, and what still needs direct browser/mobile verification.
+
+Additional API endpoint documentation work completed:
+- New dedicated repo documentation folder created:
+  - `backend/Capstone.API/Documentation/apis/`
+- New documentation files created there:
+  - `backend/Capstone.API/Documentation/apis/README.md`
+  - `backend/Capstone.API/Documentation/apis/deezer-api.md`
+  - `backend/Capstone.API/Documentation/apis/genius-api.md`
+  - `backend/Capstone.API/Documentation/apis/additional-data-research-notes.md`
+- Why this folder was added:
+  - The issue required provider-by-provider endpoint documentation in a dedicated location.
+  - I needed one durable place that explains:
+    - which providers are used,
+    - which endpoints are needed,
+    - which required fields each endpoint covers,
+    - which reach fields each endpoint covers,
+    - what the auth/rate-limit rules are,
+    - and what the major matching/fallback limitations are.
+
+What the new API docs now record:
+- Deezer documented as the current primary provider for:
+  - genres
+  - album art URL
+  - artist image URL
+  - 30 second preview URL
+  - release date
+  - record type
+  - contributors
+  - artist album count
+  - explicit flags
+- Genius documented as the current supporting provider for:
+  - lyrics URL discovery
+  - future lyrics-based language detection support
+- The documentation now explicitly records the current conclusion that:
+  - Deezer is the main provider for current UI-facing additional metadata,
+  - Genius is supporting/future-oriented,
+  - and language is still not a simple single-endpoint field in the current route.
+
+Exact endpoints documented in the new provider files:
+- Deezer:
+  - `GET https://api.deezer.com/search?q={query}`
+  - `GET https://api.deezer.com/track/{deezerTrackId}`
+  - `GET https://api.deezer.com/album/{deezerAlbumId}`
+  - `GET https://api.deezer.com/artist/{deezerArtistId}`
+- Genius:
+  - `GET https://api.genius.com/search?q={query}`
+
+What the documentation now makes clear about language:
+- Deezer does not currently give the project a direct lyric-language field through the endpoints this repo is using.
+- Genius search gives a lyrics page URL, but not a clean direct `language` field either.
+- So the documented future route for language remains:
+  - use Genius search,
+  - capture the lyrics page URL,
+  - fetch/extract lyrics text,
+  - run local language detection on that extracted text.
+- This means language is now documented clearly as:
+  - a provider-plus-processing problem,
+  - not a solved single-endpoint field in the current live route.
+
+What the new docs now record about rate limits and safety policy:
+- Original enrichment tool Deezer safety policy:
+  - `50 requests / 4 seconds`
+- Current live backend Deezer safety policy:
+  - `50 requests / 4.9 seconds`
+- Current live backend retry behavior:
+  - up to `3` attempts
+  - retry delays of:
+    - `250ms`
+    - `800ms`
+    - `1600ms`
+- Current live backend unresolved retry suppression:
+  - `12 hours`
+- Genius is documented more cautiously because prior large-scale use already ran into quota / `429` behavior.
+
+What the docs now record about matching/fallback behavior:
+- Exact-first matching is not enough because the dataset includes:
+  - punctuation-heavy titles
+  - emoji-heavy titles
+  - non-Latin titles
+  - duplicate-looking titles across artists/markets
+- Current repo logic is now documented as:
+  - exact normalized match first
+  - simplified normalized match second
+  - artist-preserved fallback third
+  - first-result fallback last
+- Dedupe behavior is also now documented explicitly for:
+  - enrichment/output merges
+  - hidden gem preview display handling
+
+Continued live-enrichment UI stabilization work completed after the previous timeline update:
+- Discovery Globe / country listings:
+  - The country-list `Language(s)` line no longer shows `Loading...`.
+  - It now shows `Coming Soon` there, because language is not actually being filled from the current live route.
+- Loading text stability:
+  - The animated `Loading...` dots were changed so the text reserves width for all 3 dots.
+  - Reason: the previous implementation changed the line length while animating, which caused visible layout shifting in longer text blocks.
+  - Current effect:
+    - loading text still animates,
+    - but the surrounding line should no longer jump around as the dots move.
+- Country Summary / Comparison View summary language handling:
+  - The `Genre + Language Mix` copy was corrected so it no longer presents the old country-language arrays as if they were part of the new live enrichment route.
+  - The text now treats languages as coming soon rather than pretending the current live enrichment path already owns them.
+- Summary card height parity:
+  - The `Genre + Language Mix` summary card was adjusted so it more closely matches the `General Description` card height on web.
+- Featured artist interaction cleanup:
+  - Featured artist CDs were changed so they are no longer clickable.
+  - Instead, they now use per-item hover/press shadow styling only.
+  - This was applied where featured artist art is shown in the updated screens touched in this pass.
+- Hidden gem preview carousel metadata cleanup:
+  - The third text line under the center preview CD was removed.
+  - The unwanted `album • release_date` line should no longer appear in those preview carousels.
+- Album-art transparency cleanup:
+  - The preview carousel item styling was changed so the non-center carousel items are no longer faded through overall card opacity in a way that made the album art itself look semi-transparent.
+  - Placeholder/backdrop handling also remained opaque.
+- Stale-art / stale-text loading cleanup:
+  - When switching year or country, the preview sections were changed so they reset back to loading placeholders instead of leaving the previous song art/text visible underneath spinners.
+  - This was meant to fix the exact bug where:
+    - old album art remained visible,
+    - a spinner was placed on top of it,
+    - and old song/artist text remained while the new request was still loading.
+- RTL / alignment cleanup:
+  - Song title / artist / metadata lines in the country/comparison song lists were forced back to left alignment with explicit left-to-right rendering behavior.
+  - Reason:
+    - some songs using other writing systems were visually aligning to the right side,
+    - which broke consistency with the rest of the list layout.
+- Hidden Gems screen loading behavior changes:
+  - Hidden Gems page behavior was moved closer to the country/comparison loading model.
+  - Instead of leaving major areas empty while data is being fetched:
+    - the screen now uses placeholder rows/songs sooner,
+    - uses `Loading...` values,
+    - and keeps the main layout populated while the real data is still being fetched.
+  - Hidden Gems page size was also reduced from `25` to `12` in this pass to reduce how much work is attempted before anything useful is visible.
+- Hidden Gems request cancellation cleanup:
+  - Hidden Gems profile/page fetches were changed to abortable requests rather than simple “ignore after the fact” behavior.
+  - Reason:
+    - when leaving the page during heavy load, the old behavior could keep stacking and finishing requests that were no longer useful.
+
+Where I Left Off:
+- I left the app in a state where the following intended behaviors were just implemented and still need direct browser/mobile confirmation:
+  - Discovery Globe country-list `Language(s)` should now say `Coming Soon`.
+  - animated `Loading...` text should no longer resize/reflow summary paragraphs while dots animate.
+  - `Genre + Language Mix` should no longer imply that current live enrichment is already supplying real language metadata.
+  - Country/Comparison summary cards should look more height-balanced on web.
+  - Featured artist CDs should no longer navigate/click through; they should only show a shadow/interaction state.
+  - Hidden gem preview carousels should no longer show the third `album • date` line.
+  - Hidden gem preview carousels should no longer make non-center album art look transparent.
+  - On country/year changes, preview sections should clear back to placeholders and `Loading...` values rather than showing spinners over stale art/text.
+  - Country/Comparison song-list text should remain left-aligned even for RTL/non-Latin titles.
+  - Hidden Gems should now feel less empty during load because placeholder rows/data should show sooner.
+
+Most important follow-up verification still needed:
+- Web browser verification:
+  - Discovery Globe country list
+  - Globe hover cards
+  - Country Summary
+  - Comparison View Summary
+  - Featured Artists sections
+  - Hidden gem preview carousels
+  - Country page song lists
+  - Comparison page song lists
+  - Hidden Gems page load behavior
+- Mobile verification through Expo:
+  - Country page year/country changes
+  - Comparison View pane year/country changes
+  - Hidden gem preview loading states
+  - Featured artist non-click behavior
+  - Hidden Gems page placeholder/loading behavior
+
+Specific risks that still need checking rather than assumed fixed:
+- Some of the last changes in this pass were UI-loading-state changes applied across several screens.
+- They built/typechecked cleanly, but still need visual confirmation that:
+  - placeholders are replacing stale art everywhere they should,
+  - loading text width is actually stable in the real layout,
+  - and no section now looks visually over-padded or under-filled because of the placeholder-first approach.
+
+Verification completed before stopping this pass:
+- Frontend typecheck:
+  - `cd hidden-gem-music-app && npx tsc --noEmit`
+- Backend build:
+  - `dotnet build backend/Capstone.API/Capstone.API.csproj --no-restore`
+- Both completed cleanly after the latest changes above.
 
 How To Run (Local Backend Config - mp3li personal setup)
 - Purpose: run backend on Mac using local Docker SQL bridge without changing shared team backend config.
@@ -20,6 +207,592 @@ How To Run (Local Backend Config - mp3li personal setup)
   - `http://localhost:5140/api/discovery/countries?year=2020`
 - Run frontend:
   - `cd "/Users/stellar/School/Music_Capstone/hidden-gem-music-app" && npm run web`
+
+Live Deezer Enrichment Pivot + CD Art Placement Rule + Visible-Only Loading Strategy (May 9, 2026)
+- Objective:
+  - Stop treating additional song metadata as an all-or-nothing “finish a full preload pipeline first” requirement for the current project milestone.
+  - Keep my `v2` additional-data getter work meaningful for later iterations, but change the current app implementation to a route I could actually finish, stabilize, and test within the remaining time.
+  - Make the app show real song metadata and real art now, while still preserving a future path where fuller pre-organized data can be generated by my tools and used later if I want that architecture.
+
+Why I made this switch:
+- I do still plan to finish doing full runs with my `v2` data getter in the future.
+- I still want future iterations of the app to have the option of using more fully pulled/organized song data rather than depending only on live enrichment.
+- However, for this phase of the project I deliberately changed direction because:
+  - time left in the project was becoming a real constraint,
+  - I am already comfortable working with external APIs directly,
+  - Deezer already exposes most of the extra display metadata I immediately needed,
+  - the app did not actually need every possible extra field pre-written into the database in order to improve the user-facing experience right now,
+  - and preview URLs were always going to be awkward to treat as permanent DB fields anyway because they expire.
+- So the practical decision became:
+  - for now, use the live external Deezer API instead of requiring a full “pull everything with my `v2` tool and write it into the database first” workflow,
+  - but keep the `v2` tool untouched because I still expect it to matter for future iterations.
+
+What this pivot means and what it does not mean:
+- It means:
+  - the app now resolves most additional song display metadata live when songs are actually needed on screen.
+- It does not mean:
+  - I abandoned my `v2` tool,
+  - I no longer care about fuller organized data,
+  - or I concluded that live-only enrichment is the final forever architecture for the project.
+- This was a milestone-driven implementation pivot, not a “delete the old direction and pretend it never mattered” change.
+
+What I explicitly did not change:
+- I did not rewrite or delete my tools.
+- I kept `tools/` untouched on purpose.
+- I did not convert the app to use lyrics pulling in this route.
+- I did not implement language extraction in this route.
+- I did not bulk-insert all of the new Deezer metadata into the shared project database.
+- I did not treat preview URLs as permanent truth because they expire.
+- I did not move Deezer API calling into the frontend.
+
+Core architecture after the pivot:
+- The project database is still the source of the base song lists.
+- The backend still calls the existing stored procedures to get those base song rows.
+- After the backend gets those rows, it enriches each song on demand with Deezer data.
+- The frontend still talks to the app backend only.
+- The frontend does not talk to Deezer directly.
+- The backend caches successfully resolved Deezer metadata locally so repeated requests can be answered much faster after the first resolution.
+- The frontend receives song objects that now contain:
+  - the original DB-driven song values,
+  - plus the extra Deezer metadata the backend was able to resolve for that song.
+
+Why the backend owns Deezer instead of the frontend:
+- Keeps external API logic out of browser/mobile code.
+- Keeps app-side secret handling centralized.
+- Gives me one place to rate-limit, retry, cache, and fall back safely.
+- Lets web and mobile both benefit from the same enrichment logic through normal app endpoints.
+- Prevents the frontend from having to orchestrate multiple raw Deezer requests for every song card/list item.
+
+Exact frontend app endpoints currently involved in this route:
+- Country profile:
+  - `GET /api/country/{countryCode}?year={year}`
+  - frontend wrapper: `loadCountryProfile`
+- Country hidden-gems preview strip:
+  - `GET /api/country/{countryCode}/hidden-gems/preview?year={year}&limit={limit}`
+  - frontend wrapper: `loadCountryHiddenGemsPreview`
+- Country songs paged list:
+  - `GET /api/country/{countryCode}/songs?year={year}&listType={shared|unique}&page={page}&pageSize={pageSize}`
+  - frontend wrapper: `loadCountrySongsPage`
+- Hidden Gems page:
+  - `GET /api/hidden-gems/{countryCode}?year={year}&minCountries={minCountries}&page={page}&pageSize={pageSize}`
+  - frontend wrapper: `loadHiddenGemsPage`
+- Shared years source:
+  - `GET /api/metadata/years`
+  - frontend wrapper: `loadAvailableYears`
+
+Where the backend enrichment logic now lives:
+- Main service:
+  - `backend/Capstone.API/Infrastructure/Repositories/DeezerSongEnrichmentService.cs`
+- Main repository consumers:
+  - `backend/Capstone.API/Infrastructure/Repositories/CountryRepository.cs`
+  - `backend/Capstone.API/Infrastructure/Repositories/HiddenGemsRepository.cs`
+- Registered backend service + client:
+  - `IDeezerSongEnrichmentService`
+  - `HttpClient` named `DeezerApi`
+
+Exact Deezer endpoints the backend now pings:
+- Search for candidate matches by song/artist:
+  - `https://api.deezer.com/search?q=...`
+- Re-pull a known track directly by cached Deezer track id:
+  - `https://api.deezer.com/track/{deezerTrackId}`
+- Pull album-level metadata for the matched song:
+  - `https://api.deezer.com/album/{deezerAlbumId}`
+- Pull artist-level metadata for the matched song:
+  - `https://api.deezer.com/artist/{deezerArtistId}`
+
+What the backend is trying to resolve from Deezer in this current route:
+- song name normalization / best resolved song title
+- album name fallback
+- artist name normalization / best resolved artist name
+- Deezer track id
+- Deezer album id
+- Deezer artist id
+- album art URL
+- artist image URL
+- genres
+- preview URL
+- preview expiry timestamp
+- explicit lyrics flag
+- explicit cover flag
+- album explicit-lyrics flag
+- release date
+- record type
+- contributor list
+- artist album count
+
+What I intentionally skipped for now:
+- language detection
+- lyrics pulling
+- lyrics-URL usage in the UI
+- any logic that requires full lyrics text processing
+
+Why language was skipped:
+- Deezer is not the clean solution for that requirement in the way I need it.
+- The more likely route for language would come from lyrics-related processing.
+- Since I deliberately did not want to pull lyrics in this milestone path, I skipped language too instead of pretending I had a good answer when I did not.
+
+How the backend resolves a song now:
+1. A screen asks the backend for a country/profile/hidden-gem song payload.
+2. The backend gets base song rows from the existing stored procedure.
+3. For each song row, the backend tries to resolve Deezer metadata using song name + artist name.
+4. Before hitting Deezer, it checks the local cache first.
+5. If the song is already cached and still usable, the backend reuses that cached metadata.
+6. If it is not cached or needs refresh, the backend searches Deezer and then enriches the song with the resolved data.
+7. The resolved metadata is written back into the local cache so later requests can reuse it.
+8. The enriched song object is returned to the frontend.
+
+Important unresolved-song rule:
+- If the backend cannot resolve a usable Deezer result for a song, that song is not returned as a “broken” item.
+- Instead:
+  - it is skipped,
+  - and the backend continues farther into the same stored-procedure result stream to try to fill the visible UI count with usable songs.
+- This was done intentionally so the user would not see broken song rows with empty Deezer-dependent metadata.
+
+Unresolved retry protection:
+- Unresolved songs are not hammered repeatedly.
+- The service has:
+  - `UnresolvedRetryWindow = 12 hours`
+- Meaning:
+  - if a song was just marked unresolved, the backend will not immediately keep re-trying it on every request within that window.
+
+Cache design:
+- Local cache folder:
+  - `backend/Capstone.API/live_song_enrichment_cache/`
+- Files written there:
+  - `live_song_cache.json`
+  - `live_song_cache.csv`
+  - `live_song_cache.txt`
+- That folder is intentionally gitignored:
+  - `.gitignore` includes `backend/Capstone.API/live_song_enrichment_cache/`
+
+What each cache file is for:
+- `live_song_cache.json`
+  - the main working cache snapshot
+  - this is the file the backend loads into memory
+- `live_song_cache.csv`
+  - readable export of resolved entries
+  - useful for inspection / scanning / spreadsheet-like review
+- `live_song_cache.txt`
+  - readable block-style export of resolved entries
+  - useful when I just want to inspect the data quickly in plain text
+
+How the cache works in practice:
+- On first service use, the backend loads `live_song_cache.json` into memory as `_cacheByKey`.
+- After that, normal cache hits are in-memory lookups first.
+- That means the backend is not re-reading the file from disk for every single song request.
+- After new data is resolved, the service persists the updated snapshot back out to JSON/CSV/TXT.
+
+Why this matters for speed:
+- A cache hit is much faster than a live Deezer call.
+- The true slow path is:
+  - first-time enrichment,
+  - preview refresh,
+  - or a Deezer retry/fallback path during transient failures.
+- So the design goal became:
+  - cached songs should feel fast,
+  - uncached songs can temporarily show loading UI,
+  - and the app should never feel empty just because live enrichment is still happening.
+
+Fields currently persisted in the resolved cache export:
+- `song_name`
+- `album_name`
+- `artist_name`
+- `deezer_track_id`
+- `deezer_album_id`
+- `deezer_artist_id`
+- `artist_image_url`
+- `album_art_url`
+- `genres`
+- `preview_url`
+- `preview_expires_at`
+- `explicit_lyrics`
+- `explicit_content_cover`
+- `album_explicit_lyrics`
+- `release_date`
+- `record_type`
+- `contributors`
+- `nb_album`
+- `last_verified_utc`
+
+Stable-vs-temporary metadata distinction:
+- Stable enough to cache long-term locally:
+  - ids
+  - album art URL
+  - artist image URL
+  - genres
+  - explicit flags
+  - release date
+  - record type
+  - contributors
+  - artist album count
+- Temporary / expiry-sensitive:
+  - preview URL
+
+Preview URL handling:
+- Preview URLs are deliberately treated differently from the rest of the metadata.
+- Reason:
+  - the preview URL itself expires
+  - so it cannot be treated as permanent truth the same way the rest of the metadata can
+- Current preview behavior:
+  - store the preview URL when resolved
+  - parse its expiry time
+  - reuse it while it is still valid
+  - refresh it by known Deezer track id when it expires
+  - avoid serving an obviously expired preview as if it were still fresh
+
+Exact preview expiry parsing rule:
+- The backend reads the `hdnea` query parameter from the preview URL.
+- It looks inside that value for the `exp=` segment.
+- That Unix timestamp is converted into `PreviewExpiresAtUtc`.
+
+What “keep preview URLs temporarily” means in this implementation:
+- If the user plays the same song again and the preview URL is still valid:
+  - reuse it from cache
+  - do not re-ping Deezer unnecessarily
+- If the preview is expired:
+  - refresh it through the backend
+- If refresh fails and the old preview is expired:
+  - do not keep pretending the expired preview is valid
+
+Rate-limit rule I implemented:
+- Treat Deezer as:
+  - `50 requests every 4.9 seconds`
+- Code constants:
+  - `DeezerMaxRequests = 50`
+  - `DeezerWindow = 4.9 seconds`
+- Enforcement mechanism:
+  - sliding-window rate limiter in the enrichment service
+
+Reason I used `4.9` instead of `5.0`:
+- The goal was to stay slightly inside the limit rather than riding the exact edge of it.
+
+Failure/retry hardening added after real backend errors:
+- Real issue encountered during testing:
+  - Deezer transport/TLS requests were sometimes failing with:
+    - `HttpRequestException`
+    - `IOException`
+    - `SocketException (54)`
+    - `Connection reset by peer`
+- Problem before hardening:
+  - those transient external failures could bubble up and break country-song endpoint responses
+- Hardening added:
+  - retry transient Deezer failures up to `3` attempts
+  - retry delays:
+    - `250ms`
+    - `800ms`
+    - `1600ms`
+  - treat `404` as a normal “not found / no data” outcome
+  - if refresh/search fails transiently and there is already cached resolved data:
+    - return safe cached metadata instead of failing the whole request
+  - if fallback cache still contains an expired preview:
+    - strip that expired preview from the safe fallback entry instead of serving a dead preview URL
+
+How Country Profile now uses live enrichment:
+- Backend route:
+  - `GET /api/country/{countryCode}?year={year}`
+- Repository:
+  - `CountryRepository.GetCountryProfileAsync`
+- Stored procedure:
+  - `sp_GetCountryProfile`
+- Result-set behavior:
+  - set `0` = summary stats
+  - set `1` = top shared songs
+  - set `2` = top unique songs
+- Live enrichment behavior:
+  - top shared songs are enriched through Deezer
+  - top unique songs are enriched through Deezer
+  - limit used in repository:
+    - up to `10` resolved songs for each top-song area
+
+How Country Hidden Gems Preview now uses live enrichment:
+- Backend route:
+  - `GET /api/country/{countryCode}/hidden-gems/preview?year={year}&limit={limit}`
+- Repository:
+  - `CountryRepository.GetHiddenGemsPreviewAsync`
+- Stored procedure:
+  - `sp_GetCountryHiddenGemsPreview`
+- Important backend behavior:
+  - requested preview count is over-fetched from SQL first so unresolved songs can be skipped
+  - raw limit formula:
+    - `min(max(requestedLimit * 4, requestedLimit + 20), 100)`
+- Then for each raw row:
+  - enrich through Deezer
+  - skip unresolved songs
+  - dedupe by normalized `song + artist`
+  - stop once the requested number of usable unique preview items has been collected
+
+Why that hidden-gems preview over-fetching was necessary:
+- If some songs fail Deezer resolution and I only fetched the exact visible count from SQL, the preview strip could come back too short or broken.
+- Over-fetching lets the backend find enough usable preview songs while still keeping the UI count clean.
+
+Dedupe protection added for hidden-gems preview:
+- Requirement:
+  - hidden-gems preview strips on Country page and Comparison View should never show duplicates
+- Backend protection:
+  - `CountryRepository.GetHiddenGemsPreviewAsync` dedupes by normalized `song + artist`
+- Frontend protection:
+  - preview mapping/rendering logic also dedupes again as a second safeguard
+
+How Country Songs paging now uses live enrichment:
+- Backend route:
+  - `GET /api/country/{countryCode}/songs?year={year}&listType={shared|unique}&page={page}&pageSize={pageSize}`
+- Repository:
+  - `CountryRepository.GetCountrySongsPageAsync`
+- Stored procedure:
+  - `sp_GetCountrySongsPaged`
+- Backend page-size clamp:
+  - `1..100`
+- Important behavior:
+  - the backend does not just trust the raw DB count as the final usable song count anymore
+  - it scans raw batches, enriches songs, skips unresolved ones, and computes the page from the resolved set
+- Raw scan batch size used:
+  - `100`
+- Result:
+  - `Items` are usable enriched songs only
+  - `TotalCount` is the resolved usable count, not the raw row count
+  - `HasMore` is based on the resolved usable count
+
+Why the country-song paging had to be handled that way:
+- Once unresolved Deezer songs are skipped, raw SQL row counts and visible usable song counts are no longer the same thing.
+- If I had left paging based only on raw DB rows, the frontend could ask for a page and get too few visible usable songs or inconsistent “has more” behavior.
+
+How Hidden Gems page now uses live enrichment:
+- Backend route:
+  - `GET /api/hidden-gems/{countryCode}?year={year}&minCountries={minCountries}&page={page}&pageSize={pageSize}`
+- Repository:
+  - `HiddenGemsRepository.GetHiddenGemsAsync`
+- Stored procedure:
+  - `sp_GetHiddenGems`
+- Controller default values:
+  - `minCountries = 2`
+  - `page = 1`
+  - `pageSize = 25`
+- Controller page-size validation:
+  - if `< 1` or `> 100`, reset to `25`
+- Repository scan behavior:
+  - raw batch size:
+    - `100`
+  - enrich each row through the same Deezer service
+  - skip unresolved entries
+  - build the requested visible page from the resolved set
+  - compute `TotalCount` / `HasMore` from the resolved set
+
+What screens/features currently benefit from this route:
+- Country page:
+  - top songs
+  - hidden gems preview strip
+  - shared songs list
+  - unique songs list
+  - favorite artists visuals
+- Comparison View:
+  - both country panes
+  - hidden gems preview strip
+  - song list visuals
+  - favorite artists visuals
+- Hidden Gems page:
+  - paged hidden-gem song results
+
+What the frontend now uses the extra Deezer data for:
+- album art behind CD cases
+- artist image behind CD cases where artist visuals are shown
+- album-name fallback when the DB did not already have it
+- release-date display when available
+- preview playback
+- future-ready extra song fields already present on payloads even if not all are surfaced everywhere yet
+
+Release-date fallback rule:
+- Prefer Deezer `release_date` when available.
+- If release date is not available, fall back to the selected chart year in the UI where needed.
+
+Important UI/loading philosophy I locked in:
+- I never wanted big sections of the app to look blank just because Deezer enrichment was still in progress.
+- The preferred behavior became:
+  - render the structure immediately
+  - show whatever DB/profile content is already available
+  - use `Loading...` text where Deezer-dependent text is not ready yet
+  - use the existing placeholder colors where art is not ready yet
+  - put a centered spinner on the art slot while the art is loading
+- In other words:
+  - visible placeholders and progressive loading were preferred over empty holes and stalled-looking sections
+
+Problem with the first live-enrichment version:
+- It was still too eager about some song-page requests.
+- Country/Comparison screens could wait too long on larger follow-up song loads.
+- Major sections could remain in `Loading...` longer than acceptable even though enough visible data already existed to render a meaningful first state.
+
+Visible-only loading / scroll-driven strategy I switched to:
+- I explicitly did not want the app to request metadata for songs the user could not even see yet.
+- So the desired rule became:
+  - initial render should use the first visible content that is already available
+  - deeper long-list enrichment should happen only when the user scrolls enough to need more
+- This was meant to match the same philosophy already used to avoid overloading the database with giant initial song pulls.
+
+Country / Comparison loading changes I made:
+- Initial visible country/comparison content now uses the profile response first.
+- That means these areas no longer have to sit around waiting on longer paged song requests before rendering:
+  - `Most Loved in This Country`
+  - `Loved Here and Elsewhere`
+  - the descriptive/blurb copy that depends on the already-loaded profile information
+  - the four stat squares
+- After that visible content is on screen, additional song pages load later as needed.
+
+Frontend chunk size after the visible-only change:
+- `songPageSize = 10`
+- This is used for scroll-driven `loadMoreUniqueSongs` and `loadMoreSharedSongs` in:
+  - `hidden-gem-music-app/src/screens/CountryScreen.tsx`
+  - `hidden-gem-music-app/src/screens/ComparisonResultsScreen.tsx`
+
+Why I reduced that chunk size:
+- Smaller chunks mean:
+  - less initial Deezer pressure
+  - less chance of long visible stalls
+  - less chance of wasting requests on songs not visible yet
+  - a better fit with the “only load more as the user scrolls” behavior I wanted
+
+Loading UI decisions I intentionally chose:
+- If art/details are still being resolved:
+  - do not leave empty holes
+  - keep the placeholder art-color blocks
+  - show spinner overlays on the CD art area
+  - show `Loading...` rows/cards/text where the resolved text is not ready yet
+- This was explicitly preferred over blank UI while waiting.
+
+CD art placement standardization work:
+- Once real Deezer art started appearing, I paused and standardized the actual geometry of how art sits behind the transparent CD case image.
+- Reason:
+  - I did not want every screen / every CD size / every art slot to “mostly match” by eyeballing it
+  - the art is square, so this should be one reusable math rule
+
+Reference assets used for this placement work:
+- base CD case image:
+  - `hidden-gem-music-app/src/assets/images/CD-Case-Transparent-Image.png`
+- my placement reference image:
+  - `hidden-gem-music-app/src/assets/images/Cd case and art placement example.png`
+- derived perfect-square reference copy:
+  - `hidden-gem-music-app/src/assets/images/Cd case and art placement example - perfect square centered.png`
+
+Measured placement analysis:
+- CD asset size:
+  - `680 x 624`
+- measured green-box example:
+  - `608 x 593`
+- difference from a true square:
+  - height was `15 px` short
+- centered square interpretation used for reasoning:
+  - keep left/right alignment
+  - add `7 px` upward
+  - add `8 px` downward
+  - final square:
+    - `608 x 608`
+
+Reusable CD art placement rule I implemented:
+- Centralized component:
+  - `hidden-gem-music-app/src/components/CdCaseArt.tsx`
+- Normalized ratios in that shared component:
+  - left ratio = `64 / 680`
+  - top ratio = `32 / 680`
+  - art square size ratio = `608 / 680`
+- Meaning:
+  - the CD case image itself does not move
+  - the art box behind it is placed mathematically
+  - the art is square
+  - it sits right-biased inside the case window
+  - it does not extend past the case edges
+
+Important visual placeholder rule:
+- Placeholders use the exact same geometry as real art.
+- The placeholder colors were preserved because they already looked good.
+- Rounded placeholder corners were removed.
+- Placeholder edges are now sharp 90-degree edges like real square album art.
+
+How the shared `CdCaseArt` component behaves now:
+- Real art present:
+  - render art behind the CD case inside the shared square placement box
+- No art resolved yet:
+  - render the placeholder color in that same placement box
+- Loading state:
+  - render a centered spinner over that same square placement box
+- So the geometry is unified across:
+  - real art
+  - placeholder
+  - loading placeholder
+
+Frontend files significantly involved in the UI side of this pivot:
+- `hidden-gem-music-app/src/components/CdCaseArt.tsx`
+- `hidden-gem-music-app/src/screens/CountryScreen.tsx`
+- `hidden-gem-music-app/src/screens/ComparisonResultsScreen.tsx`
+- `hidden-gem-music-app/src/data/countryApi.ts`
+- `hidden-gem-music-app/src/data/apiMappers.ts`
+- `hidden-gem-music-app/src/types/api.ts`
+
+Backend files significantly involved in the live Deezer path:
+- `backend/Capstone.API/Infrastructure/Repositories/DeezerSongEnrichmentService.cs`
+- `backend/Capstone.API/Infrastructure/Repositories/CountryRepository.cs`
+- `backend/Capstone.API/Infrastructure/Repositories/HiddenGemsRepository.cs`
+- `backend/Capstone.API/Controllers/CountryController.cs`
+- `backend/Capstone.API/Controllers/HiddenGemsController.cs`
+- `backend/Capstone.API/Models/Shared/DeezerSongMetadata.cs`
+- `backend/Capstone.API/Models/Shared/Song.cs`
+- `backend/Capstone.API/Models/Country/CountryHiddenGemPreviewItem.cs`
+- `backend/Capstone.API/Models/HiddenGems/HiddenGem.cs`
+- `backend/Capstone.API/Program.cs`
+- `.gitignore`
+
+Key incidents encountered during this pivot and what I changed because of them:
+1. Deezer transport connections were occasionally reset mid-request.
+  - Effect:
+    - country-song endpoints could fail because an external Deezer call failed
+  - Fix:
+    - transient retry logic
+    - safe fallback to cached metadata
+    - expired preview stripping when falling back
+2. Country/Comparison visible sections could stay in loading too long.
+  - Effect:
+    - major visible page sections looked stalled even though enough data already existed to render something useful
+  - Fix:
+    - profile data now seeds the visible first state before longer paged enrichment continues
+3. Hidden-gems preview strips could repeat songs.
+  - Effect:
+    - duplicates in Country / Comparison preview strips
+  - Fix:
+    - backend dedupe plus frontend second-pass dedupe
+4. Art placement behind CD cases was too inconsistent.
+  - Effect:
+    - real art and placeholders were not locked to one exact reusable rule
+  - Fix:
+    - shared `CdCaseArt` component plus normalized square-placement math
+
+Things I intentionally preserved during this pivot:
+- my tool folders
+- the ability to continue future `v2` data runs later
+- the project database as the base song source of truth
+- the rule that preview URLs should only be trusted while valid
+- the preference for live loading states over fake data rows
+
+Verification steps performed during this work:
+- Backend build verification:
+  - `dotnet build backend/Capstone.API/Capstone.API.csproj --no-restore`
+- Frontend typecheck verification:
+  - `cd hidden-gem-music-app && npx tsc --noEmit`
+- Manual testing was used to validate:
+  - the app still loads the screens
+  - visible sections do not stay blank while enrichment is happening
+  - duplicate preview items are gone
+  - CD art placement is consistent
+  - cache reuse works
+  - Deezer transport-reset failures no longer immediately crater the endpoint response path
+
+Bottom-line outcome of this pivot:
+- The app no longer depends on “finish full DB population first” in order to show richer song metadata right now.
+- The backend can resolve, cache, and reuse Deezer metadata as songs are actually needed.
+- The frontend can render visible content first and progressively enrich deeper song rows as the user scrolls.
+- Preview URLs are treated with the expiry caution they require.
+- The tools remain intact for future fuller data-getter runs.
+- The system is now much closer to:
+  - visible-first rendering
+  - cached reuse
+  - live external enrichment only when actually needed on screen
+  - and a future-friendly path where fuller pre-organized data can still be added later if I choose
 
 Unified Screen Ownership + Cross-Platform UI Stabilization Sweep (May 8, 2026)
 - Objective: stop the app from effectively routing phone usage through web-owned screen files, preserve the mobile-sized look the user liked, and then finish a long cross-platform UI correction pass without re-breaking web behavior.
