@@ -23,6 +23,14 @@ export type ApiCountryProfile = {
   topUniqueSongs: ApiSong[];
 };
 
+export type ApiCountrySongsPage = {
+  items: ApiSong[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
+};
+
 export type ApiCountryComparisonSide = {
   countryCode: string | null;
   countryName: string | null;
@@ -50,17 +58,20 @@ export type ApiHiddenGem = {
   countriesChartingCount: number;
 };
 
+export type ApiCountryHiddenGemPreview = {
+  songName: string | null;
+  albumName: string | null;
+  artistName: string | null;
+  trendScore: number;
+  countriesChartingCount: number;
+};
+
 export type ApiHiddenGemResponse = {
   items: ApiHiddenGem[];
   page: number;
   pageSize: number;
   totalCount: number;
   hasMore: boolean;
-};
-
-export type ApiCountryHiddenGemPreview = {
-  songName: string | null;
-  artistName: string | null;
 };
 
 export type ApiCountryGlobeSummary = {
@@ -72,14 +83,6 @@ export type ApiCountryGlobeSummary = {
   hiddenGemCount: number;
   topAlbumName: string | null;
   topArtistName: string | null;
-};
-
-export type ApiCountrySongsPage = {
-  items: ApiSong[];
-  page: number;
-  pageSize: number;
-  totalCount: number;
-  hasMore: boolean;
 };
 
 export type ApiOverlapRate = {

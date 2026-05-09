@@ -1,7 +1,7 @@
 # Dashboard — About This Data (In-App Copy)
 
 **Reference document for the methodology card at the bottom of the Global Overlap Dashboard.**  
-Last updated: April 29, 2026
+Last updated: May 6, 2026
 
 ---
 
@@ -23,6 +23,8 @@ All metrics on this dashboard are derived from two Kaggle datasets: Spotify Hist
 
 **Discovery Gap values reflect first crossings only.** The average (38 days) and median (4 days) diverge significantly because crossover is bimodal: most songs that cross any border do so within the first week, driven in part by Viral 50 chart entries which capture simultaneous cross-market momentum by design. A long tail of songs that took months to travel — or barely reached a second market — pulls the mean up to 38 days. Songs that never crossed any border are excluded from the discovery gap calculation entirely.
 
+**⚠ Known limitation — Viral 50 and Top 200 are treated as equivalent charting events in all current metrics.** These are fundamentally different chart types: the Top 200 measures sustained listener demand; the Viral 50 measures rate-of-spread regardless of total streams. Discovery gap times, global overlap rate, and peak reach figures all include Viral 50 entries. This compresses the measured crossover speed and inflates the overlap rate compared to what adoption-only (Top 200) metrics would show. A chart-type-separated view is planned for a future iteration. This limitation is most visible in the Discovery Gap Distribution chart, where the 0–7d bucket is disproportionately driven by Viral 50 simultaneous-spread events rather than organic market discovery.
+
 KPI calculations run in pre-computed SQL summary tables server-side and are never derived live from the raw 28M-row fact table. This ensures response times remain fast regardless of filter state.
 
 ---
@@ -31,6 +33,7 @@ KPI calculations run in pre-computed SQL summary tables server-side and are neve
 
 | Date | Change | Author |
 |------|--------|--------|
+| May 6, 2026 | Added Viral 50 / Top 200 conflation known limitation — flagged for future iteration | Leena |
 | April 29, 2026 | Added 2023 partial year disclaimer | Leena |
 | April 29, 2026 | Added chart scope difference note (Top 200 vs Top 50) | Leena |
 | April 29, 2026 | Updated Discovery Gap interpretation to reflect real data shape (bimodal, Viral 50 note) | Leena |

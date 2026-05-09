@@ -31,6 +31,18 @@ Summary outcome:
 - Web and mobile behavior are now being adjusted from the correct ownership path, with Dashboard intentionally still kept split.
 - Frontend typecheck was brought back to clean state after the sweep.
 
+Development branch merge completion:
+- `origin/development` was merged into `Implementing-mobile` after the full mobile/web implementation pass was already completed and tested.
+- Dashboard conflict resolution was intentionally simple:
+  - Mobile dashboard stayed mine in `DashboardScreen.tsx`
+  - Web dashboard was replaced with the `development` / Leena version in `DashboardScreen.web.tsx`
+- This confirmed the final architecture direction:
+  - Standard shared responsive screens by default
+  - Dashboard remains intentionally split because web uses Recharts
+- Final verification for this completed branch included:
+  - Latest iPhone iOS through Expo
+  - Firefox on updated macOS
+
 Core architecture issue that had to be corrected first:
 - Problem discovered:
   - Most phone flows were not actually using separate native/shared screen ownership.

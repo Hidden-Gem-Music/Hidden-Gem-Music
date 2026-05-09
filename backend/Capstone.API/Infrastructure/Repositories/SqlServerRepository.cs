@@ -34,6 +34,7 @@ namespace Capstone.API.Infrastructure.Interfaces.Repositories
             using (var command = new SqlCommand(storedProc, connection))
             {
                 command.CommandType = CommandType.StoredProcedure;
+                command.CommandTimeout = 120;
 
                 await connection.OpenAsync();
 
@@ -70,6 +71,7 @@ namespace Capstone.API.Infrastructure.Interfaces.Repositories
             using (var command = new SqlCommand(storedProc, connection))
             {
                 command.CommandType = CommandType.StoredProcedure;
+                command.CommandTimeout = 120;
 
                 if (parameters != null)
                 {
@@ -119,6 +121,7 @@ namespace Capstone.API.Infrastructure.Interfaces.Repositories
             using (var command = new SqlCommand(storedProc, connection))
             {
                 command.CommandType = CommandType.StoredProcedure;
+                command.CommandTimeout = 120;
 
                 if (parameters != null)
                 {
