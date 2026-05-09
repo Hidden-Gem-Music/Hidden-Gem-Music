@@ -464,7 +464,7 @@ function OverlapTrendChart({ data }: { data: ApiTrendPoint[] }) {
       <View style={styles.chartLegendRow}>
         <View style={styles.chartLegendItem}>
           <View style={[styles.chartLegendSwatch, { backgroundColor: colors.accent, opacity: 0.65 }]} />
-          <Text style={styles.chartLegendText}>2017–2021 (Top 200 + Viral 50)</Text>
+          <Text style={styles.chartLegendText}>2017–2021 (Top 200 only)</Text>
         </View>
         <View style={styles.chartLegendItem}>
           <View
@@ -698,22 +698,16 @@ const ABOUT_ENTRIES = [
     body: "Heavily Q4-weighted. Affects Hidden Gems, Country Profile, and any chart scoped to 2023.",
   },
   {
-    icon: "!",
-    iconType: "orange" as const,
-    title: "Known limitation — Viral 50 and Top 200 treated as equivalent",
-    body: "Discovery gap times and overlap rates include Viral 50 entries, which spread simultaneously by design rather than through organic discovery. A chart-type-separated view is planned for a future iteration.",
+    icon: "i",
+    iconType: "blue" as const,
+    title: "DS1 and DS2 use different chart depths",
+    body: "2017–2021 (DS1) draws from the Top 200 chart — 200 songs per country per day. 2023–2025 (DS2) draws from the Top 50 chart — 50 songs per country per day. Both are streams-based demand charts, but DS1 has significantly deeper per-country coverage. Cross-period comparisons reflect this difference.",
   },
   {
     icon: "i",
     iconType: "blue" as const,
     title: "Chart scope differs between time periods",
-    body: "2017–2021 data draws from Top 200 + Viral 50. 2023–2025 data draws from Top 50 only. Values are not directly comparable across the gap.",
-  },
-  {
-    icon: "i",
-    iconType: "blue" as const,
-    title: "Discovery gap reflects first crossings only",
-    body: "Mean (38d) and median (4d) diverge because crossover is bimodal. Songs that never crossed any border are excluded.",
+    body: "2017–2021 data draws from Top 200 only. 2023–2025 data draws from Top 50 only. Values are not directly comparable across the gap.",
   },
 ];
 
@@ -722,8 +716,21 @@ const ICON_COLORS: Record<string, string> = {
   blue: "#63b3ed",
 };
 
-function AboutThisData() {
+function AboutThisData({ discoveryGap }: { discoveryGap: ApiDiscoveryGap | null }) {
   const [open, setOpen] = useState(false);
+
+  const dynamicEntries = [
+    ...ABOUT_ENTRIES,
+    {
+      icon: "i",
+      iconType: "blue" as const,
+      title: "Discovery gap reflects first crossings only",
+      body: discoveryGap
+        ? `Mean (${discoveryGap.avgGapDays}d) and median (${discoveryGap.medianGapDays}d) diverge because crossover is bimodal. Songs that never crossed any border are excluded. Sample size: ${discoveryGap.sampleSize.toLocaleString()} songs.`
+        : "Mean and median diverge because crossover is bimodal. Songs that never crossed any border are excluded.",
+    },
+  ];
+
   return (
     <View style={styles.aboutSection}>
       <Pressable style={styles.aboutToggleRow} onPress={() => setOpen((v) => !v)}>
@@ -734,7 +741,7 @@ function AboutThisData() {
       </Pressable>
       {open ? (
         <View style={styles.aboutEntries}>
-          {ABOUT_ENTRIES.map((entry, i) => (
+          {dynamicEntries.map((entry, i) => (
             <View key={i} style={styles.aboutEntry}>
               <View
                 style={[
@@ -1405,7 +1412,7 @@ function DashboardScreenContent() {
 
           {/* ── About This Data ── */}
           <View style={styles.contentInner}>
-            <AboutThisData />
+            <AboutThisData discoveryGap={discoveryGap} />
           </View>
         </ScrollView>
 
