@@ -54,5 +54,12 @@ namespace Capstone.API.Models.Country
         /// Gets or sets the top songs unique to this country's charts.
         /// </summary>
         public List<Song> TopUniqueSongs { get; set; } = new();
+
+        /// <summary>
+        /// Gets or sets a small sampled set of distinct genres for this country-year view.
+        /// These are resolved live from Deezer using representative songs rather than
+        /// being a giant pre-computed aggregate.
+        /// </summary>
+        public List<string> SampleGenres { get; set; } = new();
     }
 }

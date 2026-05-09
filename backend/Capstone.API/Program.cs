@@ -9,6 +9,10 @@ builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, relo
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient("DeezerApi", client =>
+{
+    client.BaseAddress = new Uri("https://api.deezer.com/");
+});
 
 // CORS:
 // - Local/Development: allow Expo Go (exp://...) and LAN hosts used during mobile testing.
@@ -28,6 +32,7 @@ builder.Services.AddCors(options =>
 
 // Infrastructure — generic SP execution layer
 builder.Services.AddSingleton<IDataRepositoryFactory, DataRepositoryFactory>();
+builder.Services.AddSingleton<IDeezerSongEnrichmentService, DeezerSongEnrichmentService>();
 
 // Domain repositories — one per screen area
 builder.Services.AddScoped<IGlobeRepository, GlobeRepository>();

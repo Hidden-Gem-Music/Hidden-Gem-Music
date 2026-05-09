@@ -13,9 +13,24 @@ type Props = {
   onSelectCountry: (countryId: string) => void;
   onOpenCountry?: (countryId: string) => void;
   selectOnHover?: boolean;
+  genreSummaryByCountryCode?: Record<string, string | undefined>;
+  genreLoadingByCountryCode?: Record<string, boolean | undefined>;
+  loadingText?: string;
+  onEnsureGenreSample?: (countryCode: string) => void;
 };
 
-export function GlobeView({ countries, activeCountry, selectedYear, onSelectCountry, onOpenCountry, selectOnHover = true }: Props) {
+export function GlobeView({
+  countries,
+  activeCountry,
+  selectedYear,
+  onSelectCountry,
+  onOpenCountry,
+  selectOnHover = true,
+  genreSummaryByCountryCode,
+  genreLoadingByCountryCode,
+  loadingText = "Loading...",
+  onEnsureGenreSample,
+}: Props) {
   const { width } = useWindowDimensions();
   const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,6 +62,8 @@ export function GlobeView({ countries, activeCountry, selectedYear, onSelectCoun
   const noHiddenGemsCopy = selectedYear ? `No Hidden Gems for ${selectedYear}` : "No Hidden Gems for this year";
   const hasNoSongData = hoveredCountry ? hoveredCountry.album === "Unknown Album" && hoveredCountry.albumArtist === "Unknown Artist" : false;
   const noSongDataCopy = selectedYear ? `No song data for ${selectedYear}` : "No song data for this year";
+  const hoveredGenreSummary = hoveredCountry ? genreSummaryByCountryCode?.[hoveredCountry.code] : undefined;
+  const isHoveredGenreLoading = hoveredCountry ? Boolean(genreLoadingByCountryCode?.[hoveredCountry.code]) : false;
 
   return (
     <View style={styles.globeArea}>
@@ -73,6 +90,7 @@ export function GlobeView({ countries, activeCountry, selectedYear, onSelectCoun
                     hoverTimeoutRef.current = null;
                   }
                   setHoveredCountryId(country.id);
+                  onEnsureGenreSample?.(country.code);
                   if (selectOnHover) {
                     onSelectCountry(country.id);
                   }
@@ -123,6 +141,7 @@ export function GlobeView({ countries, activeCountry, selectedYear, onSelectCoun
                     hoverTimeoutRef.current = null;
                   }
                   setHoveredCountryId(hoveredCountry.id);
+                  onEnsureGenreSample?.(hoveredCountry.code);
                   if (selectOnHover) {
                     onSelectCountry(hoveredCountry.id);
                   }
@@ -145,8 +164,8 @@ export function GlobeView({ countries, activeCountry, selectedYear, onSelectCoun
                     <Text style={styles.tooltipCopy}>
                       Hidden Gems: {hasHiddenGems ? `${hoveredCountry.hiddenSongs}` : noHiddenGemsCopy}
                     </Text>
-                    <Text style={styles.tooltipCopy}>Genre(s): Genre info coming soon.</Text>
-                    <Text style={styles.tooltipCopy}>Language(s): Language info coming soon.</Text>
+                    <Text style={styles.tooltipCopy}>Genre(s): {hoveredGenreSummary ?? (isHoveredGenreLoading ? loadingText : "Loading...")}</Text>
+                    <Text style={styles.tooltipCopy}>Language(s): Loading...</Text>
                     {hasNoSongData ? (
                       <Text style={styles.tooltipCopy}>Most Popular Album: {noSongDataCopy}</Text>
                     ) : (

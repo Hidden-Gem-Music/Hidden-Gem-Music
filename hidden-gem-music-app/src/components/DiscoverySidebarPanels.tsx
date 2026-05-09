@@ -18,6 +18,11 @@ type Props = {
   onOpenCountry: (countryId: string) => void;
   autoScrollSignal?: number;
   selectedYear?: number;
+  genreSummaryByCountryCode?: Record<string, string | undefined>;
+  genreLoadingByCountryCode?: Record<string, boolean | undefined>;
+  loadingText?: string;
+  onEnsureGenreSample?: (countryCode: string) => void;
+  onNearListEnd?: () => void;
 };
 
 type ExpandedPanel = "filters" | "list";
@@ -25,7 +30,19 @@ type ExpandedPanel = "filters" | "list";
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
 const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
 
-export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectCountry, onOpenCountry, autoScrollSignal, selectedYear }: Props) {
+export function DiscoverySidebarPanels({
+  countries,
+  selectedCountryId,
+  onSelectCountry,
+  onOpenCountry,
+  autoScrollSignal,
+  selectedYear,
+  genreSummaryByCountryCode,
+  genreLoadingByCountryCode,
+  loadingText = "Loading...",
+  onEnsureGenreSample,
+  onNearListEnd,
+}: Props) {
   const { width } = useWindowDimensions();
   const isNarrowHeader = width < 520;
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("filters");
@@ -80,7 +97,17 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
   };
 
   const handleListScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setListScrollY(event.nativeEvent.contentOffset.y);
+    const nextScrollY = event.nativeEvent.contentOffset.y;
+    setListScrollY(nextScrollY);
+
+    if (!onNearListEnd || listViewportHeight <= 0 || listContentHeight <= 0) {
+      return;
+    }
+
+    const remaining = listContentHeight - (nextScrollY + listViewportHeight);
+    if (remaining < 220) {
+      onNearListEnd();
+    }
   };
 
   const scrollFilterToTrackLocation = (locationY: number) => {
@@ -321,13 +348,25 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
                     country={country}
                     selectedYear={selectedYear}
                     selected={country.id === selectedCountryId}
-                    onHover={() => onSelectCountry(country.id)}
-                    onTitlePress={() => onOpenCountry(country.id)}
+                    onHover={() => {
+                      onEnsureGenreSample?.(country.code);
+                      onSelectCountry(country.id);
+                    }}
+                    onTitlePress={() => {
+                      onEnsureGenreSample?.(country.code);
+                      onOpenCountry(country.id);
+                    }}
+                    genreLine={genreSummaryByCountryCode?.[country.code] ?? (genreLoadingByCountryCode?.[country.code] ? loadingText : "Loading...")}
+                    languageLine="Coming Soon"
                     onPress={() => {
+                      onEnsureGenreSample?.(country.code);
                       onSelectCountry(country.id);
                       onOpenCountry(country.id);
                     }}
-                    onPressIn={() => onSelectCountry(country.id)}
+                    onPressIn={() => {
+                      onEnsureGenreSample?.(country.code);
+                      onSelectCountry(country.id);
+                    }}
                   />
                 </View>
               ))}

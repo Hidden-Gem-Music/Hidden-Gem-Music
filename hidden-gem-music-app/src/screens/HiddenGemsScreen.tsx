@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -23,6 +24,7 @@ import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { loadCountryProfile, loadHiddenGemsPage } from "../data/countryApi";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiHiddenGemPage } from "../data/apiMappers";
+import { useLoadingText } from "../hooks/useLoadingText";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
@@ -45,6 +47,22 @@ const controlButtonPressedGradient = [colors.background, colors.background, colo
 const popupBottomDepthGradient = ["rgba(108,119,142,0)", "rgba(108,119,142,0.12)", "rgba(108,119,142,0.3)"] as const;
 const cdCaseSource = require("../assets/images/CD-Case-Transparent-Image.png");
 const rowBackdropColors = ["#B86A72", "#8B9BC0", "#8B5E7A", "#627F8A", "#C28C5E", "#7A7EB0"];
+const hiddenGemsPageSize = 12;
+
+function createLoadingHiddenGemSongs(countryCode: string, year: number, count = hiddenGemsPageSize): Song[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `${countryCode}-${year}-loading-${index + 1}`,
+    title: "Loading...",
+    artist: "Loading...",
+    album: "Loading...",
+    genres: ["Loading..."],
+    languages: ["Coming Soon"],
+    year,
+    duration: "",
+    description: "Loading...",
+    spotifySearchUrl: "",
+  }));
+}
 
 function useCustomScrollbar() {
   const scrollRef = useRef<ScrollView>(null);
@@ -155,12 +173,17 @@ function MiniCdCase({
   );
 }
 
-function BlankCdCase() {
+function BlankCdCase({ loading = false }: { loading?: boolean }) {
   return (
     <View style={styles.blankCdCaseFrame}>
       <View style={styles.blankCdCaseBackdropWrap}>
         <View style={styles.blankCdCaseBackdrop} />
       </View>
+      {loading ? (
+        <View style={styles.blankCdCaseLoadingOverlay}>
+          <ActivityIndicator size={54} color={colors.textLight} />
+        </View>
+      ) : null}
       <Image source={cdCaseSource} style={styles.blankCdCaseImage} resizeMode="contain" />
     </View>
   );
@@ -246,6 +269,7 @@ function HiddenSongListPanel({
   selectedSongId,
   onSelectSong,
   onPlaySong,
+  isLoading,
   page,
   totalPages,
   hasPreviousPage,
@@ -257,6 +281,7 @@ function HiddenSongListPanel({
   selectedSongId: string;
   onSelectSong: (songId: string) => void;
   onPlaySong: (songId: string) => void;
+  isLoading: boolean;
   page: number;
   totalPages: number;
   hasPreviousPage: boolean;
@@ -265,6 +290,7 @@ function HiddenSongListPanel({
   onNextPage: () => void;
 }) {
   const scrollbar = useCustomScrollbar();
+  const loadingText = useLoadingText(isLoading);
   const [hoveredSongId, setHoveredSongId] = useState<string | null>(null);
   const [hoveredMiniCdSongId, setHoveredMiniCdSongId] = useState<string | null>(null);
 
@@ -285,7 +311,11 @@ function HiddenSongListPanel({
           {songs.map((song, index) => (
             <Pressable
               key={song.id}
-              onPress={() => onSelectSong(song.id)}
+              onPress={() => {
+                if (!isLoading) {
+                  onSelectSong(song.id);
+                }
+              }}
               onHoverIn={() => setHoveredSongId(song.id)}
               onHoverOut={() => setHoveredSongId((current) => (current === song.id ? null : current))}
               style={styles.songRowShell}
@@ -310,9 +340,13 @@ function HiddenSongListPanel({
                       <Text style={[styles.songRowRank, showGradient ? styles.songTextActive : null]}>{index + 1}.</Text>
                       <View style={styles.songCopy}>
                         <View style={styles.songTitleRow}>
-                          <Text style={[styles.songRowTitle, showGradient ? styles.songTextActive : null]}>{song.title}</Text>
+                          <Text style={[styles.songRowTitle, showGradient ? styles.songTextActive : null]}>
+                            {isLoading ? loadingText : song.title}
+                          </Text>
                         </View>
-                        <Text style={[styles.songRowArtist, showGradient ? styles.songTextActive : null]}>{song.artist}</Text>
+                        <Text style={[styles.songRowArtist, showGradient ? styles.songTextActive : null]}>
+                          {isLoading ? loadingText : song.artist}
+                        </Text>
                       </View>
                       <Pressable
                         style={styles.miniCdHoverTarget}
@@ -320,12 +354,14 @@ function HiddenSongListPanel({
                         onHoverOut={() => setHoveredMiniCdSongId((current) => (current === song.id ? null : current))}
                         onPress={(event) => {
                           (event as any)?.stopPropagation?.();
-                          onPlaySong(song.id);
+                          if (!isLoading) {
+                            onPlaySong(song.id);
+                          }
                         }}
                       >
                         <MiniCdCase
                           color={rowBackdropColors[index % rowBackdropColors.length]}
-                          showPlayButton={hoveredMiniCdSongId === song.id}
+                          showPlayButton={!isLoading && hoveredMiniCdSongId === song.id}
                         />
                       </Pressable>
                     </View>
@@ -395,6 +431,7 @@ function FeaturedArtistsSection({
   const [contentWidth, setContentWidth] = useState(0);
   const [scrollX, setScrollX] = useState(0);
   const [isDraggingArtistScrollbar, setIsDraggingArtistScrollbar] = useState(false);
+  const [hoveredArtistIndex, setHoveredArtistIndex] = useState<number | null>(null);
   const trackRef = useRef<View>(null);
   const artistRows = Array.from({ length: 8 }, (_, index) => artists[index] ?? "");
   const artistCdSize = Platform.OS === "web" ? (width < 1160 ? 92 : width < 1360 ? 100 : 108) : 96;
@@ -479,10 +516,19 @@ function FeaturedArtistsSection({
           scrollEventThrottle={16}
         >
           {artistRows.map((artist, index) => (
-            <View key={`${artist}-${index}`} style={[styles.favoriteArtistItem, { width: artistItemWidth }]}>
+            <Pressable
+              key={`${artist}-${index}`}
+              onHoverIn={() => setHoveredArtistIndex(index)}
+              onHoverOut={() => setHoveredArtistIndex((current) => (current === index ? null : current))}
+              style={({ pressed }) => [
+                styles.favoriteArtistItem,
+                { width: artistItemWidth },
+                hoveredArtistIndex === index || pressed ? styles.favoriteArtistItemActive : null,
+              ]}
+            >
               <CdCase size={artistCdSize} artColor={rowBackdropColors[index % rowBackdropColors.length]} />
               <Text style={styles.favoriteArtistName}>{useLoadingLabels ? "Loading..." : artist}</Text>
-            </View>
+            </Pressable>
           ))}
         </ScrollView>
         {showArtistScrollbar ? (
@@ -519,18 +565,21 @@ function FeaturedArtistsSection({
 function PlayingSidePanel({
   selectedSong,
   isPlayingPreview,
+  isLoading,
   onTogglePreview,
   onPreviousSong,
   onNextSong,
 }: {
   selectedSong: Song;
   isPlayingPreview: boolean;
+  isLoading: boolean;
   onTogglePreview: () => void;
   onPreviousSong: () => void;
   onNextSong: () => void;
 }) {
   const isNativePlatform = Platform.OS !== "web";
   const scrollbar = useCustomScrollbar();
+  const loadingText = useLoadingText(isLoading);
 
   return (
     <Panel style={[styles.secondaryPanel, styles.playingPanel]}>
@@ -548,7 +597,7 @@ function PlayingSidePanel({
         >
           <View style={styles.blankCdCaseWrap}>
             <View style={styles.mainCdHoverTarget}>
-              <BlankCdCase />
+              <BlankCdCase loading={isLoading} />
             </View>
             <View style={[styles.mainCdControlsRow, isNativePlatform ? styles.mainCdControlsRowNative : null]}>
               <PlayerControlButton
@@ -568,11 +617,11 @@ function PlayingSidePanel({
           </View>
 
           <Text numberOfLines={1} style={styles.playingSongLine}>
-            <Text style={styles.playingSongName}>{selectedSong.title}</Text>
+            <Text style={styles.playingSongName}>{isLoading ? loadingText : selectedSong.title}</Text>
             {"\u00A0\u00A0"}
             <Text style={styles.playingSongBy}>by</Text>
             {"  "}
-            <Text style={styles.playingSongArtistInline}>{selectedSong.artist}</Text>
+            <Text style={styles.playingSongArtistInline}>{isLoading ? loadingText : selectedSong.artist}</Text>
           </Text>
           <View style={styles.playingSongUnderline} />
 
@@ -580,31 +629,31 @@ function PlayingSidePanel({
             <View style={styles.playingMetaCard}>
               <Text style={styles.playingMetaLine}>
                 <Text style={styles.playingMetaLabel}>Artist Name: </Text>
-                <Text style={styles.playingMetaValue}>{selectedSong.artist}</Text>
+                <Text style={styles.playingMetaValue}>{isLoading ? loadingText : selectedSong.artist}</Text>
               </Text>
             </View>
             <View style={styles.playingMetaCard}>
               <Text style={styles.playingMetaLine}>
                 <Text style={styles.playingMetaLabel}>Album Name: </Text>
-                <Text style={styles.playingMetaValue}>{selectedSong.album}</Text>
+                <Text style={styles.playingMetaValue}>{isLoading ? loadingText : selectedSong.album}</Text>
               </Text>
             </View>
             <View style={styles.playingMetaCard}>
               <Text style={styles.playingMetaLine}>
                 <Text style={styles.playingMetaLabel}>Genre(s): </Text>
-                <Text style={styles.playingMetaValue}>{selectedSong.genres.join(", ")}</Text>
+                <Text style={styles.playingMetaValue}>{isLoading ? loadingText : selectedSong.genres.join(", ")}</Text>
               </Text>
             </View>
             <View style={styles.playingMetaCard}>
               <Text style={styles.playingMetaLine}>
                 <Text style={styles.playingMetaLabel}>Language(s): </Text>
-                <Text style={styles.playingMetaValue}>{selectedSong.languages.join(", ")}</Text>
+                <Text style={styles.playingMetaValue}>{isLoading ? "Coming Soon" : selectedSong.languages.join(", ")}</Text>
               </Text>
             </View>
             <View style={styles.playingMetaCard}>
               <Text style={styles.playingMetaLine}>
                 <Text style={styles.playingMetaLabel}>Release Date: </Text>
-                <Text style={styles.playingMetaValue}>{selectedSong.year}</Text>
+                <Text style={styles.playingMetaValue}>{isLoading ? loadingText : `${selectedSong.year}`}</Text>
               </Text>
             </View>
           </View>
@@ -652,6 +701,7 @@ export function HiddenGemsScreen({
   const isBlurbStacked = isNativePlatform || width < 1380;
   const [apiProfile, setApiProfile] = useState<ReturnType<typeof mapApiCountryProfile> | null>(null);
   const [apiSongs, setApiSongs] = useState<Song[] | null>(null);
+  const [isSongsLoading, setIsSongsLoading] = useState(showNavIntro);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
@@ -716,6 +766,7 @@ export function HiddenGemsScreen({
   };
   const selectedSong = safeSelectedSong ?? fallbackSong;
   const shouldShowNavIntro = showNavIntro;
+  const isScreenLoading = shouldShowNavIntro || isSongsLoading;
   const displayCountryName = shouldShowNavIntro ? "Loading..." : country.name;
 
   useEffect(() => {
@@ -739,38 +790,38 @@ export function HiddenGemsScreen({
       setApiProfile(null);
       return;
     }
-    let isCancelled = false;
-    loadCountryProfile(country.code, selectedYear)
+    const controller = new AbortController();
+    loadCountryProfile(country.code, selectedYear, controller.signal)
       .then((profilePayload) => {
-        if (isCancelled) {
-          return;
-        }
         setApiProfile(mapApiCountryProfile(profilePayload));
       })
       .catch(() => {
-        if (!isCancelled) {
+        if (!(controller.signal.aborted)) {
           setApiProfile(null);
         }
       });
 
     return () => {
-      isCancelled = true;
+      controller.abort();
     };
   }, [country.code, selectedYear, shouldShowNavIntro]);
 
   useEffect(() => {
     if (shouldShowNavIntro) {
-      setApiSongs([]);
+      setApiSongs(createLoadingHiddenGemSongs(country.code, selectedYear));
+      setIsSongsLoading(true);
       setHasNextPage(false);
       setTotalPages(1);
       onSetLoading?.(false);
       return;
     }
-    let isCancelled = false;
+    const controller = new AbortController();
+    setApiSongs(createLoadingHiddenGemSongs(country.code, selectedYear));
+    setIsSongsLoading(true);
     onSetLoading?.(true);
-    loadHiddenGemsPage(country.code, selectedYear, 2, page, 25)
+    loadHiddenGemsPage(country.code, selectedYear, 2, page, hiddenGemsPageSize, controller.signal)
       .then((response) => {
-        if (isCancelled) {
+        if (controller.signal.aborted) {
           return;
         }
         const safeResponse = {
@@ -798,19 +849,21 @@ export function HiddenGemsScreen({
         setApiSongs(nextSongs);
         setHasNextPage(safeResponse.hasMore);
         setTotalPages(Math.max(1, Math.ceil(safeResponse.totalCount / safeResponse.pageSize)));
+        setIsSongsLoading(false);
         onSetLoading?.(false);
       })
       .catch(() => {
-        if (!isCancelled) {
+        if (!controller.signal.aborted) {
           setApiSongs([]);
           setHasNextPage(false);
           setTotalPages(1);
+          setIsSongsLoading(false);
           onSetLoading?.(false);
         }
       });
 
     return () => {
-      isCancelled = true;
+      controller.abort();
       onSetLoading?.(false);
     };
   }, [country.code, onSetLoading, page, selectedYear, shouldShowNavIntro]);
@@ -1239,6 +1292,7 @@ export function HiddenGemsScreen({
                   <PlayingSidePanel
                     selectedSong={selectedSong}
                     isPlayingPreview={isPreviewPlaying && previewSongId === selectedSong.id}
+                    isLoading={isScreenLoading}
                     onTogglePreview={toggleSelectedSongPreview}
                     onPreviousSong={() => stepSong(-1)}
                     onNextSong={() => stepSong(1)}
@@ -1250,6 +1304,7 @@ export function HiddenGemsScreen({
                     selectedSongId={selectedSong.id}
                     onSelectSong={setSongSelection}
                     onPlaySong={selectSongAndAutoPlay}
+                    isLoading={isScreenLoading}
                     page={page}
                     totalPages={totalPages}
                     hasPreviousPage={page > 1}
@@ -1271,6 +1326,7 @@ export function HiddenGemsScreen({
                     selectedSongId={selectedSong.id}
                     onSelectSong={setSongSelection}
                     onPlaySong={selectSongAndAutoPlay}
+                    isLoading={isScreenLoading}
                     page={page}
                     totalPages={totalPages}
                     hasPreviousPage={page > 1}
@@ -1287,6 +1343,7 @@ export function HiddenGemsScreen({
                   <PlayingSidePanel
                     selectedSong={selectedSong}
                     isPlayingPreview={isPreviewPlaying && previewSongId === selectedSong.id}
+                    isLoading={isScreenLoading}
                     onTogglePreview={toggleSelectedSongPreview}
                     onPreviousSong={() => stepSong(-1)}
                     onNextSong={() => stepSong(1)}
@@ -2258,10 +2315,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   blankCdCaseBackdrop: {
-    width: 369,
-    height: 369,
-    borderRadius: 16,
-    backgroundColor: "rgba(212,224,249,0.18)",
+    width: 402,
+    height: 402,
+    borderRadius: 0,
+    backgroundColor: "rgb(108,119,142)",
+  },
+  blankCdCaseLoadingOverlay: {
+    position: "absolute",
+    width: 402,
+    height: 402,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15,16,21,0.16)",
   },
   blankCdCaseImage: {
     width: 450,
@@ -2509,6 +2574,16 @@ const styles = StyleSheet.create({
     gap: 10,
     width: 118,
     flexShrink: 0,
+    borderRadius: 18,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  favoriteArtistItemActive: {
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
   },
   favoriteArtistName: {
     color: colors.textLight,

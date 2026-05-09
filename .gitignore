@@ -5,6 +5,7 @@
 
 # dotenv files
 .env
+.env.local
 
 # JavaScript / Expo
 node_modules/
@@ -52,6 +53,9 @@ bld/
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/
+
+# Local live song enrichment cache
+backend/Capstone.API/live_song_enrichment_cache/
 
 # MSTest test Results
 [Tt]est[Rr]esult*/
@@ -500,4 +504,3 @@ appsettings.Local.json
 .claude/
 
 Dashboard_Brief.md
-

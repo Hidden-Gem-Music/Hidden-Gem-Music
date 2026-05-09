@@ -3,11 +3,11 @@ import { mapApiCountryGlobeSummary } from "./apiMappers";
 import type { ApiCountryGlobeSummary } from "../types/api";
 import { getApiBaseUrl } from "./apiBaseUrl";
 
-export async function loadDiscoveryCountries(year: number, fallbackCountries: Country[]): Promise<Country[]> {
+export async function loadDiscoveryCountries(year: number, fallbackCountries: Country[], signal?: AbortSignal): Promise<Country[]> {
   const existingByCode = new Map(fallbackCountries.map((country) => [country.code.toUpperCase(), country]));
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/discovery/countries?year=${year}`;
-  const response = await fetch(endpoint);
+  const response = await fetch(endpoint, { signal });
 
   if (!response.ok) {
     throw new Error(`Discovery country request failed with status ${response.status}.`);

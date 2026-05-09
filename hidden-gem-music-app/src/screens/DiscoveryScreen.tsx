@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from "react-native";
 
 import { Country } from "../types/content";
@@ -11,6 +11,8 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { YearSlider } from "../components/YearSlider";
+import { loadCountryGenreSamples } from "../data/countryApi";
+import { useLoadingText } from "../hooks/useLoadingText";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
@@ -37,6 +39,23 @@ const normalizeContinent = (region: string) => {
   }
   return region;
 };
+
+function formatGenreSummary(genres: string[]) {
+  const cleaned = genres.map((genre) => genre.trim()).filter((genre) => genre.length > 0);
+  if (cleaned.length >= 3) {
+    return `${cleaned[0]}, ${cleaned[1]}, ${cleaned[2]}, and others`;
+  }
+
+  if (cleaned.length === 2) {
+    return `${cleaned[0]}, ${cleaned[1]}`;
+  }
+
+  if (cleaned.length === 1) {
+    return cleaned[0];
+  }
+
+  return "";
+}
 
 function DiscoveryYearDropdown({
   selectedYear,
@@ -170,6 +189,11 @@ export function DiscoveryScreen({
   const [isClearHovered, setIsClearHovered] = useState(false);
   const [isClearPressed, setIsClearPressed] = useState(false);
   const [selectedFilterYears, setSelectedFilterYears] = useState<number[]>([selectedYear]);
+  const [genrePrefetchCount, setGenrePrefetchCount] = useState(8);
+  const [genreSummaryByCountryCode, setGenreSummaryByCountryCode] = useState<Record<string, string>>({});
+  const [genreLoadingByCountryCode, setGenreLoadingByCountryCode] = useState<Record<string, boolean>>({});
+  const genreRequestControllersRef = useRef<AbortController[]>([]);
+  const requestedGenreCodesRef = useRef<Set<string>>(new Set());
   const timelineYears = availableYears && availableYears.length > 0 ? availableYears : [selectedYear];
   const isAllYearsSelected = selectedFilterYears.length === 0;
   const countriesForFiltering =
@@ -242,6 +266,88 @@ export function DiscoveryScreen({
   const visibleSelectedCountryId = filteredCountries.some((country) => country.id === selectedCountryId)
     ? selectedCountryId
     : filteredCountries[0]?.id ?? selectedCountryId;
+  const anyDiscoveryGenreLoading = Object.values(genreLoadingByCountryCode).some(Boolean);
+  const discoveryLoadingText = useLoadingText(anyDiscoveryGenreLoading);
+
+  const ensureCountryGenreSamples = useCallback(
+    (countryCodes: string[]) => {
+      const nextCodes = Array.from(
+        new Set(
+          countryCodes
+            .map((code) => code.trim().toUpperCase())
+            .filter((code) => code.length === 2)
+            .filter((code) => !requestedGenreCodesRef.current.has(code))
+        )
+      );
+
+      if (nextCodes.length === 0) {
+        return;
+      }
+
+      nextCodes.forEach((code) => requestedGenreCodesRef.current.add(code));
+      setGenreLoadingByCountryCode((current) => {
+        const next = { ...current };
+        nextCodes.forEach((code) => {
+          next[code] = true;
+        });
+        return next;
+      });
+
+      const controller = new AbortController();
+      genreRequestControllersRef.current.push(controller);
+
+      loadCountryGenreSamples(nextCodes, selectedYear, controller.signal)
+        .then((payload) => {
+          setGenreSummaryByCountryCode((current) => {
+            const next = { ...current };
+            payload.forEach((item) => {
+              const summary = formatGenreSummary(Array.isArray(item.genres) ? item.genres : []);
+              next[item.countryCode] = summary || "Unknown";
+            });
+            return next;
+          });
+        })
+        .catch((error) => {
+          if (error instanceof Error && error.name === "AbortError") {
+            return;
+          }
+          console.warn(`Failed loading discovery genre samples for ${selectedYear}.`, error);
+        })
+        .finally(() => {
+          setGenreLoadingByCountryCode((current) => {
+            const next = { ...current };
+            nextCodes.forEach((code) => {
+              delete next[code];
+            });
+            return next;
+          });
+          genreRequestControllersRef.current = genreRequestControllersRef.current.filter((entry) => entry !== controller);
+        });
+    },
+    [selectedYear]
+  );
+
+  useEffect(() => {
+    genreRequestControllersRef.current.forEach((controller) => controller.abort());
+    genreRequestControllersRef.current = [];
+    requestedGenreCodesRef.current = new Set();
+    setGenreSummaryByCountryCode({});
+    setGenreLoadingByCountryCode({});
+    setGenrePrefetchCount(8);
+  }, [selectedYear]);
+
+  useEffect(() => {
+    return () => {
+      genreRequestControllersRef.current.forEach((controller) => controller.abort());
+      genreRequestControllersRef.current = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    const starterCodes = filteredCountries.slice(0, genrePrefetchCount).map((country) => country.code);
+    const selectedCountryCode = filteredCountries.find((country) => country.id === visibleSelectedCountryId)?.code;
+    ensureCountryGenreSamples(selectedCountryCode ? [...starterCodes, selectedCountryCode] : starterCodes);
+  }, [ensureCountryGenreSamples, filteredCountries, genrePrefetchCount, visibleSelectedCountryId]);
 
   const handleGlobeFocus = (countryId: string) => {
     onSelectCountry(countryId);
@@ -257,6 +363,11 @@ export function DiscoveryScreen({
         onSelectCountry={onSelectCountry}
         onOpenCountry={onOpenCountry}
         autoScrollSignal={listAutoScrollSignal}
+        genreSummaryByCountryCode={genreSummaryByCountryCode}
+        genreLoadingByCountryCode={genreLoadingByCountryCode}
+        loadingText={discoveryLoadingText}
+        onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
+        onNearListEnd={() => setGenrePrefetchCount((current) => Math.min(filteredCountries.length, current + 6))}
       />
     </View>
   );
@@ -273,6 +384,10 @@ export function DiscoveryScreen({
           title="Globe View"
           onRightAction={() => setAllFiltersOpen(true)}
           showHeader={false}
+          genreSummaryByCountryCode={genreSummaryByCountryCode}
+          genreLoadingByCountryCode={genreLoadingByCountryCode}
+          loadingText={discoveryLoadingText}
+          onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
         />
         {isStacked ? (
           <View style={styles.mobileYearDropdownOverlay}>
