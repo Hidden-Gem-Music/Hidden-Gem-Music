@@ -12,11 +12,12 @@ type Props = {
   selectedYear?: number;
   selected?: boolean;
   onPress: () => void;
+  onPressIn?: () => void;
   onTitlePress?: () => void;
   onHover?: () => void;
 };
 
-export function CountryCard({ country, selectedYear, selected, onPress, onTitlePress, onHover }: Props) {
+export function CountryCard({ country, selectedYear, selected, onPress, onPressIn, onTitlePress, onHover }: Props) {
   const [hovered, setHovered] = useState(false);
   const hasHiddenGems = country.hiddenSongs > 0;
   const noHiddenGemsCopy = selectedYear ? `No Hidden Gems for ${selectedYear}` : "No Hidden Gems for this year";
@@ -26,6 +27,7 @@ export function CountryCard({ country, selectedYear, selected, onPress, onTitleP
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={onPressIn}
       onHoverIn={() => {
         setHovered(true);
         onHover?.();
@@ -111,7 +113,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   countryName: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 20,
     textDecorationLine: "underline",
@@ -120,13 +122,13 @@ const styles = StyleSheet.create({
     color: colors.accent,
   },
   region: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 15,
     fontWeight: "700",
   },
   detail: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 16,
     fontWeight: "700",

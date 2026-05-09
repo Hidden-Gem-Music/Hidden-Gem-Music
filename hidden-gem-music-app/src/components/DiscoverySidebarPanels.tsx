@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from "react-native";
 import { useEffect, useRef, useState } from "react";
 
 import { Country } from "../types/content";
@@ -26,6 +26,8 @@ const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(
 const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
 
 export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectCountry, onOpenCountry, autoScrollSignal, selectedYear }: Props) {
+  const { width } = useWindowDimensions();
+  const isNarrowHeader = width < 520;
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("filters");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
@@ -197,6 +199,8 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
       <Pressable
         key={label}
         onPress={() => setActiveFilter((current) => (current === label ? null : label))}
+        onPressIn={() => setHoveredFilter(label)}
+        onPressOut={() => setHoveredFilter((current) => (current === label ? null : current))}
         onHoverIn={() => setHoveredFilter(label)}
         onHoverOut={() => setHoveredFilter((current) => (current === label ? null : current))}
         style={styles.filterButtonShell}
@@ -230,9 +234,11 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
       <Panel style={[styles.section, expandedPanel === "filters" ? styles.sectionExpanded : styles.sectionCollapsed]}>
         <SecondarySurfaceFill />
         <Pressable style={styles.sectionHeader} onPress={() => handleSectionPress("filters")}>
-          <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.sectionTitle}>Pre-Selected Filters</Text>
-            <Text style={styles.sectionHelper}>
+          <View style={[styles.sectionHeaderCopy, isNarrowHeader ? styles.sectionHeaderCopyStacked : null]}>
+            <Text style={[styles.sectionTitle, isNarrowHeader ? styles.sectionTitleStacked : null]}>
+              {isNarrowHeader ? "Pre-Selected\nFilters" : "Pre-Selected Filters"}
+            </Text>
+            <Text style={[styles.sectionHelper, isNarrowHeader ? styles.sectionHelperStacked : null]}>
               Select optional pre-selected filters here and use 'All Filters' button on the globe for more filters.
             </Text>
           </View>
@@ -283,9 +289,9 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
       <Panel style={[styles.section, expandedPanel === "list" ? styles.sectionExpanded : styles.sectionCollapsed]}>
         <SecondarySurfaceFill />
         <Pressable style={styles.sectionHeader} onPress={() => handleSectionPress("list")}>
-          <View style={styles.sectionHeaderCopy}>
+          <View style={[styles.sectionHeaderCopy, isNarrowHeader ? styles.sectionHeaderCopyStacked : null]}>
             <Text style={styles.sectionTitle}>List View</Text>
-            <Text style={styles.sectionHelper}>
+            <Text style={[styles.sectionHelper, isNarrowHeader ? styles.sectionHelperStacked : null]}>
               Click a country to view its detail page and hear previews of hidden gem songs.
             </Text>
           </View>
@@ -321,6 +327,7 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
                       onSelectCountry(country.id);
                       onOpenCountry(country.id);
                     }}
+                    onPressIn={() => onSelectCountry(country.id)}
                   />
                 </View>
               ))}
@@ -386,22 +393,35 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 16,
   },
+  sectionHeaderCopyStacked: {
+    flexDirection: "column",
+    justifyContent: "flex-start",
+    gap: 10,
+  },
   sectionTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 22,
     lineHeight: 26,
   },
+  sectionTitleStacked: {
+    maxWidth: 148,
+  },
   sectionHelper: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 16,
     textAlign: "right",
     maxWidth: 220,
   },
+  sectionHelperStacked: {
+    textAlign: "left",
+    maxWidth: "100%",
+    width: "100%",
+  },
   sectionToggle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 28,
     fontWeight: "800",
@@ -466,7 +486,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   filterButtonTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   panelArea: {
     flex: 1,

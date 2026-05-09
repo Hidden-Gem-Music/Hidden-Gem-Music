@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppHeader } from "./src/components/AppHeader";
 import { LoadingOverlay } from "./src/components/LoadingOverlay";
+import { MobileBottomNav } from "./src/components/MobileBottomNav";
 import { ComparisonResultsScreen } from "./src/screens/ComparisonResultsScreen";
 import { ComparisonSelectScreen } from "./src/screens/ComparisonSelectScreen";
 import { CountryScreen } from "./src/screens/CountryScreen";
@@ -78,6 +79,33 @@ function areRouteParamsEqual(currentParams?: RouteParams, nextParams?: RoutePara
   return currentParams?.year === nextParams?.year && currentParams?.country === nextParams?.country;
 }
 
+function normalizeCountryKey(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function findCountryByIdentifier(list: Country[], identifier: string) {
+  const normalized = normalizeCountryKey(identifier);
+  return list.find(
+    (country) =>
+      normalizeCountryKey(country.id) === normalized || normalizeCountryKey(country.code) === normalized
+  );
+}
+
+function toInitialStackRoute(route: ScreenRoute): keyof RootStackParamList {
+  switch (route) {
+    case "discovery":
+    case "country":
+    case "hiddenGems":
+    case "comparisonSelect":
+    case "comparisonResults":
+    case "dashboard":
+    case "credits":
+      return route;
+    default:
+      return "welcome";
+  }
+}
+
 class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
     super(props);
@@ -93,7 +121,12 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
   }
 
   private handleReset = () => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && typeof window.location?.assign === "function") {
+      try {
+        window.localStorage.removeItem(APP_STATE_STORAGE_KEY);
+      } catch {
+        // Ignore localStorage failures during crash recovery.
+      }
       window.location.assign("/welcome");
       return;
     }
@@ -139,6 +172,7 @@ export default function App() {
   const initialNavigationSeedRef = useRef(getInitialNavigationSeed());
   const persistedAppStateRef = useRef(readPersistedAppState());
   const initialNavigationSeed = initialNavigationSeedRef.current;
+  const initialStackRoute = toInitialStackRoute(initialNavigationSeed.route);
   const persistedAppState = persistedAppStateRef.current;
   const initialYear = initialNavigationSeed.year ?? persistedAppState.selectedYear ?? 2021;
   const initialFeaturedCountry = getFeaturedCountry(initialYear);
@@ -184,11 +218,39 @@ export default function App() {
   const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
 
   const selectedCountry = useMemo(
-    () =>
-      discoveryCountries.find((country) => country.id === selectedCountryId || country.code === selectedCountryId) ??
-      getCountryByYear(selectedCountryId, selectedYear) ??
-      featuredCountry,
-    [discoveryCountries, selectedCountryId, selectedYear, featuredCountry]
+    () => {
+      const fromDiscovery = findCountryByIdentifier(discoveryCountries, selectedCountryId);
+      if (fromDiscovery) {
+        return fromDiscovery;
+      }
+
+      const fromCurrentYear = findCountryByIdentifier(countries, selectedCountryId);
+      if (fromCurrentYear) {
+        return fromCurrentYear;
+      }
+
+      if (currentRoute === "country" || currentRoute === "hiddenGems") {
+        const inferredCode = selectedCountryId && selectedCountryId.length <= 3 ? selectedCountryId.toUpperCase() : featuredCountry.code;
+        return {
+          ...featuredCountry,
+          id: selectedCountryId || featuredCountry.id,
+          code: inferredCode,
+          name: "Loading country...",
+          region: "Loading country data...",
+          hiddenSongs: 0,
+          genres: ["Loading..."],
+          album: "Loading...",
+          albumArtist: "Loading...",
+          topSong: "Loading...",
+          languages: ["Loading..."],
+          sceneNote: "Loading country data...",
+          featuredArtists: ["Loading..."],
+        };
+      }
+
+      return featuredCountry;
+    },
+    [countries, currentRoute, discoveryCountries, featuredCountry, selectedCountryId]
   );
 
   const selectedComparisonCountries = useMemo(
@@ -286,7 +348,7 @@ export default function App() {
         navigationRef.navigate("country", getRouteParams("country", selectedYear, selectedCountryId));
         break;
       case "hiddenGems":
-        setShowHiddenGemsNavIntro(currentRoute !== "country");
+        setShowHiddenGemsNavIntro(true);
         navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
         break;
       case "comparisonSelect":
@@ -395,7 +457,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (currentRoute === "discovery") {
+    if (currentRoute === "discovery" || currentRoute === "country" || currentRoute === "hiddenGems") {
       return;
     }
 
@@ -693,7 +755,7 @@ export default function App() {
     } catch {
       // Ignore localStorage write failures.
     }
-  }, [comparisonIds, selectedCountryId, selectedYear]);
+  }, [comparisonIds, currentRoute, selectedCountryId, selectedYear]);
 
   const handleYearChange = (nextYear: number, context: string) => {
     if (nextYear === selectedYear) {
@@ -725,8 +787,12 @@ export default function App() {
       setLoadingMessage(null);
       return;
     }
+    if (showHiddenGemsNavIntro) {
+      setLoadingMessage(null);
+      return;
+    }
     setLoadingMessage(loading ? "Loading hidden gems..." : null);
-  }, [currentRoute]);
+  }, [currentRoute, showHiddenGemsNavIntro]);
 
   if (!fontsLoaded) {
     return <View style={styles.appShell} />;
@@ -757,7 +823,7 @@ export default function App() {
           />
           <View style={styles.screenArea}>
             <Stack.Navigator
-              initialRouteName="welcome"
+              initialRouteName={initialStackRoute}
               screenOptions={{
                 headerShown: false,
                 animation: "none",
@@ -869,12 +935,19 @@ export default function App() {
               </Stack.Screen>
 
               <Stack.Screen name="dashboard" options={{ title: "Dashboard" }}>
-                {() => <DashboardScreen />}
+                {() => <DashboardScreen year={selectedYear} metrics={[]} countries={countries} />}
               </Stack.Screen>
 
               <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />
             </Stack.Navigator>
           </View>
+          <MobileBottomNav
+            currentRoute={currentRoute}
+            searchOpen={searchOpen}
+            onNavigate={navigateToRoute}
+            onToggleSearch={() => setSearchOpen((open) => !open)}
+            onCloseSearch={() => setSearchOpen(false)}
+          />
           <LoadingOverlay
             visible={Boolean(loadingMessage)}
             message={loadingMessage ?? undefined}
@@ -899,7 +972,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   errorTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 22,
     lineHeight: 26,

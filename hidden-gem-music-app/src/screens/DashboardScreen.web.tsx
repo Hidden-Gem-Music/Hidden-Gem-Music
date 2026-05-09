@@ -44,7 +44,11 @@ import { ScreenScaffold } from "../components/ScreenScaffold";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
-export type Props = Record<string, never>;
+export type Props = {
+  year?: number;
+  metrics?: Array<{ label: string; value: string; detail: string }>;
+  countries?: unknown[];
+};
 
 // ---------------------------------------------------------------------------
 // Constants

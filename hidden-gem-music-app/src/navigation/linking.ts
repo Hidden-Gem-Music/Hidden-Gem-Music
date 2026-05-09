@@ -55,19 +55,22 @@ export const linking: LinkingOptions<RootStackParamList> = {
 };
 
 export function getInitialNavigationSeed(): NavigationSeed {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || !window.location?.href) {
     return { route: "welcome" };
   }
+  try {
+    const url = new URL(window.location.href);
+    const normalizedPath = url.pathname.replace(/^\/+|\/+$/g, "");
+    const route = routeByPath[normalizedPath] ?? "welcome";
 
-  const url = new URL(window.location.href);
-  const normalizedPath = url.pathname.replace(/^\/+|\/+$/g, "");
-  const route = routeByPath[normalizedPath] ?? "welcome";
-
-  return {
-    route,
-    year: parseYearValue(url.searchParams.get("year")),
-    countryId: url.searchParams.get("country") ?? undefined,
-  };
+    return {
+      route,
+      year: parseYearValue(url.searchParams.get("year")),
+      countryId: url.searchParams.get("country") ?? undefined,
+    };
+  } catch {
+    return { route: "welcome" };
+  }
 }
 
 export function getRouteParams(route: ScreenRoute, selectedYear: number, selectedCountryId: string) {

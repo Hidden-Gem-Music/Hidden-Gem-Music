@@ -20,6 +20,7 @@ type Props = {
   contentStyle?: StyleProp<ViewStyle>;
   alwaysScrollableOnWeb?: boolean;
   scrollNativeId?: string;
+  disableScroll?: boolean;
 };
 
 export function ScreenScaffold({
@@ -27,10 +28,11 @@ export function ScreenScaffold({
   contentStyle,
   alwaysScrollableOnWeb = false,
   scrollNativeId = "screen-scaffold-scroll",
+  disableScroll = false,
 }: Props) {
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
-  const shouldUseScrollView = isStacked || (Platform.OS === "web" && alwaysScrollableOnWeb);
+  const shouldUseScrollView = !disableScroll && (isStacked || (Platform.OS === "web" && alwaysScrollableOnWeb));
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const [scrollY, setScrollY] = useState(0);
@@ -60,7 +62,7 @@ export function ScreenScaffold({
           <ScrollView
             nativeID={scrollNativeId}
             style={styles.scrollView}
-            contentContainerStyle={[styles.content, contentStyle]}
+            contentContainerStyle={[styles.scrollContent, contentStyle]}
             showsVerticalScrollIndicator={false}
             onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
             onContentSizeChange={(_, height) => setContentHeight(height)}
@@ -76,7 +78,7 @@ export function ScreenScaffold({
           ) : null}
         </>
       ) : (
-        <View style={[styles.content, contentStyle]}>{children}</View>
+        <View style={[styles.content, styles.contentFill, contentStyle]}>{children}</View>
       )}
     </View>
   );
@@ -98,7 +100,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.02)",
   },
   content: {
+    padding: 20,
+    gap: 20,
+  },
+  contentFill: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 20,
     gap: 20,
   },

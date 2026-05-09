@@ -80,6 +80,11 @@ const toNonEmpty = (value: string | null | undefined, fallback: string) => {
   return trimmed ? trimmed : fallback;
 };
 
+export function hasKnownSongTitle(title: string | null | undefined) {
+  const trimmed = title?.trim();
+  return typeof trimmed === "string" && trimmed.length > 0 && trimmed.toLowerCase() !== "unknown song";
+}
+
 export const mapApiSong = (song: ApiSong): UiSongPreview => ({
   title: toNonEmpty(song.songName, "Unknown Song"),
   artist: toNonEmpty(song.artistName, "Unknown Artist"),
@@ -102,8 +107,8 @@ export const mapApiCountryProfile = (profile: ApiCountryProfile): UiCountryProfi
   sharedCount: profile.sharedCount,
   uniqueCount: profile.uniqueCount,
   overlapPercent: profile.overlapPct,
-  topSharedSongs: profile.topSharedSongs.map(mapApiSong),
-  topUniqueSongs: profile.topUniqueSongs.map(mapApiSong),
+  topSharedSongs: profile.topSharedSongs.map(mapApiSong).filter((song) => hasKnownSongTitle(song.title)),
+  topUniqueSongs: profile.topUniqueSongs.map(mapApiSong).filter((song) => hasKnownSongTitle(song.title)),
 });
 
 export const mapApiComparisonSide = (side: ApiCountryComparisonSide): UiCountryComparisonSide => ({
@@ -118,9 +123,9 @@ export const mapApiComparisonSide = (side: ApiCountryComparisonSide): UiCountryC
 export const mapApiComparisonResult = (result: ApiComparisonResult): UiComparisonResult => ({
   countryA: result.countryA ? mapApiComparisonSide(result.countryA) : null,
   countryB: result.countryB ? mapApiComparisonSide(result.countryB) : null,
-  sharedSongs: result.sharedSongs.map(mapApiSharedSong),
-  uniqueToA: result.uniqueToA.map(mapApiSong),
-  uniqueToB: result.uniqueToB.map(mapApiSong),
+  sharedSongs: result.sharedSongs.map(mapApiSharedSong).filter((song) => hasKnownSongTitle(song.title)),
+  uniqueToA: result.uniqueToA.map(mapApiSong).filter((song) => hasKnownSongTitle(song.title)),
+  uniqueToB: result.uniqueToB.map(mapApiSong).filter((song) => hasKnownSongTitle(song.title)),
 });
 
 export const mapApiHiddenGem = (item: ApiHiddenGem): UiHiddenGem => ({
@@ -132,7 +137,7 @@ export const mapApiHiddenGem = (item: ApiHiddenGem): UiHiddenGem => ({
 });
 
 export const mapApiHiddenGemPage = (response: ApiHiddenGemResponse): UiHiddenGemPage => ({
-  items: response.items.map(mapApiHiddenGem),
+  items: response.items.map(mapApiHiddenGem).filter((song) => hasKnownSongTitle(song.title)),
   page: response.page,
   pageSize: response.pageSize,
   totalCount: response.totalCount,

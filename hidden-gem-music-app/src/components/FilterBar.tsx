@@ -125,6 +125,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   textActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
 });
