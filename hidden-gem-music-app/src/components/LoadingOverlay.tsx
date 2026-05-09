@@ -1,8 +1,11 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 import { Panel } from "./Panel";
+
+const popupBottomDepthGradient = ["rgba(108,119,142,0)", "rgba(108,119,142,0.12)", "rgba(108,119,142,0.3)"] as const;
 
 type Props = {
   visible: boolean;
@@ -22,9 +25,18 @@ export function LoadingOverlay({
   return (
     <View style={styles.overlay}>
       <Panel style={styles.modal}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.message}>{message}</Text>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <LinearGradient
+          colors={popupBottomDepthGradient}
+          locations={[0, 0.72, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.modalDepthFill}
+        />
+        <View style={styles.modalContent}>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.message}>{message}</Text>
+          <ActivityIndicator size="large" color={colors.accent} />
+        </View>
       </Panel>
     </View>
   );
@@ -34,6 +46,7 @@ const styles = StyleSheet.create({
   overlay: {
     position: "absolute",
     inset: 0,
+    zIndex: 5000,
     backgroundColor: "rgba(22, 26, 38, 0.62)",
     justifyContent: "center",
     alignItems: "center",
@@ -42,21 +55,27 @@ const styles = StyleSheet.create({
   modal: {
     width: "100%",
     maxWidth: 460,
-    alignItems: "center",
-    gap: 18,
     paddingVertical: 28,
     backgroundColor: "rgba(44, 46, 75, 0.96)",
+    overflow: "hidden",
+  },
+  modalDepthFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalContent: {
+    alignItems: "center",
+    gap: 18,
   },
   title: {
     color: colors.textLight,
     fontFamily: typefaces.display,
-    fontSize: 34,
+    fontSize: 32,
   },
   message: {
     color: colors.textLight,
     fontFamily: typefaces.body,
     textAlign: "center",
-    fontSize: 18,
-    lineHeight: 28,
+    fontSize: 16,
+    lineHeight: 25,
   },
 });

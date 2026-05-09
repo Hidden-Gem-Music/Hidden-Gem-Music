@@ -1,2 +1,1453 @@
-export { ComparisonSelectScreen } from "./ComparisonSelectScreen.web";
-export type { Props } from "./ComparisonSelectScreen.web";
+import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  ViewStyle,
+} from "react-native";
+
+import { ActionButton } from "../components/ActionButton";
+import { GemIcon } from "../components/GemIcon";
+import { Panel } from "../components/Panel";
+import { ScreenScaffold } from "../components/ScreenScaffold";
+import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
+import { GlobePanel } from "../components/globe/GlobePanel";
+import { getSongsForCountryYear } from "../data/mockData";
+import { Country } from "../types/content";
+import { colors } from "../theme/colors";
+import { typefaces } from "../theme/typography";
+
+const popupBottomDepthGradient = ["rgba(108,119,142,0)", "rgba(108,119,142,0.12)", "rgba(108,119,142,0.3)"] as const;
+
+export type Props = {
+  countries: Country[];
+  selectedCountryIds: string[];
+  onToggleCountry: (countryId: string) => void;
+  onClearSelections: () => void;
+  onDone: () => void;
+  selectedYear: number;
+  availableYears: number[];
+  onChangeYear: (year: number) => void;
+};
+
+type ExpandedPanel = "list" | "filters";
+type ComparisonFilters = {
+  popularity: string[];
+  region: string[];
+  language: string[];
+  genre: string[];
+  sort: string[];
+  hiddenGems: string[];
+};
+
+const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
+const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
+const comparisonPanelGradient = [colors.backgroundSoft, "#74819B", "#7A4762"] as const;
+const softPanelGradient = [colors.backgroundSoft, "#74819B", "#5D6983", "#36405B"] as const;
+const continentOptions = ["Africa", "Asia", "Europe", "North America", "Oceania", "South America"] as const;
+function toggleFilterSelection(currentValues: string[], option: string) {
+  if (option === "All") {
+    return ["All"];
+  }
+
+  const valuesWithoutAll = currentValues.filter((value) => value !== "All");
+
+  if (valuesWithoutAll.includes(option)) {
+    const nextValues = valuesWithoutAll.filter((value) => value !== option);
+    return nextValues.length > 0 ? nextValues : ["All"];
+  }
+
+  return [...valuesWithoutAll, option];
+}
+
+function YearDropdown({
+  selectedYear,
+  availableYears,
+  onSelectYear,
+}: {
+  selectedYear: number | null;
+  availableYears: number[];
+  onSelectYear: (year: number) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [hoveredYear, setHoveredYear] = useState<number | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  const containerRef = useRef<View>(null);
+  const showButtonGradient = isHovered || isPressed || isOpen;
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || !isOpen || typeof document === "undefined") {
+      return;
+    }
+
+    const handleDocumentMouseDown = (event: MouseEvent) => {
+      const node = containerRef.current as any;
+      const targetNode = event.target as Node | null;
+      const isInside = Boolean(node?.contains?.(targetNode));
+
+      if (!isInside) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <View ref={containerRef} style={styles.yearDropdownWrap}>
+      {isOpen ? <Pressable style={styles.yearDropdownDismissLayer} onPress={() => setIsOpen(false)} /> : null}
+      <Pressable
+        onPress={() => setIsOpen((current) => !current)}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
+        onPressIn={() => setIsPressed(true)}
+        onPressOut={() => setIsPressed(false)}
+        style={styles.yearDropdownShell}
+      >
+        {showButtonGradient ? (
+          <LinearGradient
+            colors={isPressed ? activeGradient : hoverGradient}
+            locations={[0, 0.34, 1]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.yearDropdownButtonGradient}
+          />
+        ) : null}
+        <View style={[styles.yearDropdownButton, showButtonGradient ? styles.yearDropdownButtonActive : null]}>
+          <Text style={[styles.yearDropdownText, selectedYear == null ? styles.yearDropdownPlaceholder : null]}>
+            {selectedYear == null ? "Select year" : `${selectedYear}`}
+          </Text>
+          <Text style={styles.yearDropdownChevron}>{isOpen ? "-" : "+"}</Text>
+        </View>
+      </Pressable>
+      {isOpen ? (
+        <Panel style={styles.yearDropdownMenu}>
+          <SecondarySurfaceFill />
+          <ScrollView style={styles.yearDropdownScroll} contentContainerStyle={styles.yearDropdownContent}>
+            {availableYears
+              .slice()
+              .reverse()
+              .map((year) => {
+                const selected = selectedYear === year;
+                const hovered = hoveredYear === year;
+                const showGradient = selected || hovered;
+
+                return (
+                  <Pressable
+                    key={year}
+                    onHoverIn={() => setHoveredYear(year)}
+                    onHoverOut={() => setHoveredYear((current) => (current === year ? null : current))}
+                    onPress={() => {
+                      onSelectYear(year);
+                      setIsOpen(false);
+                    }}
+                    style={styles.yearDropdownOptionShell}
+                  >
+                    {showGradient ? (
+                      <LinearGradient
+                        colors={selected ? activeGradient : hoverGradient}
+                        locations={[0, 0.34, 1]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={styles.yearDropdownOptionGradient}
+                      />
+                    ) : null}
+                    <View style={[styles.yearDropdownOption, showGradient ? styles.yearDropdownOptionActive : null]}>
+                      <Text style={[styles.yearDropdownOptionText, showGradient ? styles.yearDropdownOptionTextActive : null]}>
+                        {year}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+          </ScrollView>
+        </Panel>
+      ) : null}
+    </View>
+  );
+}
+
+function ComparisonBlurb({
+  selectedYear,
+  availableYears,
+  onSelectYear,
+  onDone,
+}: {
+  selectedYear: number | null;
+  availableYears: number[];
+  onSelectYear: (year: number) => void;
+  onDone: () => void;
+}) {
+  const { width } = useWindowDimensions();
+  const isCompact = width < 980;
+
+  return (
+    <Panel style={styles.blurbPanel}>
+      <LinearGradient
+        colors={[colors.surfaceSecondary, "#27293B", "rgba(66,72,101,0.42)", "rgba(66,72,101,0.72)"]}
+        locations={[0, 0.42, 0.78, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.blurbFill}
+      />
+      <View style={[styles.blurbContent, isCompact ? styles.blurbContentCompact : null]}>
+        <View style={[styles.blurbCopy, isCompact ? styles.blurbCopyCompact : null]}>
+          <Text style={styles.blurbText}>
+            <Text style={styles.blurbHeading}>Comparison View</Text>
+            {"  "}
+            <GemIcon size={16} style={styles.blurbIcon} />
+            {"  "}
+            <Text style={styles.blurbBody}>
+              Use Comparison View by selecting a year in the dropdown and optional filters like region, Biggest Hits, Fast Rising Songs, All Songs, and more, and then select two countries in the list before selecting 'Done' to view comparison results. The country list displays countries that have songs included in the app data for that year. Selecting other years may display different countries. On the comparison results screen, you can also select different countries and years to keep discovering even further.
+            </Text>
+          </Text>
+        </View>
+        <View style={[styles.blurbActions, isCompact ? styles.blurbActionsCompact : null]}>
+          <YearDropdown selectedYear={selectedYear} availableYears={availableYears} onSelectYear={onSelectYear} />
+          <ActionButton label="Done" size="small" onPress={onDone} />
+        </View>
+      </View>
+    </Panel>
+  );
+}
+
+function ComparisonSidebarPanels({
+  visibleCountries,
+  totalCountries,
+  selectedCountryIds,
+  onToggleCountry,
+  onClearSelections,
+  filters,
+  onChangeFilter,
+  regionOptions,
+  languageOptions,
+  genreOptions,
+}: {
+  visibleCountries: Country[];
+  totalCountries: number;
+  selectedCountryIds: string[];
+  onToggleCountry: (countryId: string) => void;
+  onClearSelections: () => void;
+  filters: ComparisonFilters;
+  onChangeFilter: (key: keyof ComparisonFilters, value: string[]) => void;
+  regionOptions: string[];
+  languageOptions: string[];
+  genreOptions: string[];
+}) {
+  const { width } = useWindowDimensions();
+  const isCompact = width < 980;
+  const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("list");
+  const [hoveredFilterOption, setHoveredFilterOption] = useState<string | null>(null);
+  const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
+  const [isClearHovered, setIsClearHovered] = useState(false);
+  const [isClearPressed, setIsClearPressed] = useState(false);
+  const filterScrollRef = useRef<ScrollView>(null);
+  const filterTrackRef = useRef<View>(null);
+  const listScrollRef = useRef<ScrollView>(null);
+  const listTrackRef = useRef<View>(null);
+  const [filterScrollY, setFilterScrollY] = useState(0);
+  const [listScrollY, setListScrollY] = useState(0);
+  const [filterViewportHeight, setFilterViewportHeight] = useState(0);
+  const [listViewportHeight, setListViewportHeight] = useState(0);
+  const [filterContentHeight, setFilterContentHeight] = useState(0);
+  const [listContentHeight, setListContentHeight] = useState(0);
+  const [isDraggingFilterScrollbar, setIsDraggingFilterScrollbar] = useState(false);
+  const [isDraggingListScrollbar, setIsDraggingListScrollbar] = useState(false);
+  const showFilterScrollbar = Platform.OS === "web" && expandedPanel === "filters" && filterViewportHeight > 0;
+  const filterHasOverflow = showFilterScrollbar && filterContentHeight > filterViewportHeight;
+  const filterTrackHeight = Math.max(filterViewportHeight - 24, 1);
+  const filterThumbHeight = showFilterScrollbar
+    ? filterHasOverflow
+      ? Math.max((filterViewportHeight / filterContentHeight) * filterViewportHeight, 52)
+      : filterTrackHeight
+    : 0;
+  const filterThumbTop =
+    filterHasOverflow
+      ? (filterScrollY / (filterContentHeight - filterViewportHeight)) * (filterViewportHeight - filterThumbHeight)
+      : 0;
+  const listScrollbarVisible =
+    Platform.OS === "web" && expandedPanel === "list" && listViewportHeight > 0 && listContentHeight > listViewportHeight;
+  const listTrackHeight = Math.max(listViewportHeight - 24, 1);
+  const listThumbHeight = listScrollbarVisible
+    ? Math.max((listViewportHeight / listContentHeight) * listViewportHeight, 52)
+    : 0;
+  const listThumbTop =
+    listScrollbarVisible && listContentHeight > listViewportHeight
+      ? (listScrollY / (listContentHeight - listViewportHeight)) * (listViewportHeight - listThumbHeight)
+      : 0;
+
+  const scrollFilterToTrackLocation = (locationY: number) => {
+    if (!filterHasOverflow || filterContentHeight <= filterViewportHeight) {
+      return;
+    }
+
+    const nextThumbTop = Math.min(Math.max(locationY - filterThumbHeight / 2, 0), filterTrackHeight - filterThumbHeight);
+    const nextRatio = nextThumbTop / (filterTrackHeight - filterThumbHeight);
+    const nextScrollY = nextRatio * (filterContentHeight - filterViewportHeight);
+    filterScrollRef.current?.scrollTo({ y: nextScrollY, animated: false });
+    setFilterScrollY(nextScrollY);
+  };
+
+  const scrollListToTrackLocation = (locationY: number) => {
+    if (!listScrollbarVisible || listContentHeight <= listViewportHeight) {
+      return;
+    }
+
+    const nextThumbTop = Math.min(Math.max(locationY - listThumbHeight / 2, 0), listTrackHeight - listThumbHeight);
+    const nextRatio = nextThumbTop / (listTrackHeight - listThumbHeight);
+    const nextScrollY = nextRatio * (listContentHeight - listViewportHeight);
+    listScrollRef.current?.scrollTo({ y: nextScrollY, animated: false });
+    setListScrollY(nextScrollY);
+  };
+
+  const scrollFilterToClientY = (clientY: number) => {
+    const rect = (filterTrackRef.current as any)?.getBoundingClientRect?.();
+    if (!rect) {
+      return;
+    }
+
+    scrollFilterToTrackLocation(clientY - rect.top);
+  };
+
+  const scrollListToClientY = (clientY: number) => {
+    const rect = (listTrackRef.current as any)?.getBoundingClientRect?.();
+    if (!rect) {
+      return;
+    }
+
+    scrollListToTrackLocation(clientY - rect.top);
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || !isDraggingFilterScrollbar || typeof document === "undefined") {
+      return;
+    }
+
+    const previousUserSelect = document.body.style.userSelect;
+
+    const handleMove = (event: MouseEvent) => {
+      event.preventDefault();
+      scrollFilterToClientY(event.clientY);
+    };
+
+    const handleUp = () => {
+      setIsDraggingFilterScrollbar(false);
+    };
+
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+    };
+  }, [filterContentHeight, filterHasOverflow, filterThumbHeight, filterTrackHeight, filterViewportHeight, isDraggingFilterScrollbar]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || !isDraggingListScrollbar || typeof document === "undefined") {
+      return;
+    }
+
+    const previousUserSelect = document.body.style.userSelect;
+
+    const handleMove = (event: MouseEvent) => {
+      event.preventDefault();
+      scrollListToClientY(event.clientY);
+    };
+
+    const handleUp = () => {
+      setIsDraggingListScrollbar(false);
+    };
+
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+    };
+  }, [isDraggingListScrollbar, listContentHeight, listScrollbarVisible, listThumbHeight, listTrackHeight, listViewportHeight]);
+
+  const renderInlineFilterRow = (
+    label: string,
+    filterKey: keyof ComparisonFilters,
+    options: string[]
+  ) => {
+    const currentValues = filters[filterKey];
+    const isHiddenGemsRow = filterKey === "hiddenGems";
+
+    return (
+      <View key={filterKey} style={styles.inlineFilterRow}>
+        <Text style={styles.inlineFilterLabel}>{`${label}:`}</Text>
+        <View style={styles.inlineFilterOptions}>
+          {options.map((option) => {
+            const optionKey = `${filterKey}-${option}`;
+            const isActive = currentValues.includes(option);
+            const isHovered = hoveredFilterOption === optionKey;
+            const showGradient = isActive || isHovered;
+            const isPrimaryHiddenGemsOption =
+              isHiddenGemsRow && option === "Only Show Countries with Hidden Gems";
+            const chipTextStyle = isActive
+              ? styles.inlineFilterChipTextActive
+              : isHovered
+                ? styles.inlineFilterChipTextHovered
+                : null;
+
+            return (
+              <Pressable
+                key={optionKey}
+                onPress={() => onChangeFilter(filterKey, toggleFilterSelection(currentValues, option))}
+                onHoverIn={() => setHoveredFilterOption(optionKey)}
+                onHoverOut={() => setHoveredFilterOption((current) => (current === optionKey ? null : current))}
+                style={[
+                  styles.inlineFilterChipShell,
+                  isHiddenGemsRow ? styles.inlineFilterChipShellProminent : null,
+                  isPrimaryHiddenGemsOption ? styles.inlineFilterChipShellPrimary : null,
+                ]}
+              >
+                {showGradient ? (
+                  <LinearGradient
+                    colors={isActive ? activeGradient : hoverGradient}
+                    locations={[0, 0.34, 1]}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.inlineFilterChipGradient}
+                  />
+                ) : null}
+                <View
+                  style={[
+                    styles.inlineFilterChip,
+                    isHiddenGemsRow ? styles.inlineFilterChipProminent : null,
+                    isPrimaryHiddenGemsOption ? styles.inlineFilterChipPrimary : null,
+                    showGradient ? styles.inlineFilterChipActive : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.inlineFilterChipText,
+                      isHiddenGemsRow ? styles.inlineFilterChipTextProminent : null,
+                      chipTextStyle,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
+  const renderCountryRow = (country: Country) => {
+    const selected = selectedCountryIds.includes(country.id);
+    const hovered = hoveredCountryId === country.id;
+    const showGradient = selected || hovered;
+
+    return (
+      <Pressable
+        key={country.id}
+        onPress={() => onToggleCountry(country.id)}
+        onHoverIn={() => setHoveredCountryId(country.id)}
+        onHoverOut={() => setHoveredCountryId((current) => (current === country.id ? null : current))}
+        style={styles.countryRowShell}
+      >
+        {showGradient ? (
+          <LinearGradient
+            colors={selected ? activeGradient : hoverGradient}
+            locations={[0, 0.34, 1]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.countryRowGradient}
+          />
+        ) : null}
+        <View style={[styles.countryRow, showGradient ? styles.countryRowActive : null]}>
+          <View style={styles.countryRowLead}>
+            <GemIcon size={16} />
+            <Text style={[styles.countryRowText, showGradient ? styles.countryRowTextActive : null]}>{country.name}</Text>
+          </View>
+          <Text style={[styles.countryRowMeta, showGradient ? styles.countryRowTextActive : null]}>{country.region}</Text>
+        </View>
+      </Pressable>
+    );
+  };
+
+  return (
+    <View style={styles.sidebarFrame}>
+      <Panel
+        style={[
+          styles.sidebarSection,
+          expandedPanel === "filters" ? styles.sidebarSectionExpanded : styles.sidebarSectionCollapsed,
+        ]}
+      >
+        <LinearGradient
+          colors={softPanelGradient}
+          locations={[0, 0.42, 0.74, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.sectionFill}
+        />
+        <Pressable
+          style={[styles.sectionHeader, isCompact ? styles.sectionHeaderCompact : null]}
+          onPress={() => setExpandedPanel((current) => (current === "filters" ? "list" : "filters"))}
+        >
+          <View style={[styles.sectionHeaderCopy, isCompact ? styles.sectionHeaderCopyCompact : null]}>
+            <Text style={styles.sectionTitle}>Add Your Filters</Text>
+            <Text style={[styles.sectionHelper, isCompact ? styles.sectionHelperCompact : null]}>
+              Add optional filters before you select two countries.
+            </Text>
+          </View>
+          <Text style={styles.sectionToggle}>{expandedPanel === "filters" ? "-" : "+"}</Text>
+        </Pressable>
+        {expandedPanel === "filters" ? (
+          <View style={styles.panelArea}>
+            <ScrollView
+              ref={filterScrollRef}
+              style={styles.panelScroll}
+              contentContainerStyle={styles.filterContent}
+              showsVerticalScrollIndicator={false}
+              onLayout={(event) => setFilterViewportHeight(event.nativeEvent.layout.height)}
+              onContentSizeChange={(_, height) => setFilterContentHeight(height)}
+              onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => setFilterScrollY(event.nativeEvent.contentOffset.y)}
+              scrollEventThrottle={16}
+            >
+              {renderInlineFilterRow("Sort By", "sort", ["A--Z", "Z--A"])}
+              {renderInlineFilterRow("Popularity", "popularity", ["Biggest Hits", "Fast Rising Songs", "All Songs"])}
+              {renderInlineFilterRow("Hidden Gems", "hiddenGems", ["All", "Only Show Countries with Hidden Gems", "Show Countries Without Hidden Gems", "Most Hidden Gems to Least", "Least Hidden Gems to Most"])}
+              {renderInlineFilterRow("Region", "region", ["All", ...regionOptions])}
+              {renderInlineFilterRow("Language", "language", ["All", ...languageOptions])}
+              {renderInlineFilterRow("Genre", "genre", ["All", ...genreOptions])}
+            </ScrollView>
+            {showFilterScrollbar ? (
+              <View
+                ref={filterTrackRef}
+                style={styles.scrollbarTrack}
+                onStartShouldSetResponder={() => true}
+                onMoveShouldSetResponder={() => true}
+                onResponderGrant={(event) => scrollFilterToTrackLocation(event.nativeEvent.locationY)}
+                onResponderMove={(event) => scrollFilterToTrackLocation(event.nativeEvent.locationY)}
+                {...(Platform.OS === "web"
+                  ? ({
+                      onMouseDown: (event: any) => {
+                        event.preventDefault();
+                        setIsDraggingFilterScrollbar(true);
+                        scrollFilterToClientY(event.clientY);
+                      },
+                    } as any)
+                  : {})}
+              >
+                <View
+                  style={[
+                    styles.scrollbarThumb,
+                    {
+                      height: filterThumbHeight,
+                      transform: [{ translateY: filterThumbTop }],
+                    },
+                  ]}
+                />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </Panel>
+
+      <Panel
+        style={[
+          styles.sidebarSection,
+          expandedPanel === "list" ? styles.sidebarSectionExpanded : styles.sidebarSectionCollapsed,
+        ]}
+      >
+        <LinearGradient
+          colors={comparisonPanelGradient}
+          locations={[0, 0.38, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.sectionFill}
+        />
+        <Pressable
+          style={[styles.sectionHeader, isCompact ? styles.sectionHeaderCompact : null]}
+          onPress={() => setExpandedPanel((current) => (current === "list" ? "filters" : "list"))}
+        >
+          <View style={[styles.sectionHeaderCopy, isCompact ? styles.sectionHeaderCopyCompact : null]}>
+            <Text style={styles.sectionTitle}>Select Two Countries</Text>
+            <View style={[styles.selectionSummaryRow, isCompact ? styles.selectionSummaryRowCompact : null]}>
+              {expandedPanel === "list" ? (
+                <Pressable
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    onClearSelections();
+                  }}
+                  onHoverIn={() => setIsClearHovered(true)}
+                  onHoverOut={() => setIsClearHovered(false)}
+                  onPressIn={() => setIsClearPressed(true)}
+                  onPressOut={() => setIsClearPressed(false)}
+                  style={styles.clearSelectionButtonShell}
+                >
+                  {isClearHovered || isClearPressed ? (
+                    <LinearGradient
+                      colors={isClearPressed ? activeGradient : hoverGradient}
+                      locations={[0, 0.34, 1]}
+                      start={{ x: 0, y: 0.5 }}
+                      end={{ x: 1, y: 0.5 }}
+                      style={styles.clearSelectionButtonGradient}
+                    />
+                  ) : null}
+                  <View
+                    style={[
+                      styles.clearSelectionButton,
+                      isClearHovered || isClearPressed ? styles.clearSelectionButtonActive : null,
+                    ]}
+                  >
+                    <Text style={styles.clearSelectionButtonText}>Clear Selections</Text>
+                  </View>
+                </Pressable>
+              ) : null}
+              <Text style={[styles.sectionHelper, isCompact ? styles.sectionHelperCompact : null]}>
+                {`${selectedCountryIds.length} out of 2 countries selected.`}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.sectionToggle}>{expandedPanel === "list" ? "-" : "+"}</Text>
+        </Pressable>
+        {expandedPanel === "list" ? (
+          <View style={styles.panelArea}>
+            <ScrollView
+              ref={listScrollRef}
+              style={styles.panelScroll}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              onLayout={(event) => setListViewportHeight(event.nativeEvent.layout.height)}
+              onContentSizeChange={(_, height) => setListContentHeight(height)}
+              onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => setListScrollY(event.nativeEvent.contentOffset.y)}
+              scrollEventThrottle={16}
+            >
+              {visibleCountries.map(renderCountryRow)}
+            </ScrollView>
+            {listScrollbarVisible ? (
+              <View
+                ref={listTrackRef}
+                style={styles.scrollbarTrack}
+                onStartShouldSetResponder={() => true}
+                onMoveShouldSetResponder={() => true}
+                onResponderGrant={(event) => scrollListToTrackLocation(event.nativeEvent.locationY)}
+                onResponderMove={(event) => scrollListToTrackLocation(event.nativeEvent.locationY)}
+                {...(Platform.OS === "web"
+                  ? ({
+                      onMouseDown: (event: any) => {
+                        event.preventDefault();
+                        setIsDraggingListScrollbar(true);
+                        scrollListToClientY(event.clientY);
+                      },
+                    } as any)
+                  : {})}
+              >
+                <View
+                  style={[
+                    styles.scrollbarThumb,
+                    {
+                      height: listThumbHeight,
+                      transform: [{ translateY: listThumbTop }],
+                    },
+                  ]}
+                />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </Panel>
+    </View>
+  );
+}
+
+function SelectionRequiredModal({ onClose }: { onClose: () => void }) {
+  return (
+    <View style={styles.overlay}>
+      <View style={styles.overlayGradientWrap}>
+        <LinearGradient
+          colors={["rgba(22,26,38,0.62)", "rgba(22,26,38,0.36)", "rgba(66,72,101,0.18)"]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.overlayGradient}
+        />
+        <LinearGradient
+          colors={["rgba(117,82,107,0.16)", "rgba(117,82,107,0.05)", "rgba(117,82,107,0.00)"]}
+          start={{ x: 0.0, y: 0.04 }}
+          end={{ x: 1.0, y: 0.72 }}
+          style={styles.overlayGradient}
+        />
+        <LinearGradient
+          colors={["rgba(108,119,142,0.16)", "rgba(108,119,142,0.05)", "rgba(108,119,142,0.00)"]}
+          start={{ x: 1.0, y: 0.0 }}
+          end={{ x: 0.08, y: 0.94 }}
+          style={styles.overlayGradient}
+        />
+      </View>
+      <Panel style={styles.modal}>
+        <LinearGradient
+          colors={popupBottomDepthGradient}
+          locations={[0, 0.72, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.modalDepthFill}
+        />
+        <View style={styles.modalContent}>
+          <Text style={styles.modalBrand}>Comparison Mode</Text>
+          <Text style={styles.modalSummary}>Please select a year and two countries before clicking done.</Text>
+          <View style={styles.modalButtonStack}>
+            <ActionButton label="Close" size="compact" onPress={onClose} />
+          </View>
+        </View>
+      </Panel>
+    </View>
+  );
+}
+
+export function ComparisonSelectScreen({
+  countries,
+  selectedCountryIds,
+  onToggleCountry,
+  onClearSelections,
+  onDone,
+  selectedYear,
+  availableYears,
+  onChangeYear,
+}: Props) {
+  const { width } = useWindowDimensions();
+  const isStacked = width < 980;
+  const [comparisonYear, setComparisonYear] = useState<number | null>(selectedYear);
+  const [validationOpen, setValidationOpen] = useState(false);
+  const [filters, setFilters] = useState<ComparisonFilters>({
+    popularity: ["All Songs"],
+    region: ["All"],
+    language: ["All"],
+    genre: ["All"],
+    sort: ["A--Z"],
+    hiddenGems: ["Only Show Countries with Hidden Gems"],
+  });
+  const regionOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [...continentOptions, ...countries.map((country) => country.region).filter(Boolean)].filter(
+            (value) => value !== "Continent info coming soon." && value !== "Other"
+          )
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    [countries]
+  );
+  const languageOptions = useMemo(
+    () =>
+      Array.from(new Set(countries.flatMap((country) => country.languages ?? [])))
+        .filter((value) => value.trim().toLowerCase() !== "unknown")
+        .sort((a, b) => a.localeCompare(b)),
+    [countries]
+  );
+  const genreOptions = useMemo(
+    () =>
+      Array.from(new Set(countries.flatMap((country) => country.genres ?? [])))
+        .filter((value) => value.trim().toLowerCase() !== "unknown")
+        .sort((a, b) => a.localeCompare(b)),
+    [countries]
+  );
+  const filteredCountries = useMemo(() => {
+      const filtered = countries.filter((country) => {
+        // Include only countries that have songs in app data for this year.
+        if (getSongsForCountryYear(country.id, comparisonYear ?? selectedYear).length <= 0) {
+          return false;
+        }
+
+        if (filters.popularity.includes("Biggest Hits") && !filters.popularity.includes("All Songs")) {
+          if (country.hiddenSongs < 10) {
+            return false;
+          }
+        }
+        if (filters.popularity.includes("Fast Rising Songs") && !filters.popularity.includes("All Songs")) {
+          if (country.hiddenSongs >= 10) {
+            return false;
+          }
+        }
+        if (!filters.region.includes("All") && !filters.region.includes(country.region)) {
+          return false;
+        }
+        if (
+          !filters.language.includes("All") &&
+          !filters.language.some((language) => (country.languages ?? []).includes(language))
+        ) {
+          return false;
+        }
+        if (!filters.genre.includes("All") && !filters.genre.some((genre) => (country.genres ?? []).includes(genre))) {
+          return false;
+        }
+        if (!filters.hiddenGems.includes("All")) {
+          if (filters.hiddenGems.includes("Only Show Countries with Hidden Gems") && country.hiddenSongs <= 0) {
+            return false;
+          }
+          if (filters.hiddenGems.includes("Show Countries Without Hidden Gems") && country.hiddenSongs > 0) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      if (filters.sort.includes("A--Z")) {
+        return filtered.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      if (filters.sort.includes("Z--A")) {
+        return filtered.sort((a, b) => b.name.localeCompare(a.name));
+      }
+      if (filters.hiddenGems.includes("Most Hidden Gems to Least")) {
+        return filtered.sort((a, b) => b.hiddenSongs - a.hiddenSongs || a.name.localeCompare(b.name));
+      }
+      if (filters.hiddenGems.includes("Least Hidden Gems to Most")) {
+        return filtered.sort((a, b) => a.hiddenSongs - b.hiddenSongs || a.name.localeCompare(b.name));
+      }
+
+      return filtered;
+    },
+    [comparisonYear, countries, filters.genre, filters.hiddenGems, filters.language, filters.popularity, filters.region, filters.sort, selectedYear]
+  );
+  const visibleCountries = filteredCountries;
+
+  useEffect(() => {
+    setComparisonYear(selectedYear);
+  }, [selectedYear]);
+
+  const yearOptions = useMemo(() => {
+    if (availableYears.length === 0) {
+      return comparisonYear != null ? [comparisonYear] : [selectedYear];
+    }
+    if (comparisonYear == null || availableYears.includes(comparisonYear)) {
+      return availableYears;
+    }
+    return [...availableYears, comparisonYear].sort((a, b) => a - b);
+  }, [availableYears, comparisonYear, selectedYear]);
+
+  const handleDone = () => {
+    if (comparisonYear == null || selectedCountryIds.length !== 2) {
+      setValidationOpen(true);
+      return;
+    }
+
+    onDone();
+  };
+
+  const globeColumn = (
+    <View style={[styles.leftColumn, isStacked ? styles.columnStacked : null]}>
+      <GlobePanel
+        countries={visibleCountries}
+        activeCountryId={selectedCountryIds.find((countryId) => visibleCountries.some((country) => country.id === countryId))}
+        onSelectCountry={onToggleCountry}
+        title=""
+        showHeader={false}
+        frameStyle={[styles.comparisonGlobeFrame, isStacked ? styles.comparisonGlobeFrameStacked : null]}
+        selectOnHover={false}
+      />
+    </View>
+  );
+
+  const sidebarColumn = (
+    <View style={[styles.rightColumn, isStacked ? styles.columnStacked : null]}>
+      <ComparisonSidebarPanels
+        visibleCountries={visibleCountries}
+        totalCountries={countries.length}
+        selectedCountryIds={selectedCountryIds}
+        onToggleCountry={onToggleCountry}
+        onClearSelections={onClearSelections}
+        filters={filters}
+        onChangeFilter={(key, value) => {
+          onClearSelections();
+          setFilters((current) => ({ ...current, [key]: value }));
+        }}
+        regionOptions={regionOptions}
+        languageOptions={languageOptions}
+        genreOptions={genreOptions}
+      />
+      {visibleCountries.length === 0 ? (
+        <Text style={styles.emptyStateText}>No countries match these filters.</Text>
+      ) : null}
+    </View>
+  );
+
+  const comparisonContent = (
+    <View style={styles.stack}>
+      <ComparisonBlurb
+        selectedYear={comparisonYear}
+        availableYears={yearOptions}
+        onSelectYear={(year) => {
+          setComparisonYear(year);
+          onChangeYear(year);
+        }}
+        onDone={handleDone}
+      />
+      <View
+        style={[
+          styles.layout,
+          isStacked ? styles.layoutStacked : null,
+        ]}
+      >
+        {globeColumn}
+        {sidebarColumn}
+      </View>
+    </View>
+  );
+
+  return (
+    <ScreenScaffold alwaysScrollableOnWeb>
+      {comparisonContent}
+      {validationOpen ? <SelectionRequiredModal onClose={() => setValidationOpen(false)} /> : null}
+    </ScreenScaffold>
+  );
+}
+
+const styles = StyleSheet.create({
+  stack: {
+    gap: 16,
+    marginTop: -8,
+  },
+  blurbPanel: {
+    minHeight: 80,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: "transparent",
+    overflow: "visible",
+    zIndex: 6,
+  },
+  blurbFill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 18,
+  },
+  blurbContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 20,
+    flexWrap: "wrap",
+  },
+  blurbContentCompact: {
+    alignItems: "stretch",
+    gap: 12,
+  },
+  blurbCopy: {
+    flex: 1,
+    minWidth: 340,
+  },
+  blurbCopyCompact: {
+    minWidth: 0,
+    width: "100%",
+  },
+  blurbText: {
+    textAlign: "left",
+  },
+  blurbIcon: {
+    transform: [{ translateY: 1 }],
+  },
+  blurbHeading: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 22,
+    lineHeight: 26,
+  },
+  blurbBody: {
+    color: colors.textLight,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 28,
+  },
+  blurbActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 12,
+    zIndex: 7,
+  },
+  blurbActionsCompact: {
+    width: "100%",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+  },
+  yearDropdownWrap: {
+    position: "relative",
+    zIndex: 9,
+  },
+  yearDropdownDismissLayer: {
+    position: "absolute",
+    top: -1200,
+    left: -1200,
+    width: 3200,
+    height: 3200,
+    zIndex: 8,
+  },
+  yearDropdownShell: {
+    borderRadius: 17,
+    overflow: "hidden",
+    zIndex: 9,
+  },
+  yearDropdownButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  yearDropdownButton: {
+    minWidth: 156,
+    minHeight: 38,
+    height: 38,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 17,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  yearDropdownButtonActive: {
+    backgroundColor: "transparent",
+  },
+  yearDropdownText: {
+    color: colors.border,
+    fontFamily: typefaces.condensed,
+    fontSize: 15,
+    lineHeight: 18,
+  },
+  yearDropdownPlaceholder: {
+    color: colors.border,
+  },
+  yearDropdownChevron: {
+    color: colors.border,
+    fontFamily: typefaces.condensed,
+    fontSize: 28,
+    lineHeight: 28,
+  },
+  yearDropdownMenu: {
+    position: "absolute",
+    top: 50,
+    right: 0,
+    width: 156,
+    maxHeight: 260,
+    padding: 0,
+    overflow: "hidden",
+    backgroundColor: "transparent",
+    zIndex: 20,
+    elevation: 20,
+  },
+  yearDropdownScroll: {
+    maxHeight: 260,
+  },
+  yearDropdownContent: {
+    padding: 8,
+    gap: 8,
+  },
+  yearDropdownOptionShell: {
+    position: "relative",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  yearDropdownOptionGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  yearDropdownOption: {
+    minHeight: 42,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    justifyContent: "center",
+  },
+  yearDropdownOptionActive: {
+    backgroundColor: "transparent",
+  },
+  yearDropdownOptionText: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 18,
+  },
+  yearDropdownOptionTextActive: {
+    color: colors.textLight,
+  },
+  layout: {
+    flexDirection: "row",
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  layoutStacked: {
+    flexDirection: "column",
+  },
+  leftColumn: {
+    flex: 1,
+    minWidth: 340,
+    gap: 16,
+    zIndex: 1,
+  },
+  rightColumn: {
+    flex: 1,
+    minWidth: 340,
+    gap: 16,
+  },
+  emptyStateText: {
+    color: colors.textLight,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  columnStacked: {
+    width: "100%",
+    minWidth: 0,
+  },
+  comparisonGlobeFrame: {
+    minHeight: 642,
+    borderColor: colors.border,
+    borderWidth: 3,
+  },
+  comparisonGlobeFrameStacked: {
+    minHeight: 410,
+  },
+  sidebarFrame: {
+    minHeight: 642,
+    maxHeight: 642,
+    gap: 16,
+  },
+  sidebarSection: {
+    padding: 0,
+    overflow: "hidden",
+    backgroundColor: "transparent",
+  },
+  sectionFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sidebarSectionExpanded: {
+    flex: 1,
+  },
+  sidebarSectionCollapsed: {
+    minHeight: 104,
+  },
+  sectionHeader: {
+    minHeight: 88,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+  sectionHeaderCompact: {
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  sectionHeaderCopy: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+  sectionHeaderCopyCompact: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    justifyContent: "flex-start",
+    gap: 8,
+  },
+  sectionTitle: {
+    color: colors.border,
+    fontFamily: typefaces.display,
+    fontSize: 22,
+    lineHeight: 26,
+  },
+  sectionHelper: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 14,
+    lineHeight: 16,
+    textAlign: "right",
+    maxWidth: 300,
+    flexShrink: 1,
+  },
+  sectionHelperCompact: {
+    maxWidth: "100%",
+    textAlign: "left",
+  },
+  selectionSummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 10,
+    flexShrink: 1,
+  },
+  selectionSummaryRowCompact: {
+    width: "100%",
+    justifyContent: "flex-start",
+    flexWrap: "wrap",
+  },
+  clearSelectionButtonShell: {
+    position: "relative",
+    borderRadius: 999,
+    overflow: "hidden",
+    flexShrink: 0,
+  },
+  clearSelectionButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.45,
+  },
+  clearSelectionButton: {
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: "rgba(32,38,56,0.42)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minHeight: 32,
+    justifyContent: "center",
+  },
+  clearSelectionButtonActive: {
+    backgroundColor: "rgba(22,26,38,0.32)",
+  },
+  clearSelectionButtonText: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    lineHeight: 14,
+  },
+  sectionToggle: {
+    color: colors.border,
+    fontFamily: typefaces.condensed,
+    fontSize: 28,
+    fontWeight: "800",
+    lineHeight: 28,
+    marginTop: 6,
+  },
+  panelArea: {
+    flex: 1,
+    position: "relative",
+  },
+  panelScroll: {
+    flex: 1,
+    ...(Platform.OS === "web"
+      ? ({
+          overflowY: "scroll",
+          scrollbarWidth: "none",
+        } as ViewStyle)
+      : null),
+  },
+  listContent: {
+    paddingHorizontal: 18,
+    paddingTop: 0,
+    paddingBottom: 24,
+    paddingRight: 28,
+    gap: 14,
+  },
+  filterContent: {
+    paddingHorizontal: 18,
+    paddingTop: 0,
+    paddingBottom: 24,
+    paddingRight: 28,
+    gap: 14,
+  },
+  countryRowShell: {
+    position: "relative",
+    borderRadius: 14,
+    overflow: "hidden",
+    width: "100%",
+  },
+  countryRowGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  countryRow: {
+    minHeight: 58,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  countryRowActive: {
+    backgroundColor: "transparent",
+  },
+  countryRowLead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  countryRowText: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 17,
+    lineHeight: 22,
+    textAlign: "left",
+    flexShrink: 1,
+  },
+  countryRowMeta: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 16,
+    textAlign: "right",
+    flexShrink: 0,
+  },
+  countryRowTextActive: {
+    color: colors.textLight,
+  },
+  inlineFilterRow: {
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: "rgba(15,16,21,0.12)",
+    padding: 14,
+    gap: 10,
+  },
+  inlineFilterLabel: {
+    color: colors.border,
+    fontFamily: typefaces.display,
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  inlineFilterOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  inlineFilterChipShell: {
+    position: "relative",
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  inlineFilterChipShellProminent: {
+    borderRadius: 17,
+  },
+  inlineFilterChipShellPrimary: {
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  inlineFilterChipGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  inlineFilterChip: {
+    minHeight: 40,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.button,
+    justifyContent: "center",
+  },
+  inlineFilterChipProminent: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 17,
+  },
+  inlineFilterChipPrimary: {
+    minWidth: 236,
+  },
+  inlineFilterChipActive: {
+    backgroundColor: "transparent",
+  },
+  inlineFilterChipText: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 18,
+  },
+  inlineFilterChipTextProminent: {
+    fontFamily: typefaces.condensed,
+    fontSize: 15,
+    lineHeight: 18,
+    textAlign: "center",
+  },
+  inlineFilterChipTextActive: {
+    color: colors.textLight,
+  },
+  inlineFilterChipTextHovered: {
+    color: colors.border,
+  },
+  scrollbarTrack: {
+    position: "absolute",
+    top: 12,
+    right: 8,
+    bottom: 12,
+    width: 14,
+    borderRadius: 999,
+    backgroundColor: colors.scrollbarTrack,
+  },
+  scrollbarThumb: {
+    width: "100%",
+    borderRadius: 999,
+    backgroundColor: colors.scrollbarThumb,
+  },
+  overlay: {
+    position: "absolute",
+    inset: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  overlayGradientWrap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlayGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modal: {
+    width: "100%",
+    maxWidth: 760,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    backgroundColor: colors.panel,
+    overflow: "hidden",
+  },
+  modalDepthFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalContent: {
+    alignItems: "center",
+    gap: 22,
+  },
+  modalBrand: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 36,
+    lineHeight: 42,
+    textAlign: "center",
+  },
+  modalSummary: {
+    color: colors.textLight,
+    fontFamily: typefaces.condensed,
+    fontSize: 16,
+    lineHeight: 25,
+    textAlign: "center",
+    maxWidth: 620,
+  },
+  modalButtonStack: {
+    gap: 14,
+    alignItems: "center",
+  },
+});

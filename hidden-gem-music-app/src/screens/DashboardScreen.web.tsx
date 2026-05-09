@@ -5,6 +5,7 @@ import {
   NativeSyntheticEvent,
   Platform,
   ScrollView,
+  StyleProp,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -50,8 +51,11 @@ import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
-
-export type Props = Record<string, never>;
+export type Props = {
+  year?: number;
+  metrics?: Array<{ label: string; value: string; detail: string }>;
+  countries?: unknown[];
+};
 
 // ---------------------------------------------------------------------------
 // Shared layout primitives
@@ -64,9 +68,9 @@ function DashboardSection({
   contentStyle,
 }: {
   children: ReactNode;
-  style?: ViewStyle | ViewStyle[];
+  style?: StyleProp<ViewStyle>;
   fillVariant?: "default" | "softBlue" | "comparisonBlue";
-  contentStyle?: ViewStyle | ViewStyle[];
+  contentStyle?: StyleProp<ViewStyle>;
 }) {
   return (
     <Panel style={[styles.sectionPanel, style]}>

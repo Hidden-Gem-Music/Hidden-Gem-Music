@@ -69,7 +69,7 @@ export function GlobePanel({
             onHoverOut={() => setIsButtonHovered(false)}
             onPressIn={() => setIsButtonPressed(true)}
             onPressOut={() => setIsButtonPressed(false)}
-            style={styles.actionButtonShell}
+            style={[styles.actionButtonShell, styles.actionButtonShellAbsolute]}
           >
             {showButtonGradient ? (
               <LinearGradient
@@ -134,13 +134,15 @@ const styles = StyleSheet.create({
     padding: 0,
     backgroundColor: "transparent",
   },
-  actionButtonShell: {
+  actionButtonShellAbsolute: {
     position: "absolute",
     top: 14,
     right: 14,
+    zIndex: 2,
+  },
+  actionButtonShell: {
     borderRadius: 14,
     overflow: "hidden",
-    zIndex: 2,
   },
   actionButtonGradient: {
     ...StyleSheet.absoluteFillObject,

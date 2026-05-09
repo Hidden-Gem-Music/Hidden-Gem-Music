@@ -27,6 +27,10 @@ export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggle
   const { width } = useWindowDimensions();
   const [labelWidths, setLabelWidths] = useState<Record<string, number>>({});
   const isSearchActive = searchOpen;
+  const isRouteActive = (route: ScreenRoute) =>
+    currentRoute === route ||
+    (route === "comparisonSelect" && currentRoute === "comparisonResults") ||
+    (route === "discovery" && currentRoute === "country");
   if (width >= 980) {
     return null;
   }
@@ -37,7 +41,7 @@ export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggle
     ? itemCount - 1
     : Math.max(
         0,
-        allItems.findIndex((item) => item.route === currentRoute)
+        allItems.findIndex((item) => isRouteActive(item.route))
       );
   const slotWidth = 100 / itemCount;
   const highlightWidth = slotWidth * 1.86;
@@ -94,7 +98,7 @@ export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggle
       </View>
       <View style={styles.row}>
         {mobileNavItems.map((item) => {
-          const isActive = !searchOpen && currentRoute === item.route;
+          const isActive = !searchOpen && isRouteActive(item.route);
           return (
             <Pressable
               key={item.route}

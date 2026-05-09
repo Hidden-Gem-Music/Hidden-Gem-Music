@@ -350,7 +350,7 @@ export default function App() {
         navigationRef.navigate("country", getRouteParams("country", selectedYear, selectedCountryId));
         break;
       case "hiddenGems":
-        setShowHiddenGemsNavIntro(currentRoute !== "country");
+        setShowHiddenGemsNavIntro(true);
         navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
         break;
       case "comparisonSelect":
@@ -363,7 +363,7 @@ export default function App() {
         navigationRef.navigate("comparisonResults", getRouteParams("comparisonResults", selectedYear, selectedCountryId));
         break;
       case "dashboard":
-        navigationRef.navigate("dashboard", getRouteParams("dashboard", selectedYear, selectedCountryId));
+        navigationRef.navigate("dashboard");
         break;
       case "credits":
         navigationRef.navigate("credits");
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   errorTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 22,
     lineHeight: 26,

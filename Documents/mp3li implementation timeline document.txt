@@ -1,13 +1,15 @@
 mp3li implementation timeline document
 
-Updated: May 2, 2026
+Updated: May 8, 2026
 
 How To Run (Local Backend Config - mp3li personal setup)
 - Purpose: run backend on Mac using local Docker SQL bridge without changing shared team backend config.
 - Local backend config file:
   - `backend/Capstone.API/appsettings.Local.json`
-  - `DefaultConnection` should use:
-    - `Server=localhost,1433;Database=HiddenGemMusic;User Id=sa;Password=Capstone123!;TrustServerCertificate=True;`
+  - This file is gitignored. Keep the real `DefaultConnection` only there instead of writing the actual value into this timeline document.
+- Local frontend config file:
+  - `hidden-gem-music-app/.env.local`
+  - This file is gitignored. Keep any local-only frontend connection/runtime values there instead of writing the actual value into this timeline document.
 - Start SQL bridge/container first (Docker Desktop running):
   - `docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"`
   - Confirm SQL container shows `0.0.0.0:1433->1433/tcp`
@@ -18,6 +20,111 @@ How To Run (Local Backend Config - mp3li personal setup)
   - `http://localhost:5140/api/discovery/countries?year=2020`
 - Run frontend:
   - `cd "/Users/stellar/School/Music_Capstone/hidden-gem-music-app" && npm run web`
+
+Unified Screen Ownership + Cross-Platform UI Stabilization Sweep (May 8, 2026)
+- Objective: stop the app from effectively routing phone usage through web-owned screen files, preserve the mobile-sized look the user liked, and then finish a long cross-platform UI correction pass without re-breaking web behavior.
+
+Summary outcome:
+- The app was moved back toward the normal Expo / React Native ownership pattern for screens instead of forcing most phone flows through `*.web.tsx` implementations.
+- The current mobile-sized look was preserved as the baseline during the migration rather than rebuilding mobile from scratch.
+- A large coordinated UI cleanup pass was completed across Header, Discovery, Country Detail, Comparison Mode, Comparison View, Hidden Gems, Welcome, Search, Credits, and shared nav/overlay components.
+- Web and mobile behavior are now being adjusted from the correct ownership path, with Dashboard intentionally still kept split.
+- Frontend typecheck was brought back to clean state after the sweep.
+
+Core architecture issue that had to be corrected first:
+- Problem discovered:
+  - Most phone flows were not actually using separate native/shared screen ownership.
+  - Plain screen files were forwarding directly into `.web.tsx` files, so mobile fixes were repeatedly landing in web-owned implementations.
+  - Result: mobile spacing/layout fixes kept causing web drift, and web-oriented code paths were being squeezed into phone layouts.
+- Correction performed:
+  - Removed the forced `Screen.tsx -> Screen.web.tsx` forwarding pattern across the unified screens.
+  - Moved the real active implementation into the standard `Screen.tsx` files.
+  - Deleted now-obsolete `*.web.tsx` files for the unified screens and for `GlobeView`.
+  - Kept Dashboard intentionally split because that was the one area the user explicitly said still needed separate ownership.
+- Why this mattered:
+  - Mobile and web could finally be tested from the correct file ownership path instead of “mobile rendering web by accident.”
+  - Subsequent fixes stopped being throwaway patches on the wrong layer.
+
+Major cross-platform UI corrections completed after ownership cleanup:
+- Header / navigation:
+  - Reworked the `Hidden Gem Music` wordmark positioning separately enough that mobile and web could be tuned without dragging each other around.
+  - Fixed repeated mobile title issues around clipped letters, the gem-dot `I`, word spacing, and the `H` getting visually cut off.
+  - Preserved breadcrumb behavior while correcting active nav highlighting so `Discovery Globe` still reads as active when the user is on a Country page, on both web and mobile nav systems.
+- Discovery Globe:
+  - Kept the mobile year dropdown beside the filter controls and made the mobile dropdown dismissible by clicking/tapping elsewhere.
+  - Cleaned up helper-text wrapping in the pre-selected filters area so text uses additional lines instead of running off the right side.
+  - Restored the year-change loading popup on web after it was lost during later UI changes.
+  - Updated the main blurb sentence wording and punctuation to the newer Discovery Gap explanation.
+- Country Detail + Comparison View preview parity:
+  - Reworked the Country-page hidden-gem preview so it matches the comparison-style preview structure instead of using a mismatched mobile variant.
+  - Repeatedly tuned mobile arrow placement, size, and text positioning until the preview layout matched the desired comparison-style behavior.
+  - Ensured preview sections had enough vertical room for multi-line song titles and the CD case artwork again.
+  - Kept web arrow placement stable where the user had already approved it.
+- Comparison Mode:
+  - Defaulted `Only Show Countries with Hidden Gems` on in the comparison selector flow and aligned its button treatment to the preferred comparison styling.
+  - Added tap-away dismissal for the mobile year dropdown in the comparison selector flow.
+- Hidden Gems:
+  - Repaired the major web layout regression where the page stopped scrolling and the list/CD layout was no longer in the intended side-by-side arrangement.
+  - Restored the intended web structure with list view on the left and the large CD area on the right, with the list side stretched to match better.
+  - Kept mobile-specific layout behavior separate from web so the popup no longer caused the underlying layout to change incorrectly.
+  - Matched the intro popup behavior more closely to Welcome and corrected repeated mobile placement/layering problems until it sat correctly on screen.
+  - Added click-away dropdown dismissal where needed and corrected dropdown stacking conflicts inside the popup flow.
+  - Unified the preview controls so mobile and web use the same non-emoji play/pause treatment, with darker larger play/pause glyphs and better control positioning.
+  - Improved featured-artist responsiveness and spacing so the row fills better while still using horizontal overflow when needed.
+  - Constrained the web blurb/helper text so it stops earlier and leaves room for the right-side controls instead of running into them.
+- Welcome / shared copy:
+  - Replaced the old placeholder helper text on Welcome with the actual Discovery Gap explanation and app-tour wording.
+  - Updated the wording again later to explicitly mention listening to 30-second hidden-gem previews.
+- Shared data / display cleanup:
+  - Filtered out songs titled `Unknown Song` so those do not display anywhere in the affected preview/list flows.
+  - Reverted an unwanted dashboard-specific text-color change after the user clarified that Dashboard text choices were intentional and should stay Leena-owned.
+
+Problems encountered during this sweep and how they were handled:
+- The biggest structural problem was discovering that phone testing was still effectively running web screen implementations.
+  - Fix: correct screen ownership first, then continue visual fixes on top of the right files.
+- Multiple “no change” rounds happened because some earlier patches were landing on the wrong ownership path or the wrong visual layer.
+  - Fix: inspect the active resolved files/components directly, then patch the exact live styles/logic instead of assuming the previous layer was still authoritative.
+- Some fixes for web helper-text wrapping accidentally affected mobile too.
+  - Fix: move those wrap constraints to web-only behavior instead of shared text behavior.
+- Some overlay/popup behavior disappeared after later layering work.
+  - Fix: raise the loading overlay above the discovery UI again so the web year-refresh popup is visible.
+
+Files significantly touched in this May 8 sweep:
+- Shared / app-level:
+  - `hidden-gem-music-app/App.tsx`
+  - `hidden-gem-music-app/src/components/AppHeader.tsx`
+  - `hidden-gem-music-app/src/components/MobileBottomNav.tsx`
+  - `hidden-gem-music-app/src/components/DiscoveryBlurb.tsx`
+  - `hidden-gem-music-app/src/components/DiscoverySidebarPanels.tsx`
+  - `hidden-gem-music-app/src/components/LoadingOverlay.tsx`
+  - `hidden-gem-music-app/src/components/globe/GlobePanel.tsx`
+  - `hidden-gem-music-app/src/components/globe/GlobeView.tsx`
+- Unified screens:
+  - `hidden-gem-music-app/src/screens/WelcomeScreen.tsx`
+  - `hidden-gem-music-app/src/screens/DiscoveryScreen.tsx`
+  - `hidden-gem-music-app/src/screens/CountryScreen.tsx`
+  - `hidden-gem-music-app/src/screens/ComparisonSelectScreen.tsx`
+  - `hidden-gem-music-app/src/screens/ComparisonResultsScreen.tsx`
+  - `hidden-gem-music-app/src/screens/HiddenGemsScreen.tsx`
+  - `hidden-gem-music-app/src/screens/SearchScreen.tsx`
+  - `hidden-gem-music-app/src/screens/CreditsScreen.tsx`
+- Intentionally still split:
+  - `hidden-gem-music-app/src/screens/DashboardScreen.tsx`
+  - `hidden-gem-music-app/src/screens/DashboardScreen.web.tsx`
+- Supporting type/data updates:
+  - `hidden-gem-music-app/src/data/apiMappers.ts`
+  - `hidden-gem-music-app/src/types/api.ts`
+
+Verification:
+- Frontend typecheck:
+  - `cd hidden-gem-music-app && npx tsc --noEmit` passed after the latest sweep.
+- Local run commands used during testing:
+  - Backend:
+    - `cd "/Users/stellar/School/Music_Capstone/backend/Capstone.API" && ASPNETCORE_ENVIRONMENT=Local dotnet run --no-launch-profile --urls "http://0.0.0.0:5140"`
+  - Frontend web:
+    - `cd "/Users/stellar/School/Music_Capstone/hidden-gem-music-app" && npx expo start --web -c --host lan`
+  - Frontend phone/web testing:
+    - `cd "/Users/stellar/School/Music_Capstone/hidden-gem-music-app" && npx expo start -c --host lan`
 
 Leena Review Bundle Closure + Continued Runtime Stabilization + UI Changes (May 2, 2026)
 - Objective: fully close Leena review items across Discovery, Country Detail, Comparison Mode, and Hidden Gems while preserving currently working behavior and avoiding regressions.

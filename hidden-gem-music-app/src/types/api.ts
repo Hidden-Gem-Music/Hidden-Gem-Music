@@ -54,15 +54,32 @@ export type ApiHiddenGemResponse = {
   items: ApiHiddenGem[];
   page: number;
   pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
+};
+
+export type ApiCountryHiddenGemPreview = {
+  songName: string | null;
+  artistName: string | null;
 };
 
 export type ApiCountryGlobeSummary = {
   countryCode: string | null;
   countryName: string | null;
+  region: string | null;
   lat: number;
   long: number;
   hiddenGemCount: number;
   topAlbumName: string | null;
+  topArtistName: string | null;
+};
+
+export type ApiCountrySongsPage = {
+  items: ApiSong[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
 };
 
 export type ApiOverlapRate = {
