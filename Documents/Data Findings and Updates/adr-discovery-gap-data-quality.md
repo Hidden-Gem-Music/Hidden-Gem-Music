@@ -185,7 +185,7 @@ No SP changes were made. The fix is transparency in the UI:
 ### What the problem was
 
 Dataset 1 contains two fundamentally different chart types mixed together in 
-`FACT_ChartEntry`:
+`ChartEntry`:
 
 - **Top 200** — demand-driven. A song earns its rank by accumulating streams. Reflects 
   sustained listener adoption.
