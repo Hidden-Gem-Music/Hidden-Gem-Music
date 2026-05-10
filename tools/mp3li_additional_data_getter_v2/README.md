@@ -1,6 +1,6 @@
 # mp3li's Additional Data Getter v2
 
-This is a fully separate tool from `tools/song_data_enrichment`.
+This is a fully separate tool from `tools/song_data_enrichment`, which is now the original `mp3li's Additional Data Getter v1`.
 
 ## What it does
 

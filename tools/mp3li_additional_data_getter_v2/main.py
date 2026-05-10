@@ -505,6 +505,7 @@ def run_genius_web_lookup(
 
     session = _get_genius_web_session()
     attempt_trail: List[str] = list(attempted_labels)
+    last_deterministic_reason = "Genius URL returned HTTP 404"
 
     for idx, candidate in enumerate(candidates):
         attempt_label = str(candidate.get("attempt_label", f"slug_build_{idx + 1}"))
@@ -530,7 +531,11 @@ def run_genius_web_lookup(
                 "row": row,
                 "got_endpoints": 2,
             }
-        if reason != "Genius URL returned HTTP 404":
+        last_deterministic_reason = reason
+        if reason not in {
+            "Genius URL returned HTTP 404",
+            "Constructed Genius URL page text did not match song+artist",
+        }:
             row = dict(candidate)
             row.update(
                 {
@@ -551,7 +556,7 @@ def run_genius_web_lookup(
         {
             "attempt_trail": list(attempt_trail),
             "skipped": True,
-            "skip_reason": "Genius URL returned HTTP 404",
+            "skip_reason": last_deterministic_reason,
             "lyrics_url": "",
             "updated_at": now_iso(),
         }

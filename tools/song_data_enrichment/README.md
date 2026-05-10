@@ -1,4 +1,12 @@
-# Song Data Enrichment (Deezer + Genius)
+# mp3li's Additional Data Getter v1 (Deezer + Genius)
+
+This is the original additional-data getter tool.
+
+Tool folder path remains:
+
+`tools/song_data_enrichment`
+
+so the newer `v2` tool and any existing repo wiring do not break.
 
 This tool enriches `song_title + artist_name` rows and outputs identical dataset content as:
 - `enriched_songs.csv`

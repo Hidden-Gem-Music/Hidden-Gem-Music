@@ -92,6 +92,24 @@ def _first_artist_for_fallback(value: str) -> str:
     return parts[0].strip()
 
 
+def _all_artists_slug_fallback(value: str) -> str:
+    value = (value or "").strip()
+    if not value:
+        return ""
+    parts = [
+        part.strip()
+        for part in re.split(r"\s*(?:,|&|/| x | X | feat\.? | ft\.? | featuring )\s*", value, flags=re.IGNORECASE)
+        if part.strip()
+    ]
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0]
+    if len(parts) == 2:
+        return f"{parts[0]} and {parts[1]}"
+    return " ".join(parts[:-1]) + " and " + parts[-1]
+
+
 def build_genius_web_candidates(song_name: str, artist_name: str) -> List[Dict[str, Any]]:
     candidates: List[Dict[str, Any]] = []
     seen_urls: set[str] = set()
@@ -142,10 +160,25 @@ def build_genius_web_candidates(song_name: str, artist_name: str) -> List[Dict[s
 
     cleaned_song_name = _clean_song_title_for_fallback(song_name)
     fallback_artist_name = _first_artist_for_fallback(artist_name)
+    full_artist_slug_fallback = _all_artists_slug_fallback(artist_name)
 
     add_candidate(song_name, artist_name, "constructed_slug", "slug_build_full")
+    if full_artist_slug_fallback and full_artist_slug_fallback != artist_name:
+        add_candidate(
+            song_name,
+            full_artist_slug_fallback,
+            "constructed_slug_all_artists",
+            "slug_build_full_all_artists",
+        )
     if cleaned_song_name and cleaned_song_name != song_name:
         add_candidate(cleaned_song_name, artist_name, "constructed_slug_clean_title", "slug_build_clean_title")
+        if full_artist_slug_fallback and full_artist_slug_fallback != artist_name:
+            add_candidate(
+                cleaned_song_name,
+                full_artist_slug_fallback,
+                "constructed_slug_clean_title_all_artists",
+                "slug_build_clean_title_all_artists",
+            )
     if fallback_artist_name and fallback_artist_name != artist_name:
         add_candidate(
             cleaned_song_name or song_name,

@@ -2,6 +2,132 @@ mp3li implementation timeline document
 
 Updated: May 9, 2026
 
+Genius Web Matching Upgrade Pass + Confirmed Real-World URL Patterns + v1/v2 Tool Naming Cleanup (May 9, 2026)
+- Objective:
+  - Use real skipped-song examples and real manually verified Genius URLs to tighten the `Genius Web Scraping` path further.
+  - Make `Smart Catch-Up` meaningfully revisit older skipped rows from the beginning when new URL-attempt logic is added.
+  - Clean up the tool naming in the repo so the original enrichment tool is clearly `v1` and the isolated newer tool is clearly `v2`.
+
+Why this follow-up pass happened:
+- After getting `v2` running much faster and more stably, I started spot-checking skipped songs manually in Google/Genius to see whether the remaining misses were just “Genius truly does not have this song” or whether my URL-construction logic still needed improvement.
+- That manual checking immediately exposed additional concrete Genius URL patterns that the current fallback logic still was not handling well enough.
+- So instead of leaving those as vague suspicions, I used the manually verified examples to improve the matching rules directly.
+
+Important manual URL confirmations from real skipped songs:
+- Confirmed `feat.` stripping pattern:
+  - Real Genius URL found manually:
+    - `https://genius.com/Bob-airplanes-lyrics`
+  - The skipped row that motivated this confirmation was a case where the song’s displayed title still included featured-artist metadata.
+  - This confirmed that for Genius URL construction, featured metadata should often be removed completely from the title rather than preserved in the slug.
+- Confirmed clean-title pattern:
+  - Real Genius URL found manually:
+    - `https://genius.com/Gemitaiz-alaska-lyrics`
+  - Skipped row:
+    - `Alaska (feat. Priestess)` by `Gemitaiz`
+  - This confirmed that the useful Genius URL was the clean main title only, not the longer title including `(feat. Priestess)`.
+- Confirmed full multi-artist “and” pattern:
+  - Real Genius URL found manually:
+    - `https://genius.com/Lookas-and-krewella-alarm-lyrics`
+  - Skipped row:
+    - `Alarm` by `Lookas, Krewella`
+  - This confirmed that some collaboration rows need a full-artist slug where the artists are joined with `and`, not just comma-flattened into a simple hyphen chain and not always reduced to the first artist alone.
+
+What I realized from those confirmations:
+- The previous fallback logic had improved a lot already, but it still had two important problems:
+  1. It could stop too early on a page-text mismatch.
+  2. It still did not explicitly try a full multi-artist slug joined with `and` for rows that list multiple artists.
+- That meant some rows were getting marked skipped even though the correct Genius URL shape was still within reach.
+
+Specific matching logic changes made in this pass:
+- Page-text mismatch no longer stops the fallback chain immediately:
+  - Previously, a result like:
+    - `Constructed Genius URL page text did not match song+artist`
+  - could short-circuit later fallback attempts.
+  - That was a problem because a wrong first guess should not automatically prevent trying a better clean-title or artist-variant guess.
+  - I changed the logic so deterministic mismatch now behaves more like a recoverable candidate failure rather than an immediate end-state for the whole row.
+- More aggressive `feat.` cleanup now matters even more:
+  - The clean-title path already removed featured metadata, but the manually confirmed examples strengthened the case that this is not just a “nice maybe” fallback.
+  - It is a real recurring Genius URL pattern.
+- Full multi-artist slug fallback was added:
+  - Rows like:
+    - `Lookas, Krewella`
+  - can now produce a fallback candidate more like:
+    - `lookas-and-krewella`
+  - instead of only:
+    - flattened comma forms
+    - or first-artist-only forms
+- Existing punctuation strategy expansion remained in place:
+  - the tool still keeps both:
+    - old punctuation-stripping behavior
+    - and newer punctuation-as-separator behavior
+  - so titles like `Heal'lang` can still try both:
+    - `heallang`
+    - and `heal-lang`
+
+Why these changes matter to Smart Catch-Up:
+- Once I added new candidate labels and new slug patterns, the old skipped rows could no longer be treated as “fully exhausted” in the same way as before.
+- A row that had previously consumed the older attempt set might still have brand-new valid attempts available under the expanded logic.
+- Because `Smart Catch-Up` classifies rows by:
+  - existing `lyrics_url`
+  - prior `attempt_trail`
+  - and currently available candidate labels
+- adding new attempt labels means older skipped rows now naturally show up as still having remaining useful work left.
+- In practical terms:
+  - this means `Smart Catch-Up` should be restarted and allowed to scan from the beginning again,
+  - not because the whole system forgot progress,
+  - but because the matching vocabulary itself became richer and older skips need to be reevaluated against the new attempt set.
+
+How I verified the new candidate behavior on the concrete examples:
+- For `Alaska (feat. Priestess)` by `Gemitaiz`, the candidate builder now includes:
+  - full original title form
+  - clean-title form:
+    - `https://genius.com/gemitaiz-alaska-lyrics`
+- For `Alarm` by `Lookas, Krewella`, the candidate builder now includes:
+  - simple flattened collaboration form
+  - full all-artists `and` form:
+    - `https://genius.com/lookas-and-krewella-alarm-lyrics`
+  - and first-artist fallback form
+- This made the candidate set line up better with the manually verified real Genius URLs.
+
+Original tool naming cleanup completed in the same pass:
+- I also wanted the repo naming to reflect what the tools actually are now.
+- The older enrichment tool under:
+  - `tools/song_data_enrichment/`
+  - is now described as:
+    - `mp3li's Additional Data Getter v1`
+- The newer isolated tool under:
+  - `tools/mp3li_additional_data_getter_v2/`
+  - remains:
+    - `mp3li's Additional Data Getter v2`
+- I deliberately did not rename the original folder path itself because:
+  - `v2` still references the older tool/folder in docs and related repo wiring,
+  - and the visible naming cleanup was enough to make the distinction clear without breaking paths.
+
+What was updated to reflect the v1 naming:
+- `tools/song_data_enrichment/README.md`
+  - now presents the original tool as `mp3li's Additional Data Getter v1`
+- `tools/song_data_enrichment/enrich_songs.py`
+  - CLI help text now presents the original tool as `v1`
+- `tools/song_data_enrichment/run_enrichment_chunks.py`
+  - CLI help text now presents the original tool as `v1`
+- `tools/mp3li_additional_data_getter_v2/README.md`
+  - now explicitly states that the older `tools/song_data_enrichment` tool is the original `v1`
+
+Why this naming cleanup mattered:
+- At this point there are now clearly two related but different tools:
+  - `v1` = original enrichment workflow under `tools/song_data_enrichment`
+  - `v2` = isolated later tool with source-specific runtime paths and more advanced Genius Web tuning
+- Leaving only one of them named as `v2` while the older one had no matching visible version label was getting confusing.
+- The visible `v1` naming makes timeline/handoff/tool discussions cleaner without needing to refactor folder paths.
+
+Net effect of this pass:
+- The Genius Web path now has a better chance to resolve:
+  - clean-title songs,
+  - collaboration songs that need `and` in the artist slug,
+  - and rows where the first candidate mismatches but later fallbacks are still worth trying.
+- `Smart Catch-Up` is now more meaningfully able to revisit older skipped rows from the beginning because those rows may have brand-new candidate attempts available under the upgraded logic.
+- The repo’s original-vs-newer enrichment tooling story is also much clearer because the old tool is now visibly `v1`.
+
 Genius Web Data Getter v2 Recovery + Smart Catch-Up + Long-Run Throughput Tuning (May 9, 2026)
 - Objective:
   - Pause the in-app additional-data implementation work briefly so I could make sure the `Genius Web Scraping` path inside `mp3li's Additional Data Getter v2` was actually stable, resumable, and fast enough to run continuously for the next couple of days while I work on other parts of the project.

@@ -243,7 +243,7 @@ def run_chunk(
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Run enrichment in checkpointed chunks")
+    p = argparse.ArgumentParser(description="Run mp3li's Additional Data Getter v1 in checkpointed chunks")
     p.add_argument(
         "--input",
         default="auto",

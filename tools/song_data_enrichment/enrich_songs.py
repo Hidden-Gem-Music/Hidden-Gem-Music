@@ -683,7 +683,9 @@ def merge_rows(existing: List[Dict[str, Any]], incoming: List[Dict[str, Any]]) -
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Enrich song+artist pairs using Deezer and Genius")
+    parser = argparse.ArgumentParser(
+        description="mp3li's Additional Data Getter v1: enrich song+artist pairs using Deezer and Genius"
+    )
     parser.add_argument(
         "--input",
         default="auto",
