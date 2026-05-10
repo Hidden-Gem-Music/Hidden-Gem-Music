@@ -31,6 +31,10 @@ except Exception:  # pragma: no cover
 
 DEEZER_BASE = "https://api.deezer.com"
 GENIUS_BASE = "https://api.genius.com"
+DEFAULT_INPUT_CANDIDATES = [
+    "tools/song_data_enrichment/no_dupes_input_songs.csv",
+    "tools/song_data_enrichment/input_songs.csv",
+]
 
 # Intentionally stricter than the documented Deezer limit.
 DEEZER_MAX_REQUESTS = 50
@@ -113,6 +117,18 @@ def check_secrets(require_genius: bool = True) -> Tuple[bool, List[str]]:
         messages.append("Optional Deezer app credentials are present.")
 
     return (len(missing_required) == 0, messages)
+
+
+def resolve_input_path(requested_path: str) -> Path:
+    if requested_path != "auto":
+        return Path(requested_path)
+
+    for candidate in DEFAULT_INPUT_CANDIDATES:
+        path = Path(candidate)
+        if path.exists():
+            return path
+
+    return Path(DEFAULT_INPUT_CANDIDATES[0])
 
 
 def normalize_text(value: str) -> str:
@@ -668,7 +684,11 @@ def merge_rows(existing: List[Dict[str, Any]], incoming: List[Dict[str, Any]]) -
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Enrich song+artist pairs using Deezer and Genius")
-    parser.add_argument("--input", default="tools/song_data_enrichment/input_songs.csv", help="Input CSV path")
+    parser.add_argument(
+        "--input",
+        default="auto",
+        help="Input CSV path. Default prefers no_dupes_input_songs.csv, then falls back to input_songs.csv.",
+    )
     parser.add_argument("--output-dir", default="tools/song_data_enrichment/output", help="Output directory")
     parser.add_argument("--env-file", default=".env.local", help="Path to env file")
     parser.add_argument("--check-secrets", action="store_true", help="Validate required secrets and exit")
@@ -719,7 +739,7 @@ def main() -> int:
         print("python3 -m pip install -r tools/song_data_enrichment/requirements.txt")
         return 2
 
-    input_path = Path(args.input)
+    input_path = resolve_input_path(args.input)
     if not input_path.exists():
         print(f"Input CSV not found: {input_path}")
         print("Create it from SSMS export and place it at the path above, or pass --input.")

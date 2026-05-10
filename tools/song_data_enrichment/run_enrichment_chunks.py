@@ -15,6 +15,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
+DEFAULT_INPUT_CANDIDATES = [
+    "tools/song_data_enrichment/no_dupes_input_songs.csv",
+    "tools/song_data_enrichment/input_songs.csv",
+]
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -47,6 +52,18 @@ def count_input_dedup_rows(path: Path) -> int:
             key = (c1.strip().lower(), c2.strip().lower())
             seen.add(key)
     return len(seen)
+
+
+def resolve_input_path(repo_root: Path, requested_path: str) -> Path:
+    if requested_path != "auto":
+        return repo_root / requested_path
+
+    for candidate in DEFAULT_INPUT_CANDIDATES:
+        path = repo_root / candidate
+        if path.exists():
+            return path
+
+    return repo_root / DEFAULT_INPUT_CANDIDATES[0]
 
 
 def append_jsonl(path: Path, event: Dict) -> None:
@@ -227,7 +244,11 @@ def run_chunk(
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Run enrichment in checkpointed chunks")
-    p.add_argument("--input", default="tools/song_data_enrichment/input_songs.csv")
+    p.add_argument(
+        "--input",
+        default="auto",
+        help="Input CSV path. Default prefers no_dupes_input_songs.csv, then falls back to input_songs.csv.",
+    )
     p.add_argument("--output-dir", default="tools/song_data_enrichment/output")
     p.add_argument("--chunk-size", type=int, default=500)
     p.add_argument("--start-offset", type=int, default=0)
@@ -261,7 +282,7 @@ def ensure_outputs_exist(output_dir: Path) -> None:
 def main() -> int:
     args = parse_args()
     repo_root = Path.cwd()
-    input_path = repo_root / args.input
+    input_path = resolve_input_path(repo_root, args.input)
     output_dir = repo_root / args.output_dir
     checkpoint_path = repo_root / args.checkpoint_log
     csv_out = output_dir / "enriched_songs.csv"

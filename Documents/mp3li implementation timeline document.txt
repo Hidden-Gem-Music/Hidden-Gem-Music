@@ -2,6 +2,251 @@ mp3li implementation timeline document
 
 Updated: May 9, 2026
 
+Genius Web Data Getter v2 Recovery + Smart Catch-Up + Long-Run Throughput Tuning (May 9, 2026)
+- Objective:
+  - Pause the in-app additional-data implementation work briefly so I could make sure the `Genius Web Scraping` path inside `mp3li's Additional Data Getter v2` was actually stable, resumable, and fast enough to run continuously for the next couple of days while I work on other parts of the project.
+  - Recover the real previous Genius Web runtime state/output instead of accidentally starting that long run over from scratch.
+  - Rework the `v2` Genius Web path so it uses the new no-duplicates song list only, resumes correctly from real prior progress, avoids wasting time re-trying already-solved songs, and improves throughput enough to be worth leaving running in the background.
+
+Why I paused the main additional-data implementation work to do this:
+- I am in the middle of fine-tuning the live additional-data implementation path across the app/backend flow, especially around the Deezer-backed user-facing enrichment behavior.
+- At the same time, I still want the separate Genius route to keep progressing in parallel because:
+  - Genius is still my main realistic route for lyrics URL discovery,
+  - it remains the future path most likely to help with lyrics-based language handling later,
+  - and it is long-running enough that it makes sense to let it grind in the background for days while I keep doing other project work.
+- So this was not a “switch projects” moment.
+- It was a deliberate support pass to make the background `v2` Genius path trustworthy enough to leave running continuously while the main app/backend implementation work continues.
+
+What I discovered first:
+- The current branch did not contain the older isolated `v2` tool folder anymore, even though I had previously built and used it.
+- The branch also did not currently contain my old Genius Web runtime state/output folders in the working tree.
+- That initially made it look like the old long Genius Web run might be gone or unrecoverable.
+
+How I recovered the tool and prior progress:
+- I brought `tools/mp3li_additional_data_getter_v2/` back into the current branch from the earlier Issue 107 line of work.
+- I then searched locally for the missing Genius Web runtime state/output folders because I knew I had run that path for a very long time already.
+- The missing runtime folders were found in Trash, not lost:
+  - `/Users/stellar/.Trash/tools/mp3li_additional_data_getter_v2/state_genius_web`
+  - `/Users/stellar/.Trash/tools/mp3li_additional_data_getter_v2/output_genius_web`
+- I verified that those old Genius Web runtime folders contained:
+  - `run_state.json`
+  - `rows_cache.json`
+  - `enriched_songs.csv`
+  - `enriched_songs.json`
+- I restored those folders back into the current repo under:
+  - `tools/mp3li_additional_data_getter_v2/state_genius_web/`
+  - `tools/mp3li_additional_data_getter_v2/output_genius_web/`
+
+What that restored Genius Web run looked like:
+- The recovered Genius Web state showed:
+  - `next_index = 82049`
+  - `last_completed_index = 82048`
+  - `source = genius_web`
+  - `mode = resume`
+- I also checked the restored outputs/state for duplicate `song_name + artist_name` rows.
+- The restored Genius Web state/output files did not contain duplicate song+artist rows.
+
+No-duplicates input migration work:
+- Around the same time, I had already changed the song list workflow so the authoritative input is now:
+  - `tools/song_data_enrichment/no_dupes_input_songs.csv`
+- I explicitly did not want `v2` to silently fall back to the old:
+  - `tools/song_data_enrichment/input_songs.csv`
+- I also did not want `v2` doing another defensive dedupe pass after loading, because the whole point of the new file is that the input is already deduped.
+- So I changed `v2` to:
+  - use `no_dupes_input_songs.csv` only,
+  - reject the old input path instead of falling back,
+  - and trust the deduped file as the single authoritative input source.
+
+Resume-path fixes made so the new no-dupes list would not break continuity:
+- I updated the `v2` resume behavior so it no longer trusts only a raw index.
+- Instead, it compares the no-dupes list against:
+  - `rows_cache.json`
+  - and `skipped_songs` in `run_state.json`
+- This matters because the deduped input file changed the raw row set, so a simple “resume at old CSV line number” approach would be too fragile.
+- The revised behavior now resumes based on actual processed `song_name + artist_name` keys rather than pretending the old index alone is always enough.
+
+Additional recovery/safety behavior added to `v2`:
+- I also taught the `v2` runtime to recover resume state from real existing output files if needed.
+- If `rows_cache.json` is missing, it can now reconstruct runtime knowledge from:
+  - `output_genius_web/enriched_songs.json`
+  - or `output_genius_web/enriched_songs.csv`
+- This was added so future recovery is less brittle if one runtime file disappears but the exported outputs still exist.
+
+What I confirmed about the old Genius URLs from the older enrichment tool:
+- I explicitly re-checked whether the old Genius URLs from the earlier enrichment workflow could be trusted as guidance.
+- They could not.
+- They were not simply “imperfect but useful.”
+- They were wrong enough that I stopped treating them as examples for correct URL construction.
+- That meant the correct path was:
+  - trust only the new Genius Web validation logic,
+  - not the older enrichment tool’s historical lyrics URLs.
+
+First round of Genius Web `v2` improvements:
+- I made the Genius Web path prefer the deduped input and restored runtime state cleanly.
+- I then added true concurrent Genius Web processing instead of one-at-a-time serial processing.
+- The initial parallel version:
+  - used `3` concurrent song workers,
+  - kept one shared limiter across them,
+  - and displayed one active terminal line per worker under the divider line.
+- This changed the terminal view from a single live song line to a multi-line live worker display so I could actually see multiple concurrent Genius Web lookups happening.
+
+Why that first parallel version still was not fast enough:
+- Even after increasing concurrency and later even after disabling the explicit Genius Web limiter, the actual observed throughput still stayed too slow at first.
+- That told me the limiter was not the real bottleneck anymore.
+- The stronger clue came from an interrupted run:
+  - I stopped the program with `^C`,
+  - and the stack trace showed the tool was inside `write_outputs(...)`,
+  - specifically rewriting the large JSON export file.
+- That made it clear the main thread was spending too much time repeatedly rewriting:
+  - `run_state.json`
+  - `rows_cache.json`
+  - `enriched_songs.csv`
+  - `enriched_songs.json`
+  - `enriched_songs.txt`
+- In other words, the real slowdown had become file-writing churn rather than request throttling.
+
+Genius Web fallback-matching improvements added before more speed tuning:
+- Before pushing the speed further, I also improved the actual Genius URL-attempt logic so more real songs had a chance to resolve.
+- The original approach effectively started from a single direct constructed slug.
+- I expanded that into a safer fallback ladder that still keeps strong validation:
+  1. current full constructed slug
+  2. clean-title fallback
+  3. clean-title + first-artist fallback
+- “Clean title” here means fallback-only removal of extra metadata like:
+  - `(feat. ...)`
+  - `(Live)`
+  - bracketed metadata
+  - and trailing ` - Remix` / ` - From ...` style suffixes
+- “First artist” here means:
+  - if a row lists many artists/collaborators,
+  - the fallback can try the main artist alone instead of the full long artist string
+- Important rule preserved:
+  - a URL is still accepted only if the fetched Genius page text matches the intended song/artist after normalization.
+- So this increased the number of URL candidates without weakening correctness checks.
+
+Punctuation/apostrophe slug handling improvements:
+- While live-testing, I noticed a case like:
+  - `Heal'lang"(folang)`
+- At that moment, the slug builder was stripping apostrophes out completely, which produced forms more like:
+  - `heallang`
+- I did not want to lose the old behavior entirely, because some existing hits may still depend on it.
+- But I also wanted the tool to be able to try:
+  - `heal-lang`
+- So I expanded the candidate builder again:
+  - it now tries both punctuation strategies
+  - old style: strip quote-like punctuation out
+  - new style: allow punctuation to contribute separators/hyphens
+- Example result after that change:
+  - `slug_build_full` -> `...heallang-folang...`
+  - `slug_build_full_punctuation_separator` -> `...heal-lang-folang...`
+  - plus the corresponding clean-title variants
+- This preserved existing behavior while expanding the slug search space for punctuation-heavy titles.
+
+Smart Catch-Up mode added for Genius Web only:
+- I then realized the old `retry skipped` behavior was too blunt.
+- Once the tool had already failed a full deterministic attempt set, it was wasteful to keep retrying those same rows forever.
+- Also, once the tool already had a real `lyrics_url` for a song, it should not waste time reprocessing that row.
+- So I added a new Genius Web-only mode:
+  - `Smart Catch-Up`
+- What this mode does:
+  - skips rows that already have a stored Genius `lyrics_url`
+  - revisits skipped rows only if they still have untried fallback attempts left
+  - avoids rerunning the already-failed first slug if that exact deterministic attempt has already been consumed
+  - automatically continues into normal forward progress for never-before-tried songs once the “useful skipped backlog” has been handled
+  - treats rows as fully exhausted once all deterministic Genius Web attempts have already failed cleanly
+  - still leaves room to retry transient/infrastructure-style failures later
+- This was important because it made the background Genius Web run much more intelligent:
+  - it stopped wasting time on already-solved rows,
+  - stopped repeatedly hammering fully exhausted deterministic misses,
+  - and still kept moving the run forward.
+
+Aggressive throughput tuning work:
+- After the logic-side improvements, I pushed the throughput more aggressively because the whole point was to leave this background process running while I do other work.
+- I increased the worker count in stages:
+  - first `3`
+  - then `5`
+  - then `10`
+- I matched the shared request cap upward while those limiters were still active.
+- Then, because the real bottleneck still did not appear to be pure request throttling anymore, I disabled the explicit Genius Web limiter entirely for that path.
+- At that point the tool still was not hitting the throughput I wanted.
+- That reinforced the conclusion that the repeated file rewrites were the real slowdown.
+
+Batch-write redesign for the Genius Web path:
+- To address that, I changed the Genius Web path so it no longer writes full runtime/output files after every completed song.
+- Instead, the Genius Web path now batches writes every `10` processed rows.
+- Specifically, it now buffers and flushes in chunks of `10` for:
+  - `run_state.json`
+  - `rows_cache.json`
+  - `enriched_songs.csv`
+  - `enriched_songs.json`
+  - `enriched_songs.txt`
+- Leftover buffered work still flushes at chunk end.
+- Forced-stop / backoff paths still do an immediate forced flush.
+- Tradeoff accepted on purpose:
+  - if the process is interrupted between flushes, up to `9` newest Genius Web completions can be lost from disk
+  - but the repeated per-song write stall is much lower
+- This was a deliberate throughput tradeoff because the whole point of this pass was to make the background run actually practical over long unattended periods.
+
+Live run observations after the bigger throughput changes:
+- After those changes, I sampled the live Genius Web checkpoint while the process was running.
+- The live process was confirmed running in `smart_catch_up` mode.
+- Over a roughly `12` second checkpoint sample, the live state advanced by:
+  - `79` rows
+- That works out to about:
+  - `6.6 rows/second`
+- Important interpretation:
+  - that is a checkpoint-based row throughput estimate, not a perfect per-request stopwatch
+  - and some rows can consume multiple fallback URL attempts
+- But it did show that the run was no longer stuck in the old “one every 3 seconds” feeling once the concurrency + write-batching changes were all in place.
+
+What the live error mix looked like after these changes:
+- During the faster live run, the observed skip reasons were still mostly normal deterministic ones:
+  - `Genius URL returned HTTP 404`
+  - `Constructed Genius URL page text did not match song+artist`
+- The log was also still producing successful matches interleaved with those skips.
+- I was not seeing obvious high-speed failure signals like:
+  - `429`
+  - `502`
+  - disconnect errors
+  - timeout clusters
+- So at the time of this pass, the run looked aggressive but not obviously unstable.
+
+Why this matters to the broader additional-data implementation work:
+- The main app/backend implementation work is still centered on getting the required additional data wired into the real project flow, especially through the current live Deezer route.
+- But now the separate Genius Web route is in a much better background-running state:
+  - restored from real prior progress
+  - aligned to the no-dupes input
+  - more intelligent about resume/catch-up behavior
+  - more capable on punctuation-heavy titles
+  - less wasteful on already-solved / already-exhausted rows
+  - and much less bottlenecked by constant output rewrites
+- This means I can leave that Genius Web path running for the next couple of days while I keep working on other project tasks and while sleeping, instead of babysitting a fragile or inefficient long-run process.
+
+Most important commands/workflow states from this pass:
+- Main interactive run command remains:
+  - `python3 tools/mp3li_additional_data_getter_v2/main.py`
+- Genius Web + Smart Catch-Up direct mode:
+  - `python3 tools/mp3li_additional_data_getter_v2/main.py --source genius_web --mode smart_catch_up`
+- Current Genius Web mode availability now includes:
+  - `Start from Beginning`
+  - `Resume at Next Song`
+  - `Fill Missing Fields Only`
+  - `Retry Skipped Songs Only`
+  - `Smart Catch-Up (Genius Web Only)`
+
+What I intentionally did not change in this pass:
+- I did not change the main app/backend additional-data architecture because this pass was focused on the background `v2` Genius path.
+- I did not start using the old broken Genius URLs from the earlier enrichment tool as truth.
+- I did not reintroduce fallback to the old non-deduped input file.
+- I did not remove the page-text validation guardrails just to get superficially more “matches.”
+- I did not convert the Genius path into a “trust any plausible URL” workflow.
+
+Verification completed during this pass:
+- I repeatedly re-ran syntax/load verification after the major tool changes above:
+  - `python3 -m py_compile tools/mp3li_additional_data_getter_v2/main.py tools/mp3li_additional_data_getter_v2/genius_client.py`
+  - `python3 tools/mp3li_additional_data_getter_v2/main.py --help`
+- I also sanity-checked the live run by sampling the runtime checkpoint while it was actually running.
+
 Additional API Endpoint Documentation Completion + Continued Live-Enrichment UI Stabilization + Where I Left Off (May 9, 2026)
 - Objective:
   - Finish documenting the external API/provider route for additional song metadata in a durable repo folder instead of leaving the knowledge scattered across tool code, backend code, and local memory.

@@ -57,6 +57,13 @@ Generated\ Files/
 # Local live song enrichment cache
 backend/Capstone.API/live_song_enrichment_cache/
 
+# Local additional-data getter runtime/output artifacts
+tools/mp3li_additional_data_getter_v2/output*/
+tools/mp3li_additional_data_getter_v2/state*/
+
+# Local enrichment working song lists
+tools/song_data_enrichment/no_dupes_input_songs.csv
+
 # MSTest test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
