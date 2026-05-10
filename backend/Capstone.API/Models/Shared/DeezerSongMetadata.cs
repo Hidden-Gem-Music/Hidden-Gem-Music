@@ -23,5 +23,6 @@ namespace Capstone.API.Models.Shared
         public string? RecordType { get; set; }
         public List<string> Contributors { get; set; } = new();
         public int? ArtistAlbumCount { get; set; }
+        public List<string> Tracklist { get; set; } = new();
     }
 }

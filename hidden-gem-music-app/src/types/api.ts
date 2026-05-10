@@ -17,6 +17,7 @@ export type ApiSong = {
   recordType?: string | null;
   contributors?: string[] | null;
   artistAlbumCount?: number | null;
+  tracklist?: string[] | null;
 };
 
 export type ApiSharedSong = {
@@ -69,7 +70,22 @@ export type ApiHiddenGem = {
   albumName: string | null;
   artistName: string | null;
   genre: string | null;
-  previewUrl: string | null;
+  deezerTrackId?: number | null;
+  deezerAlbumId?: number | null;
+  deezerArtistId?: number | null;
+  artistImageUrl?: string | null;
+  albumArtUrl?: string | null;
+  genres?: string[] | null;
+  previewUrl?: string | null;
+  previewExpiresAtUtc?: string | null;
+  explicitLyrics?: boolean | null;
+  explicitContentCover?: boolean | null;
+  albumExplicitLyrics?: boolean | null;
+  releaseDate?: string | null;
+  recordType?: string | null;
+  contributors?: string[] | null;
+  artistAlbumCount?: number | null;
+  tracklist?: string[] | null;
   trendScore: number;
   countriesChartingCount: number;
 };
@@ -95,6 +111,7 @@ export type ApiCountryHiddenGemPreview = {
   recordType?: string | null;
   contributors?: string[] | null;
   artistAlbumCount?: number | null;
+  tracklist?: string[] | null;
 };
 
 export type ApiHiddenGemResponse = {

@@ -17,6 +17,7 @@ import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 export type Props = {
+  isActive?: boolean;
   countries: Country[];
   allYearsCountries?: Country[];
   selectedCountryId: string;
@@ -165,6 +166,7 @@ function DiscoveryYearDropdown({
 }
 
 export function DiscoveryScreen({
+  isActive = true,
   countries,
   allYearsCountries,
   selectedCountryId,
@@ -271,6 +273,10 @@ export function DiscoveryScreen({
 
   const ensureCountryGenreSamples = useCallback(
     (countryCodes: string[]) => {
+      if (!isActive) {
+        return;
+      }
+
       const nextCodes = Array.from(
         new Set(
           countryCodes
@@ -298,6 +304,10 @@ export function DiscoveryScreen({
 
       loadCountryGenreSamples(nextCodes, selectedYear, controller.signal)
         .then((payload) => {
+          if (controller.signal.aborted || !isActive) {
+            return;
+          }
+
           setGenreSummaryByCountryCode((current) => {
             const next = { ...current };
             payload.forEach((item) => {
@@ -314,6 +324,11 @@ export function DiscoveryScreen({
           console.warn(`Failed loading discovery genre samples for ${selectedYear}.`, error);
         })
         .finally(() => {
+          if (controller.signal.aborted || !isActive) {
+            genreRequestControllersRef.current = genreRequestControllersRef.current.filter((entry) => entry !== controller);
+            return;
+          }
+
           setGenreLoadingByCountryCode((current) => {
             const next = { ...current };
             nextCodes.forEach((code) => {
@@ -324,7 +339,7 @@ export function DiscoveryScreen({
           genreRequestControllersRef.current = genreRequestControllersRef.current.filter((entry) => entry !== controller);
         });
     },
-    [selectedYear]
+    [isActive, selectedYear]
   );
 
   useEffect(() => {
@@ -337,6 +352,16 @@ export function DiscoveryScreen({
   }, [selectedYear]);
 
   useEffect(() => {
+    if (isActive) {
+      return;
+    }
+
+    genreRequestControllersRef.current.forEach((controller) => controller.abort());
+    genreRequestControllersRef.current = [];
+    setGenreLoadingByCountryCode({});
+  }, [isActive]);
+
+  useEffect(() => {
     return () => {
       genreRequestControllersRef.current.forEach((controller) => controller.abort());
       genreRequestControllersRef.current = [];
@@ -344,10 +369,14 @@ export function DiscoveryScreen({
   }, []);
 
   useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
     const starterCodes = filteredCountries.slice(0, genrePrefetchCount).map((country) => country.code);
     const selectedCountryCode = filteredCountries.find((country) => country.id === visibleSelectedCountryId)?.code;
     ensureCountryGenreSamples(selectedCountryCode ? [...starterCodes, selectedCountryCode] : starterCodes);
-  }, [ensureCountryGenreSamples, filteredCountries, genrePrefetchCount, visibleSelectedCountryId]);
+  }, [ensureCountryGenreSamples, filteredCountries, genrePrefetchCount, isActive, visibleSelectedCountryId]);
 
   const handleGlobeFocus = (countryId: string) => {
     onSelectCountry(countryId);

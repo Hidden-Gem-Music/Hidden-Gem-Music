@@ -196,7 +196,7 @@ namespace Capstone.API.Infrastructure.Repositories
             var resolved = snapshot.Where(entry => !entry.IsUnresolved).ToList();
             var csvLines = new List<string>
             {
-                "song_name,album_name,artist_name,deezer_track_id,deezer_album_id,deezer_artist_id,artist_image_url,album_art_url,genres,preview_url,preview_expires_at,explicit_lyrics,explicit_content_cover,album_explicit_lyrics,release_date,record_type,contributors,nb_album,last_verified_utc"
+                "song_name,album_name,artist_name,deezer_track_id,deezer_album_id,deezer_artist_id,artist_image_url,album_art_url,genres,preview_url,preview_expires_at,explicit_lyrics,explicit_content_cover,album_explicit_lyrics,release_date,record_type,contributors,nb_album,tracklist,last_verified_utc"
             };
 
             foreach (var entry in resolved)
@@ -220,6 +220,7 @@ namespace Capstone.API.Infrastructure.Repositories
                     Csv(entry.RecordType),
                     Csv(string.Join("|", entry.Contributors)),
                     Csv(entry.ArtistAlbumCount?.ToString()),
+                    Csv(string.Join("|", entry.Tracklist)),
                     Csv(entry.LastVerifiedUtc.ToString("O"))));
             }
 
@@ -245,6 +246,7 @@ namespace Capstone.API.Infrastructure.Repositories
                 $"record_type: {entry.RecordType}",
                 $"contributors: {string.Join(", ", entry.Contributors)}",
                 $"nb_album: {entry.ArtistAlbumCount}",
+                $"tracklist: {string.Join(" | ", entry.Tracklist)}",
                 $"last_verified_utc: {entry.LastVerifiedUtc:O}"
             }));
 
@@ -290,6 +292,7 @@ namespace Capstone.API.Infrastructure.Repositories
                 ReleaseDate = Prefer(refreshed.ReleaseDate, cached.ReleaseDate),
                 RecordType = Prefer(refreshed.RecordType, cached.RecordType),
                 ArtistAlbumCount = refreshed.ArtistAlbumCount ?? cached.ArtistAlbumCount,
+                Tracklist = refreshed.Tracklist.Count > 0 ? refreshed.Tracklist : cached.Tracklist,
                 ExplicitContentCover = refreshed.ExplicitContentCover ?? cached.ExplicitContentCover,
                 AlbumExplicitLyrics = refreshed.AlbumExplicitLyrics ?? cached.AlbumExplicitLyrics
             };
@@ -367,6 +370,7 @@ namespace Capstone.API.Infrastructure.Repositories
                 RecordType = album?.RecordType?.Trim(),
                 Contributors = (album?.Contributors ?? []).Select(contributor => contributor.Name?.Trim()).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Cast<string>().ToList(),
                 ArtistAlbumCount = artist?.NbAlbum,
+                Tracklist = (album?.Tracks?.Data ?? []).Select(trackItem => trackItem.Title?.Trim()).Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>().ToList(),
                 IsUnresolved = false,
                 LastVerifiedUtc = DateTimeOffset.UtcNow
             };
@@ -418,6 +422,7 @@ namespace Capstone.API.Infrastructure.Repositories
                 RecordType = liveData.RecordType,
                 Contributors = liveData.Contributors,
                 ArtistAlbumCount = liveData.ArtistAlbumCount,
+                Tracklist = liveData.Tracklist,
                 PreviewExpiresAtUtc = liveData.PreviewExpiresAtUtc
             };
         }
@@ -443,7 +448,8 @@ namespace Capstone.API.Infrastructure.Repositories
                 ReleaseDate = entry.ReleaseDate,
                 RecordType = entry.RecordType,
                 Contributors = entry.Contributors,
-                ArtistAlbumCount = entry.ArtistAlbumCount
+                ArtistAlbumCount = entry.ArtistAlbumCount,
+                Tracklist = entry.Tracklist
             };
         }
 
@@ -680,6 +686,7 @@ namespace Capstone.API.Infrastructure.Repositories
             public string? RecordType { get; init; }
             public List<string> Contributors { get; init; } = [];
             public int? ArtistAlbumCount { get; init; }
+            public List<string> Tracklist { get; init; } = [];
             public bool IsUnresolved { get; init; }
             public DateTimeOffset LastVerifiedUtc { get; init; }
 
@@ -786,6 +793,9 @@ namespace Capstone.API.Infrastructure.Repositories
 
             [JsonPropertyName("explicit_content_lyrics")]
             public int? ExplicitContentLyrics { get; set; }
+
+            [JsonPropertyName("tracks")]
+            public DeezerTrackContainer? Tracks { get; set; }
         }
 
         private sealed class DeezerGenreContainer
@@ -801,6 +811,18 @@ namespace Capstone.API.Infrastructure.Repositories
 
             [JsonPropertyName("name")]
             public string? Name { get; set; }
+        }
+
+        private sealed class DeezerTrackContainer
+        {
+            [JsonPropertyName("data")]
+            public List<DeezerTrackListItemDto> Data { get; set; } = [];
+        }
+
+        private sealed class DeezerTrackListItemDto
+        {
+            [JsonPropertyName("title")]
+            public string? Title { get; set; }
         }
     }
 }

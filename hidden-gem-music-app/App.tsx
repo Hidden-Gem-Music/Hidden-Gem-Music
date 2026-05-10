@@ -43,6 +43,13 @@ type PersistedAppState = {
   comparisonIds?: string[];
 };
 
+type HiddenGemsFocusSelection = {
+  songTitle?: string;
+  artist?: string;
+  previewIndex?: number;
+  deezerTrackId?: number;
+};
+
 const APP_STATE_STORAGE_KEY = "hidden-gem-app-state-v1";
 
 function readPersistedAppState(): PersistedAppState {
@@ -188,6 +195,7 @@ export default function App() {
   );
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [showHiddenGemsNavIntro, setShowHiddenGemsNavIntro] = useState(false);
+  const [hiddenGemsFocusSelection, setHiddenGemsFocusSelection] = useState<HiddenGemsFocusSelection | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [apiAvailableYears, setApiAvailableYears] = useState<number[]>([]);
   const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(true);
@@ -196,6 +204,8 @@ export default function App() {
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
   const [discoveryCountries, setDiscoveryCountries] = useState<Country[]>([]);
+  const cachedCountriesForSelectedYear = discoveryCountriesByYear[selectedYear] ?? [];
+  const shouldHydrateApiCountryPool = currentRoute !== "dashboard" && currentRoute !== "credits";
   const allYearsDiscoveryCountries = useMemo(() => {
     if (apiAvailableYears.length === 0) {
       return discoveryCountries;
@@ -216,10 +226,14 @@ export default function App() {
     return merged.length > 0 ? merged : discoveryCountries;
   }, [apiAvailableYears, discoveryCountries, discoveryCountriesByYear]);
   const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
+  const apiCountryPool = useMemo(
+    () => (cachedCountriesForSelectedYear.length > 0 ? cachedCountriesForSelectedYear : discoveryCountries),
+    [cachedCountriesForSelectedYear, discoveryCountries]
+  );
 
   const selectedCountry = useMemo(
     () => {
-      const fromDiscovery = findCountryByIdentifier(discoveryCountries, selectedCountryId);
+      const fromDiscovery = findCountryByIdentifier(apiCountryPool, selectedCountryId);
       if (fromDiscovery) {
         return fromDiscovery;
       }
@@ -250,15 +264,19 @@ export default function App() {
 
       return featuredCountry;
     },
-    [countries, currentRoute, discoveryCountries, featuredCountry, selectedCountryId]
+    [apiCountryPool, countries, currentRoute, featuredCountry, selectedCountryId]
   );
 
+  const comparisonCountryPool = useMemo(
+    () => apiCountryPool,
+    [apiCountryPool]
+  );
   const selectedComparisonCountries = useMemo(
     () =>
       comparisonIds
-        .map((countryId) => discoveryCountries.find((country) => country.id === countryId))
+        .map((countryId) => comparisonCountryPool.find((country) => country.id === countryId || country.code === countryId))
         .filter((country): country is Country => Boolean(country)),
-    [comparisonIds, discoveryCountries]
+    [comparisonCountryPool, comparisonIds]
   );
 
   const breadcrumbs = useMemo(() => {
@@ -372,11 +390,12 @@ export default function App() {
     }
   };
 
-  const openHiddenGems = () => {
+  const openHiddenGems = (selection?: HiddenGemsFocusSelection) => {
     if (!navigationRef.isReady()) {
       return;
     }
 
+    setHiddenGemsFocusSelection(selection ?? null);
     setShowHiddenGemsNavIntro(false);
     navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
   };
@@ -387,7 +406,7 @@ export default function App() {
       return;
     }
 
-    const countryLabel = discoveryCountries.find((country) => country.id === countryId)?.name ?? countries.find((country) => country.id === countryId)?.name ?? countryId;
+    const countryLabel = apiCountryPool.find((country) => country.id === countryId || country.code === countryId)?.name ?? countries.find((country) => country.id === countryId || country.code === countryId)?.name ?? countryId;
 
     if (countryId === selectedCountryId) {
       if (navigationRef.isReady()) {
@@ -425,7 +444,7 @@ export default function App() {
     const existsInCurrentYear = countries.some(
       (country) => country.id === countryId || country.code === countryId
     );
-    const existsInDiscovery = discoveryCountries.some(
+    const existsInDiscovery = apiCountryPool.some(
       (country) => country.id === countryId || country.code === countryId
     );
 
@@ -437,13 +456,14 @@ export default function App() {
     setSelectedCountryId(countryId);
   };
 
-  const openHiddenGemsForCountry = (countryId: string) => {
+  const openHiddenGemsForCountry = (countryId: string, selection?: HiddenGemsFocusSelection) => {
     if (Date.now() < suppressOpenUntilRef.current) {
       setSelectedCountryId(countryId);
       return;
     }
 
     setSelectedCountryId(countryId);
+    setHiddenGemsFocusSelection(selection ?? null);
     setShowHiddenGemsNavIntro(false);
 
     if (!navigationRef.isReady()) {
@@ -469,11 +489,11 @@ export default function App() {
     if (!existsInStatic && !existsInDiscovery) {
       setSelectedCountryId(featuredCountry.id);
     }
-  }, [countries, currentRoute, discoveryCountries, featuredCountry.id, selectedCountryId]);
+  }, [apiCountryPool, countries, currentRoute, featuredCountry.id, selectedCountryId]);
 
   useEffect(() => {
-    setComparisonIds((current) => current.filter((id) => discoveryCountries.some((country) => country.id === id)).slice(0, 2));
-  }, [discoveryCountries]);
+    setComparisonIds((current) => current.filter((id) => comparisonCountryPool.some((country) => country.id === id || country.code === id)).slice(0, 2));
+  }, [comparisonCountryPool]);
 
   useEffect(() => {
     return () => {
@@ -503,12 +523,50 @@ export default function App() {
   }, [currentRoute, navigationReady, navigationRef, selectedCountryId, selectedYear]);
 
   useEffect(() => {
-    let isCancelled = false;
-    setIsDiscoveryLoading(true);
+    if (!navigationReady || !navigationRef.isReady()) {
+      return;
+    }
 
-    loadDiscoveryCountries(selectedYear, countries)
+    const activeRoute = navigationRef.getCurrentRoute();
+    const routeCountry = typeof activeRoute?.params === "object" && activeRoute?.params && "country" in activeRoute.params
+      ? String((activeRoute.params as { country?: string }).country ?? "").trim()
+      : "";
+
+    if (!routeCountry) {
+      return;
+    }
+
+    if (currentRoute === "country" || currentRoute === "hiddenGems") {
+      const normalizedRouteCountry = normalizeCountryKey(routeCountry);
+      const normalizedSelectedCountry = normalizeCountryKey(selectedCountryId);
+      if (normalizedRouteCountry !== normalizedSelectedCountry) {
+        setSelectedCountryId(routeCountry);
+      }
+    }
+  }, [currentRoute, navigationReady, navigationRef, selectedCountryId]);
+
+  useEffect(() => {
+    if (!shouldHydrateApiCountryPool) {
+      return;
+    }
+
+    const cachedCountries = discoveryCountriesByYear[selectedYear];
+    if (cachedCountries && cachedCountries.length > 0) {
+      setDiscoveryCountries(cachedCountries);
+      if (currentRoute === "discovery") {
+        setIsDiscoveryLoading(false);
+      }
+      return;
+    }
+
+    const controller = new AbortController();
+    if (currentRoute === "discovery") {
+      setIsDiscoveryLoading(true);
+    }
+
+    loadDiscoveryCountries(selectedYear, countries, controller.signal)
       .then((apiCountries) => {
-        if (isCancelled) {
+        if (controller.signal.aborted) {
           return;
         }
 
@@ -517,20 +575,24 @@ export default function App() {
           ...current,
           [selectedYear]: apiCountries,
         }));
-        setIsDiscoveryLoading(false);
+        if (currentRoute === "discovery") {
+          setIsDiscoveryLoading(false);
+        }
       })
       .catch((error) => {
-        if (!isCancelled) {
+        if (!controller.signal.aborted) {
           console.warn("Failed to load discovery countries from API.", error);
           setDiscoveryCountries([]);
-          setIsDiscoveryLoading(false);
+          if (currentRoute === "discovery") {
+            setIsDiscoveryLoading(false);
+          }
         }
       });
 
     return () => {
-      isCancelled = true;
+      controller.abort();
     };
-  }, [countries, selectedYear]);
+  }, [countries, currentRoute, discoveryCountriesByYear, selectedYear, shouldHydrateApiCountryPool]);
 
   useEffect(() => {
     if (!isDiscoveryLoading) {
@@ -567,22 +629,22 @@ export default function App() {
   }, [isDiscoveryLoading, loadingMessage]);
 
   useEffect(() => {
-    let isCancelled = false;
+    const controller = new AbortController();
 
-    loadAvailableYears()
+    loadAvailableYears(controller.signal)
       .then((years) => {
-        if (!isCancelled && years.length > 0) {
+        if (!controller.signal.aborted && years.length > 0) {
           setApiAvailableYears(years);
         }
       })
       .catch((error) => {
-        if (!isCancelled) {
+        if (!controller.signal.aborted) {
           console.warn("Failed to load API available years; Discovery timeline will use default years.", error);
         }
       });
 
     return () => {
-      isCancelled = true;
+      controller.abort();
     };
   }, []);
 
@@ -818,7 +880,7 @@ export default function App() {
             searchOpen={searchOpen}
             onToggleSearch={() => setSearchOpen((open) => !open)}
             onCloseSearch={() => setSearchOpen(false)}
-            countries={discoveryCountries}
+            countries={comparisonCountryPool}
             onOpenCountry={openCountry}
           />
           <View style={styles.screenArea}>
@@ -833,7 +895,7 @@ export default function App() {
               <Stack.Screen name="welcome" options={{ title: "Welcome" }}>
                 {() => (
                   <WelcomeScreen
-                    countries={discoveryCountries}
+                    countries={comparisonCountryPool}
                     availableYears={apiAvailableYears}
                     onNavigate={navigateToRoute}
                     onSelectCountry={openCountry}
@@ -846,6 +908,7 @@ export default function App() {
               <Stack.Screen name="discovery" options={{ title: "Discovery Globe" }}>
                 {() => (
                   <DiscoveryScreen
+                    isActive={currentRoute === "discovery"}
                     countries={discoveryCountries}
                     allYearsCountries={allYearsDiscoveryCountries}
                     selectedCountryId={selectedCountryId}
@@ -861,8 +924,9 @@ export default function App() {
               <Stack.Screen name="country" options={{ title: `${selectedCountry.name} Detail Page` }}>
                 {() => (
                   <CountryScreen
+                    isActive={currentRoute === "country"}
                     country={selectedCountry}
-                    countries={discoveryCountries}
+                    countries={comparisonCountryPool}
                     onSelectCountry={openCountry}
                     onOpenHiddenGems={openHiddenGems}
                     onOpenComparisonMode={() => navigateToRoute("comparisonSelect")}
@@ -875,8 +939,9 @@ export default function App() {
               <Stack.Screen name="hiddenGems" options={{ title: `${selectedCountry.name}'s Hidden Gems` }}>
                 {() => (
                   <HiddenGemsScreen
+                    isActive={currentRoute === "hiddenGems"}
                     country={selectedCountry}
-                    countries={discoveryCountries}
+                    countries={comparisonCountryPool}
                     availableYears={apiAvailableYears}
                     onSelectCountry={(countryId) => setSelectedCountryId(countryId)}
                     selectedYear={selectedYear}
@@ -884,6 +949,8 @@ export default function App() {
                     onSetLoading={handleHiddenGemsLoading}
                     showNavIntro={showHiddenGemsNavIntro}
                     onDismissNavIntro={() => setShowHiddenGemsNavIntro(false)}
+                    focusSelection={hiddenGemsFocusSelection}
+                    onFocusSelectionHandled={() => setHiddenGemsFocusSelection(null)}
                   />
                 )}
               </Stack.Screen>
@@ -891,7 +958,7 @@ export default function App() {
               <Stack.Screen name="comparisonSelect" options={{ title: "Comparison Mode" }}>
                 {() => (
                   <ComparisonSelectScreen
-                    countries={discoveryCountries}
+                    countries={comparisonCountryPool}
                     selectedCountryIds={comparisonIds}
                     onToggleCountry={(countryId) => {
                       setComparisonIds((current) => {
@@ -916,8 +983,9 @@ export default function App() {
               <Stack.Screen name="comparisonResults" options={{ title: "Comparison View" }}>
                 {() => (
                   <ComparisonResultsScreen
+                    isActive={currentRoute === "comparisonResults"}
                     countries={selectedComparisonCountries}
-                    availableCountries={discoveryCountries}
+                    availableCountries={comparisonCountryPool}
                     selectedYear={selectedYear}
                     onBack={() => navigateToRoute("comparisonSelect")}
                     onChangeYear={(year) => handleYearChange(year, "Comparison View")}

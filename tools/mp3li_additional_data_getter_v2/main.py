@@ -55,8 +55,15 @@ GENIUS_WEB_FLUSH_EVERY = 10
 _GENIUS_WEB_THREAD_LOCAL = threading.local()
 GENIUS_WEB_ALL_ATTEMPTS = (
     "slug_build_full",
+    "slug_build_full_all_artists",
     "slug_build_clean_title",
+    "slug_build_clean_title_all_artists",
+    "slug_build_clean_title_version_stripped",
+    "slug_build_clean_title_version_stripped_all_artists",
     "slug_build_clean_title_first_artist",
+    "slug_build_single_edit_swap",
+    "slug_build_part_word_swap",
+    "slug_build_part_abbrev_swap",
 )
 GENIUS_WEB_DETERMINISTIC_SKIP_REASONS = {
     "Genius URL returned HTTP 404",

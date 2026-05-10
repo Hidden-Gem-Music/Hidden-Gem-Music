@@ -77,11 +77,50 @@ def _clean_song_title_for_fallback(value: str) -> str:
     value = re.sub(r"\s+(?:feat\.?|ft\.?|featuring)\s+.+$", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\((?:feat\.?|ft\.?|featuring)[^)]*\)", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\[(?:feat\.?|ft\.?|featuring)[^\]]*\]", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\((?:con|from)[^)]*\)", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\[(?:con|from)[^\]]*\]", "", value, flags=re.IGNORECASE)
     value = re.sub(r"\([^)]*\)", "", value)
     value = re.sub(r"\[[^\]]*\]", "", value)
     value = re.split(r"\s+[-–—]\s+", value, maxsplit=1)[0]
     value = re.sub(r"\s+", " ", value).strip(" -–—,")
     return value
+
+
+def _strip_known_version_suffixes(value: str) -> str:
+    value = (value or "").strip()
+    if not value:
+        return ""
+    value = re.sub(
+        r"\s*[-–—]\s*(?:single version|single edit|edit|remastered(?: \d+)?|remix|ao vivo|live)\b.*$",
+        "",
+        value,
+        flags=re.IGNORECASE,
+    )
+    return re.sub(r"\s+", " ", value).strip(" -–—,")
+
+
+def _swap_single_version_to_single_edit(value: str) -> str:
+    value = (value or "").strip()
+    if not value:
+        return ""
+    swapped = re.sub(r"\bsingle version\b", "Single Edit", value, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", swapped).strip(" -–—,")
+
+
+def _swap_pt_to_part(value: str) -> str:
+    value = (value or "").strip()
+    if not value:
+        return ""
+    swapped = re.sub(r"\bpt\.?\s*(\d+)\b", r"Part \1", value, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", swapped).strip(" -–—,")
+
+
+def _swap_part_to_pt(value: str) -> str:
+    value = (value or "").strip()
+    if not value:
+        return ""
+    swapped = re.sub(r"\bpart\s+(\d+)\b", r"Pt. \1", value, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", swapped).strip(" -–—,")
 
 
 def _first_artist_for_fallback(value: str) -> str:
@@ -159,6 +198,10 @@ def build_genius_web_candidates(song_name: str, artist_name: str) -> List[Dict[s
         )
 
     cleaned_song_name = _clean_song_title_for_fallback(song_name)
+    version_stripped_song_name = _strip_known_version_suffixes(cleaned_song_name or song_name)
+    single_edit_swap_song_name = _swap_single_version_to_single_edit(song_name)
+    part_word_song_name = _swap_pt_to_part(version_stripped_song_name or cleaned_song_name or song_name)
+    part_abbrev_song_name = _swap_part_to_pt(version_stripped_song_name or cleaned_song_name or song_name)
     fallback_artist_name = _first_artist_for_fallback(artist_name)
     full_artist_slug_fallback = _all_artists_slug_fallback(artist_name)
 
@@ -179,12 +222,47 @@ def build_genius_web_candidates(song_name: str, artist_name: str) -> List[Dict[s
                 "constructed_slug_clean_title_all_artists",
                 "slug_build_clean_title_all_artists",
             )
+    if version_stripped_song_name and version_stripped_song_name not in {song_name, cleaned_song_name}:
+        add_candidate(
+            version_stripped_song_name,
+            artist_name,
+            "constructed_slug_clean_title_version_stripped",
+            "slug_build_clean_title_version_stripped",
+        )
+        if full_artist_slug_fallback and full_artist_slug_fallback != artist_name:
+            add_candidate(
+                version_stripped_song_name,
+                full_artist_slug_fallback,
+                "constructed_slug_clean_title_version_stripped_all_artists",
+                "slug_build_clean_title_version_stripped_all_artists",
+            )
     if fallback_artist_name and fallback_artist_name != artist_name:
         add_candidate(
-            cleaned_song_name or song_name,
+            version_stripped_song_name or cleaned_song_name or song_name,
             fallback_artist_name,
             "constructed_slug_clean_title_first_artist",
             "slug_build_clean_title_first_artist",
+        )
+    if single_edit_swap_song_name and single_edit_swap_song_name != song_name:
+        add_candidate(
+            single_edit_swap_song_name,
+            artist_name,
+            "constructed_slug_single_edit_swap",
+            "slug_build_single_edit_swap",
+        )
+    if part_word_song_name and part_word_song_name not in {song_name, cleaned_song_name, version_stripped_song_name}:
+        add_candidate(
+            part_word_song_name,
+            artist_name,
+            "constructed_slug_part_word_swap",
+            "slug_build_part_word_swap",
+        )
+    if part_abbrev_song_name and part_abbrev_song_name not in {song_name, cleaned_song_name, version_stripped_song_name, part_word_song_name}:
+        add_candidate(
+            part_abbrev_song_name,
+            artist_name,
+            "constructed_slug_part_abbrev_swap",
+            "slug_build_part_abbrev_swap",
         )
 
     return candidates

@@ -30,11 +30,13 @@ namespace Capstone.API.Infrastructure.Repositories
         {
             var requestedStartIndex = (page - 1) * pageSize;
             var requestedEndIndexExclusive = requestedStartIndex + pageSize;
+            var resolvedRowsNeededToDetectNextPage = requestedEndIndexExclusive + 1;
             var scanOffset = 0;
-            var rawBatchSize = 100;
+            var rawBatchSize = Math.Max(pageSize * 3, 50);
             var totalRawCount = 0;
             var totalResolvedCount = 0;
             var resolvedPageItems = new List<HiddenGem>();
+            var reachedResolvedPageBoundary = false;
 
             while (true)
             {
@@ -70,6 +72,17 @@ namespace Capstone.API.Infrastructure.Repositories
                     }
 
                     totalResolvedCount++;
+
+                    if (totalResolvedCount >= resolvedRowsNeededToDetectNextPage)
+                    {
+                        reachedResolvedPageBoundary = true;
+                        break;
+                    }
+                }
+
+                if (reachedResolvedPageBoundary)
+                {
+                    break;
                 }
 
                 scanOffset += rows.Count;
@@ -79,13 +92,15 @@ namespace Capstone.API.Infrastructure.Repositories
                 }
             }
 
+            var hasMore = requestedEndIndexExclusive < totalRawCount;
+
             return new HiddenGemResponse
             {
                 Items = resolvedPageItems,
                 Page = page,
                 PageSize = pageSize,
-                TotalCount = totalResolvedCount,
-                HasMore = requestedEndIndexExclusive < totalResolvedCount
+                TotalCount = totalRawCount,
+                HasMore = hasMore
             };
         }
 

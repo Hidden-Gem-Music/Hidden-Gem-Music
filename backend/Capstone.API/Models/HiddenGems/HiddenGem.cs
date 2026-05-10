@@ -101,6 +101,11 @@ namespace Capstone.API.Models.HiddenGems
         public int? ArtistAlbumCount { get; set; }
 
         /// <summary>
+        /// Gets or sets the album track titles returned by Deezer.
+        /// </summary>
+        public List<string> Tracklist { get; set; } = new();
+
+        /// <summary>
         /// Gets or sets the UTC timestamp when the current preview URL expires.
         /// </summary>
         public DateTimeOffset? PreviewExpiresAtUtc { get; set; }

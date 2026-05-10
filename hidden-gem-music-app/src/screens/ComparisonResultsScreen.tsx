@@ -16,11 +16,12 @@ import {
 
 import { ActionButton } from "../components/ActionButton";
 import { CdCaseArt } from "../components/CdCaseArt";
+import { ExplicitIndicator } from "../components/ExplicitIndicator";
 import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
-import { loadAvailableYears, loadCountryHiddenGemsPreview, loadCountryProfile, loadCountrySongsPage } from "../data/countryApi";
+import { getCachedCountryGenreSamples, loadAvailableYears, loadCountryHiddenGemsPreview, loadCountryProfile, loadCountrySongsPage } from "../data/countryApi";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiSong } from "../data/apiMappers";
 import { useLoadingText } from "../hooks/useLoadingText";
 import { getSongsForCountryYear } from "../data/mockData";
@@ -29,6 +30,7 @@ import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 export type Props = {
+  isActive?: boolean;
   countries: Country[];
   availableCountries: Country[];
   selectedYear: number;
@@ -38,7 +40,7 @@ export type Props = {
   onOpenCountry: (countryId: string) => void;
   onOpenHiddenGemsForCountry: (
     countryId: string,
-    selection?: { songTitle?: string; artist?: string }
+    selection?: { songTitle?: string; artist?: string; previewIndex?: number; deezerTrackId?: number }
   ) => void;
 };
 
@@ -46,11 +48,19 @@ type SongPreview = {
   title: string;
   artist: string;
   album: string;
+  deezerTrackId?: number;
+  deezerAlbumId?: number;
+  deezerArtistId?: number;
   releaseLabel: string;
   detail: string;
   score: number;
+  genres: string[];
+  recordType?: string;
   albumArtUrl?: string;
   artistImageUrl?: string;
+  explicitLyrics?: boolean;
+  explicitContentCover?: boolean;
+  albumExplicitLyrics?: boolean;
 };
 
 type FavoriteArtistPreview = {
@@ -159,7 +169,39 @@ function getSongDisplayMeta(song: Pick<SongPreview, "album" | "releaseLabel">) {
     return `Released ${song.releaseLabel}`;
   }
 
-  return `${trimmedAlbum} • ${song.releaseLabel}`;
+  return `\u2068${trimmedAlbum}\u2069 \u2022 \u2068${song.releaseLabel}\u2069`;
+}
+
+function formatRecordTypeLabel(recordType: string | undefined) {
+  const trimmed = recordType?.trim();
+  if (!trimmed) {
+    return "Unknown";
+  }
+
+  if (trimmed.toLowerCase() === "ep") {
+    return "EP";
+  }
+
+  return trimmed
+    .split(/[\s_-]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function songHasExplicitBadge(song: Pick<SongPreview, "explicitLyrics" | "explicitContentCover">) {
+  return Boolean(song.explicitLyrics || song.explicitContentCover);
+}
+
+function getExplicitTooltip(song: Pick<SongPreview, "explicitLyrics" | "explicitContentCover">) {
+  const details: string[] = [];
+  if (song.explicitLyrics) {
+    details.push("Song lyrics are explicit");
+  }
+  if (song.explicitContentCover) {
+    details.push("Album art is explicit");
+  }
+  return details.length > 0 ? details.join(" | ") : "Explicit content";
 }
 
 function formatGenreSummary(genres: string[]) {
@@ -217,19 +259,35 @@ function createSongPreview(
   options?: {
     album?: string;
     releaseLabel?: string;
+    deezerTrackId?: number;
+    deezerAlbumId?: number;
+    deezerArtistId?: number;
+    genres?: string[];
+    recordType?: string;
     albumArtUrl?: string;
     artistImageUrl?: string;
+    explicitLyrics?: boolean;
+    explicitContentCover?: boolean;
+    albumExplicitLyrics?: boolean;
   }
 ): SongPreview {
   return {
     title,
     artist,
     album: options?.album?.trim() ? options.album : "Unknown Album",
+    deezerTrackId: options?.deezerTrackId,
+    deezerAlbumId: options?.deezerAlbumId,
+    deezerArtistId: options?.deezerArtistId,
     releaseLabel: options?.releaseLabel?.trim() ? options.releaseLabel : "Unknown",
     detail,
     score,
+    genres: Array.isArray(options?.genres) ? options.genres.filter((genre) => typeof genre === "string" && genre.trim().length > 0) : [],
+    recordType: options?.recordType?.trim() ? options.recordType : undefined,
     albumArtUrl: options?.albumArtUrl?.trim() ? options.albumArtUrl : undefined,
     artistImageUrl: options?.artistImageUrl?.trim() ? options.artistImageUrl : undefined,
+    explicitLyrics: options?.explicitLyrics,
+    explicitContentCover: options?.explicitContentCover,
+    albumExplicitLyrics: options?.albumExplicitLyrics,
   };
 }
 
@@ -238,6 +296,11 @@ function createLoadingSongPreviews(count: number, fallbackYear: number): SongPre
     createSongPreview("Loading...", "Loading...", "Loading...", 0, {
       album: "Loading...",
       releaseLabel: `${fallbackYear}`,
+      genres: ["Loading..."],
+      recordType: "Loading...",
+      explicitLyrics: undefined,
+      explicitContentCover: undefined,
+      albumExplicitLyrics: undefined,
     })
   );
 }
@@ -250,6 +313,11 @@ function toSongPreview(
     albumArtUrl?: string;
     artistImageUrl?: string;
     releaseDate?: string;
+    genres?: string[];
+    recordType?: string;
+    explicitLyrics?: boolean;
+    explicitContentCover?: boolean;
+    albumExplicitLyrics?: boolean;
   },
   detail: string,
   score: number,
@@ -257,9 +325,17 @@ function toSongPreview(
 ): SongPreview {
   return createSongPreview(song.title, song.artist, detail, score, {
     album: song.album,
+    deezerTrackId: (song as { deezerTrackId?: number }).deezerTrackId,
+    deezerAlbumId: (song as { deezerAlbumId?: number }).deezerAlbumId,
+    deezerArtistId: (song as { deezerArtistId?: number }).deezerArtistId,
     releaseLabel: getSongReleaseLabel(song.releaseDate, fallbackYear),
+    genres: song.genres,
+    recordType: song.recordType,
     albumArtUrl: song.albumArtUrl,
     artistImageUrl: song.artistImageUrl,
+    explicitLyrics: song.explicitLyrics,
+    explicitContentCover: song.explicitContentCover,
+    albumExplicitLyrics: song.albumExplicitLyrics,
   });
 }
 
@@ -630,7 +706,7 @@ function MainComparisonArea({
 }: {
   title: string;
   songs: SongPreview[];
-  onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
+  onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string; previewIndex?: number; deezerTrackId?: number }) => void;
   isInitialLoading?: boolean;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -740,6 +816,8 @@ function MainComparisonArea({
                     <Text style={[styles.songTitle, darkTheme ? styles.songTitleDark : null]}>{activeLoadingText}</Text>
                     <Text style={[styles.songMeta, darkTheme ? styles.songMetaDark : null]}>Fetching song details...</Text>
                     <Text style={[styles.songMetaSecondary, darkTheme ? styles.songMetaDark : null]}>Album art and release date loading...</Text>
+                    <Text style={[styles.songMetaSecondary, darkTheme ? styles.songMetaDark : null]}>{activeLoadingText}</Text>
+                    <Text style={[styles.songMetaSecondary, darkTheme ? styles.songMetaDark : null]}>{activeLoadingText}</Text>
                   </View>
                   <CdCaseArt
                     size={84}
@@ -758,74 +836,52 @@ function MainComparisonArea({
             </View>
           ) : null}
           {songs.map((song, index) => (
-            <Pressable
+            <View
               key={`${title}-${song.title}-${song.artist}-${index}`}
-              onPress={() => onOpenHiddenGems({ songTitle: song.title, artist: song.artist })}
-              onHoverIn={() => setHoveredSongKey(`${title}-${song.title}-${song.artist}-${index}`)}
-              onHoverOut={() =>
-                setHoveredSongKey((current) =>
-                  current === `${title}-${song.title}-${song.artist}-${index}` ? null : current
-                )
-              }
               style={styles.songRowShell}
             >
-              {({ pressed }) => {
-                const songKey = `${title}-${song.title}-${song.artist}-${index}`;
-                const showGradient = hoveredSongKey === songKey || pressed;
-
-                return (
-                  <>
-                    {showGradient ? (
-                      <LinearGradient
-                        colors={pressed ? activeGradient : hoverGradient}
-                        locations={[0, 0.34, 1]}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={styles.songRowGradient}
-                      />
-                    ) : null}
-                    <View style={[styles.songRow, showGradient ? styles.songRowActive : null]}>
-                      <View style={styles.songCopy}>
-                        <Text
-                          style={[
-                            styles.songTitle,
-                            darkTheme ? styles.songTitleDark : null,
-                            showGradient ? (darkTheme ? styles.songTextActiveDark : styles.songTextActive) : null,
-                          ]}
-                        >
-                          {song.title}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.songMeta,
-                            darkTheme ? styles.songMetaDark : null,
-                            showGradient ? (darkTheme ? styles.songTextActiveDark : styles.songTextActive) : null,
-                          ]}
-                        >
-                          {song.artist}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.songMetaSecondary,
-                            darkTheme ? styles.songMetaDark : null,
-                            showGradient ? (darkTheme ? styles.songTextActiveDark : styles.songTextActive) : null,
-                          ]}
-                          numberOfLines={2}
-                        >
-                          {getSongDisplayMeta(song)}
-                        </Text>
-                      </View>
-                      <CdCaseArt
-                        size={84}
-                        placeholderColor={carouselBackdropColors[index % carouselBackdropColors.length]}
-                        artImageUrl={song.albumArtUrl}
-                        loading={isInitialLoading}
-                      />
+              <View style={styles.songRow}>
+                <View style={styles.songCopy}>
+                  <Text style={[styles.songTitle, darkTheme ? styles.songTitleDark : null]}>
+                    {song.title}
+                  </Text>
+                  <Text style={[styles.songMeta, darkTheme ? styles.songMetaDark : null]}>
+                    {song.artist}
+                  </Text>
+                  <Text
+                    style={[styles.songMetaSecondary, darkTheme ? styles.songMetaDark : null]}
+                    numberOfLines={2}
+                  >
+                    {getSongDisplayMeta(song)}
+                  </Text>
+                  <Text
+                    style={[styles.songMetaSecondary, darkTheme ? styles.songMetaDark : null]}
+                    numberOfLines={3}
+                  >
+                    {song.genres.length > 0 ? song.genres.join(", ") : "Genre info coming soon."}
+                  </Text>
+                  <Text
+                    style={[styles.songMetaSecondary, darkTheme ? styles.songMetaDark : null]}
+                    numberOfLines={2}
+                  >
+                    {`Record Type: ${formatRecordTypeLabel(song.recordType)}`}
+                  </Text>
+                </View>
+                <View style={styles.songArtMetaWrap}>
+                  {!isInitialLoading && songHasExplicitBadge(song) ? (
+                    <View style={styles.songExplicitBadgeWrap}>
+                      <ExplicitIndicator tooltip={getExplicitTooltip(song)} />
                     </View>
-                  </>
-                );
-              }}
-            </Pressable>
+                  ) : null}
+                  <CdCaseArt
+                    size={84}
+                    placeholderColor={carouselBackdropColors[index % carouselBackdropColors.length]}
+                    artImageUrl={song.albumArtUrl}
+                    loading={isInitialLoading}
+                  />
+                </View>
+              </View>
+            </View>
           ))}
           {isLoadingMore
             ? Array.from({ length: 3 }).map((_, index) => (
@@ -835,6 +891,12 @@ function MainComparisonArea({
                       <Text style={[styles.songTitle, darkTheme ? styles.songTitleDark : null]}>{activeLoadingText}</Text>
                       <Text style={[styles.songMeta, darkTheme ? styles.songMetaDark : null]}>{activeLoadingText}</Text>
                       <Text style={[styles.songMetaSecondary, darkTheme ? styles.songMetaDark : null]} numberOfLines={2}>
+                        {activeLoadingText}
+                      </Text>
+                      <Text style={[styles.songMetaSecondary, darkTheme ? styles.songMetaDark : null]} numberOfLines={2}>
+                        {activeLoadingText}
+                      </Text>
+                      <Text style={[styles.songMetaSecondary, darkTheme ? styles.songMetaDark : null]} numberOfLines={1}>
                         {activeLoadingText}
                       </Text>
                     </View>
@@ -915,7 +977,7 @@ function HiddenSongsCarouselSection({
   isLoading: boolean;
   loadingText: string;
   sectionAvailable: boolean;
-  onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string }) => void;
+  onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string; previewIndex?: number; deezerTrackId?: number }) => void;
 }) {
   const isCompact = Platform.OS !== "web";
   const songCount = songs.length;
@@ -953,7 +1015,12 @@ function HiddenSongsCarouselSection({
     }
 
     if (isCenter) {
-      onOpenHiddenGems({ songTitle: song.title, artist: song.artist });
+      onOpenHiddenGems({
+        songTitle: song.title,
+        artist: song.artist,
+        previewIndex: songIndex,
+        deezerTrackId: song.deezerTrackId,
+      });
       return;
     }
 
@@ -1039,14 +1106,31 @@ function HiddenSongsCarouselSection({
                 </View>
                 {isCenter ? (
                   <>
-                    <Text
+                    <View
                       style={[
-                        styles.hiddenSongsCarouselSongTitle,
-                        isCompact ? styles.hiddenSongsCarouselSongTitleNative : null,
+                        styles.hiddenSongsCarouselTitleRow,
+                        isCompact ? styles.hiddenSongsCarouselTitleRowNative : null,
                       ]}
                     >
-                      {song.title}
-                    </Text>
+                      {songHasExplicitBadge(song) ? (
+                        <View
+                          style={[
+                            styles.hiddenSongsCarouselExplicitWrap,
+                            isCompact ? styles.hiddenSongsCarouselExplicitWrapNative : null,
+                          ]}
+                        >
+                          <ExplicitIndicator size={isCompact ? "medium" : "small"} tooltip={getExplicitTooltip(song)} />
+                        </View>
+                      ) : null}
+                      <Text
+                        style={[
+                          styles.hiddenSongsCarouselSongTitle,
+                          isCompact ? styles.hiddenSongsCarouselSongTitleNative : null,
+                        ]}
+                      >
+                        {song.title}
+                      </Text>
+                    </View>
                     <Text
                       style={[
                         styles.hiddenSongsCarouselSongArtist,
@@ -1115,12 +1199,17 @@ function FavoriteArtistsSection({
                 hoveredArtistIndex === index || pressed ? styles.favoriteArtistItemActive : null,
               ]}
             >
-              <CdCaseArt
-                size={104}
-                placeholderColor={carouselBackdropColors[index % carouselBackdropColors.length]}
-                artImageUrl={isLoading ? undefined : artist.artistImageUrl}
-                loading={isLoading}
-              />
+              <View style={styles.favoriteArtistCdWrap}>
+                {hoveredArtistIndex === index ? (
+                  <View style={[styles.favoriteArtistCdShadow, { width: 104, height: 104 }]} />
+                ) : null}
+                <CdCaseArt
+                  size={104}
+                  placeholderColor={carouselBackdropColors[index % carouselBackdropColors.length]}
+                  artImageUrl={isLoading ? undefined : artist.artistImageUrl}
+                  loading={isLoading}
+                />
+              </View>
               <Text style={styles.favoriteArtistName} numberOfLines={3} ellipsizeMode="tail">
                 {isLoading ? "Loading..." : artist.artist}
               </Text>
@@ -1133,6 +1222,7 @@ function FavoriteArtistsSection({
 }
 
 function ComparisonCountryPane({
+  isActive = true,
   availableCountries,
   unavailableCountryId,
   country,
@@ -1143,6 +1233,7 @@ function ComparisonCountryPane({
   onOpenCountry,
   onOpenHiddenGemsForCountry,
 }: {
+  isActive?: boolean;
   availableCountries: Country[];
   unavailableCountryId?: string;
   country: Country;
@@ -1151,7 +1242,7 @@ function ComparisonCountryPane({
   onChangeYear: (year: number) => void;
   onChangeCountry: (countryId: string) => void;
   onOpenCountry: (countryId: string) => void;
-  onOpenHiddenGemsForCountry: (countryId: string, selection?: { songTitle?: string; artist?: string }) => void;
+  onOpenHiddenGemsForCountry: (countryId: string, selection?: { songTitle?: string; artist?: string; previewIndex?: number; deezerTrackId?: number }) => void;
 }) {
   const fallbackProfile = useMemo(() => buildCountryProfile(country, selectedYear), [country, selectedYear]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
@@ -1170,6 +1261,7 @@ function ComparisonCountryPane({
   const [initialLoadingProfile, setInitialLoadingProfile] = useState(false);
   const [initialLoadingPreview, setInitialLoadingPreview] = useState(false);
   const latestRequestRef = useRef(0);
+  const isActiveRef = useRef(isActive);
   const yearsControllerRef = useRef<AbortController | null>(null);
   const profileControllerRef = useRef<AbortController | null>(null);
   const previewControllerRef = useRef<AbortController | null>(null);
@@ -1185,10 +1277,25 @@ function ComparisonCountryPane({
       }),
     [availableCountries, country.id, selectedYear, unavailableCountryId]
   );
-  const openForCountry = (selection?: { songTitle?: string; artist?: string }) =>
+  const openForCountry = (selection?: { songTitle?: string; artist?: string; previewIndex?: number; deezerTrackId?: number }) =>
     onOpenHiddenGemsForCountry(country.id, selection);
 
   useEffect(() => {
+    isActiveRef.current = isActive;
+    if (!isActive) {
+      yearsControllerRef.current?.abort();
+      profileControllerRef.current?.abort();
+      previewControllerRef.current?.abort();
+      loadMoreUniqueControllerRef.current?.abort();
+      loadMoreSharedControllerRef.current?.abort();
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
     yearsControllerRef.current?.abort();
     const controller = new AbortController();
     yearsControllerRef.current = controller;
@@ -1211,9 +1318,13 @@ function ComparisonCountryPane({
         yearsControllerRef.current = null;
       }
     };
-  }, []);
+  }, [isActive]);
 
   useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
     const requestId = latestRequestRef.current + 1;
     latestRequestRef.current = requestId;
     profileControllerRef.current?.abort();
@@ -1303,8 +1414,16 @@ function ComparisonCountryPane({
                 {
                   album: item.albumName ?? undefined,
                   releaseLabel: getSongReleaseLabel(item.releaseDate ?? undefined, selectedYear),
+                  deezerTrackId: item.deezerTrackId ?? undefined,
+                  deezerAlbumId: item.deezerAlbumId ?? undefined,
+                  deezerArtistId: item.deezerArtistId ?? undefined,
                   albumArtUrl: item.albumArtUrl ?? undefined,
                   artistImageUrl: item.artistImageUrl ?? undefined,
+                  genres: item.genres ?? undefined,
+                  recordType: item.recordType ?? undefined,
+                  explicitLyrics: item.explicitLyrics ?? undefined,
+                  explicitContentCover: item.explicitContentCover ?? undefined,
+                  albumExplicitLyrics: item.albumExplicitLyrics ?? undefined,
                 }
               )
               )
@@ -1337,7 +1456,7 @@ function ComparisonCountryPane({
         previewControllerRef.current = null;
       }
     };
-  }, [country.code, country.name, selectedYear]);
+  }, [country.code, country.name, isActive, selectedYear]);
 
   const yearOptions = useMemo(() => {
     if (availableYears.length === 0) {
@@ -1350,7 +1469,7 @@ function ComparisonCountryPane({
   }, [availableYears, selectedYear]);
 
   const loadMoreUniqueSongs = () => {
-    if (loadingMoreUnique || !uniqueHasMore) {
+    if (!isActiveRef.current || loadingMoreUnique || !uniqueHasMore) {
       return;
     }
     const requestId = latestRequestRef.current;
@@ -1361,7 +1480,7 @@ function ComparisonCountryPane({
     setLoadingMoreUnique(true);
     loadCountrySongsPage(country.code, selectedYear, "unique", nextPage, songPageSize, controller.signal)
       .then((payload) => {
-        if (latestRequestRef.current !== requestId) {
+        if (latestRequestRef.current !== requestId || controller.signal.aborted || !isActiveRef.current) {
           return;
         }
         setUniqueSongs((current) => {
@@ -1387,7 +1506,7 @@ function ComparisonCountryPane({
         }
       })
       .finally(() => {
-        if (latestRequestRef.current === requestId) {
+        if (latestRequestRef.current === requestId && isActiveRef.current) {
           setLoadingMoreUnique(false);
         }
         if (loadMoreUniqueControllerRef.current === controller) {
@@ -1397,7 +1516,7 @@ function ComparisonCountryPane({
   };
 
   const loadMoreSharedSongs = () => {
-    if (loadingMoreShared || !sharedHasMore) {
+    if (!isActiveRef.current || loadingMoreShared || !sharedHasMore) {
       return;
     }
     const requestId = latestRequestRef.current;
@@ -1408,7 +1527,7 @@ function ComparisonCountryPane({
     setLoadingMoreShared(true);
     loadCountrySongsPage(country.code, selectedYear, "shared", nextPage, songPageSize, controller.signal)
       .then((payload) => {
-        if (latestRequestRef.current !== requestId) {
+        if (latestRequestRef.current !== requestId || controller.signal.aborted || !isActiveRef.current) {
           return;
         }
         setSharedSongs((current) => {
@@ -1434,7 +1553,7 @@ function ComparisonCountryPane({
         }
       })
       .finally(() => {
-        if (latestRequestRef.current === requestId) {
+        if (latestRequestRef.current === requestId && isActiveRef.current) {
           setLoadingMoreShared(false);
         }
         if (loadMoreSharedControllerRef.current === controller) {
@@ -1481,11 +1600,14 @@ function ComparisonCountryPane({
     [apiProfile, fallbackProfile, sharedSongs, uniqueSongs]
   );
 
+  const cachedGenreSamples = getCachedCountryGenreSamples(country.code, selectedYear);
   const sampleGenres = apiProfile?.sampleGenres?.length
     ? apiProfile.sampleGenres
-    : initialLoadingProfile
-      ? []
-      : country.genres.filter((genre) => genre.trim().length > 0 && genre.trim().toLowerCase() !== "unknown");
+    : cachedGenreSamples.length > 0
+      ? cachedGenreSamples
+      : initialLoadingProfile
+        ? []
+        : country.genres.filter((genre) => genre.trim().length > 0 && genre.trim().toLowerCase() !== "unknown");
   const isCoreLoading = initialLoadingProfile || initialLoadingUnique || initialLoadingShared;
   const loadingText = useLoadingText(isCoreLoading || initialLoadingPreview);
 
@@ -1662,6 +1784,7 @@ function EmptyPane() {
 }
 
 export function ComparisonResultsScreen({
+  isActive = true,
   countries,
   availableCountries,
   selectedYear,
@@ -1694,6 +1817,7 @@ export function ComparisonResultsScreen({
         <View style={[styles.panesRow, isMobileStack ? styles.panesRowMobile : null]}>
           {leftCountry ? (
             <ComparisonCountryPane
+              isActive={isActive}
               availableCountries={availableCountries}
               unavailableCountryId={rightCountry?.id}
               country={leftCountry}
@@ -1709,6 +1833,7 @@ export function ComparisonResultsScreen({
           )}
           {rightCountry ? (
             <ComparisonCountryPane
+              isActive={isActive}
               availableCountries={availableCountries}
               unavailableCountryId={leftCountry?.id}
               country={rightCountry}
@@ -1959,7 +2084,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(22,26,38,0.12)",
     padding: 14,
     alignSelf: "stretch",
-    minHeight: 186,
+    minHeight: 132,
   },
   countrySummarySectionDetailTitle: {
     color: colors.textLight,
@@ -2215,13 +2340,41 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 6,
     paddingHorizontal: 4,
+    ...(Platform.OS === "web"
+      ? ({
+          cursor: "auto",
+        } as ViewStyle)
+      : null),
   },
   favoriteArtistItemActive: {
+    opacity: 0.96,
+  },
+  favoriteArtistCdWrap: {
+    width: 104,
+    height: 122,
+    alignItems: "center",
+    justifyContent: "flex-start",
+    position: "relative",
+    overflow: "visible",
+  },
+  favoriteArtistCdShadow: {
+    position: "absolute",
+    left: "50%",
+    top: 0,
+    marginLeft: -52,
+    borderRadius: 6,
+    zIndex: -1,
+    backgroundColor: "rgba(0,0,0,0.02)",
     shadowColor: colors.shadow,
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    shadowOpacity: 0.42,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 16,
+    ...(Platform.OS === "web"
+      ? ({
+          boxShadow: "0px 14px 34px rgba(0,0,0,0.44)",
+        } as ViewStyle)
+      : null),
   },
   favoriteArtistName: {
     color: colors.textLight,
@@ -2380,18 +2533,44 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   hiddenSongsCarouselSongTitle: {
-    width: "100%",
     color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 20,
     lineHeight: 22,
     textAlign: "center",
     marginTop: 6,
+    flexShrink: 1,
+    maxWidth: "100%",
+  },
+  hiddenSongsCarouselTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    width: "94%",
+    maxWidth: "94%",
+    alignSelf: "center",
+  },
+  hiddenSongsCarouselTitleRowNative: {
+    marginTop: 24,
+    width: "auto",
+    maxWidth: 240,
+    gap: 4,
+  },
+  hiddenSongsCarouselExplicitWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 6,
+    flexShrink: 0,
+  },
+  hiddenSongsCarouselExplicitWrapNative: {
+    marginTop: 1,
+    marginRight: -2,
   },
   hiddenSongsCarouselSongTitleNative: {
     width: 220,
     maxWidth: 220,
-    marginTop: 26,
+    marginTop: 0,
     lineHeight: 20,
   },
   hiddenSongsCarouselSongArtist: {
@@ -2558,6 +2737,15 @@ const styles = StyleSheet.create({
   songCopy: {
     flex: 1,
     gap: 3,
+  },
+  songArtMetaWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  songExplicitBadgeWrap: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   songTitle: {
     color: colors.textLight,
