@@ -44,6 +44,8 @@ export type Props = {
   showNavIntro?: boolean;
   onDismissNavIntro?: () => void;
   focusSelection?: {
+    countryId?: string;
+    requestKey?: string;
     songTitle?: string;
     artist?: string;
     previewIndex?: number;
@@ -107,10 +109,10 @@ function songHasExplicitBadge(song: Pick<Song, "explicitLyrics" | "explicitConte
 function getExplicitTooltip(song: Pick<Song, "explicitLyrics" | "explicitContentCover">) {
   const details: string[] = [];
   if (song.explicitLyrics) {
-    details.push("Song lyrics are explicit");
+    details.push("Explicit song lyrics");
   }
   if (song.explicitContentCover) {
-    details.push("Album art is explicit");
+    details.push("Explicit album art");
   }
   return details.length > 0 ? details.join(" | ") : "Explicit content";
 }
@@ -177,6 +179,7 @@ function normalizeHiddenGemResponse(response: ApiHiddenGemResponse | null | unde
 function buildHiddenGemSongsFromResponse(response: ApiHiddenGemResponse | null | undefined, countryCode: string, year: number, fallbackPage: number) {
   const safeResponse = normalizeHiddenGemResponse(response, fallbackPage);
   const mapped = mapApiHiddenGemPage(safeResponse);
+  const seen = new Set<string>();
 
   return {
     songs: mapped.items
@@ -210,7 +213,21 @@ function buildHiddenGemSongsFromResponse(response: ApiHiddenGemResponse | null |
         description: `Trending in ${item.countriesChartingCount} countries`,
         spotifySearchUrl: item.previewUrl || "",
       }))
-      .filter((song) => hasKnownSongTitle(song.title)),
+      .filter((song) => {
+        if (!hasKnownSongTitle(song.title)) {
+          return false;
+        }
+
+        const dedupeKey =
+          typeof song.deezerTrackId === "number"
+            ? `track:${song.deezerTrackId}`
+            : `${song.title.trim().toLowerCase()}::${song.artist.trim().toLowerCase()}`;
+        if (seen.has(dedupeKey)) {
+          return false;
+        }
+        seen.add(dedupeKey);
+        return true;
+      }),
     hasNextPage: safeResponse.hasMore,
     totalPages: Math.max(1, Math.ceil(safeResponse.totalCount / safeResponse.pageSize)),
     totalCount: safeResponse.totalCount,
@@ -333,13 +350,15 @@ function MiniCdCase({
 }
 
 function BlankCdCase({
+  size = 450,
   loading = false,
   artImageUrl,
 }: {
+  size?: number;
   loading?: boolean;
   artImageUrl?: string;
 }) {
-  return <CdCaseArt size={450} placeholderColor="rgb(108,119,142)" artImageUrl={artImageUrl} loading={loading} />;
+  return <CdCaseArt size={size} placeholderColor="rgb(108,119,142)" artImageUrl={artImageUrl} loading={loading} />;
 }
 
 function PlayGlyph() {
@@ -765,7 +784,9 @@ function PlayingSidePanel({
   onPreviousSong: () => void;
   onNextSong: () => void;
 }) {
+  const { width } = useWindowDimensions();
   const isNativePlatform = Platform.OS !== "web";
+  const mainCdSize = isNativePlatform || width < 980 ? 325 : 450;
   const scrollbar = useCustomScrollbar();
   const loadingText = useLoadingText(isLoading);
   const disablePrevious = isLoading || !hasPreviousSong;
@@ -778,7 +799,7 @@ function PlayingSidePanel({
         <ScrollView
           ref={scrollbar.scrollRef}
           style={styles.secondaryPanelScroll}
-          contentContainerStyle={styles.playingSideContent}
+          contentContainerStyle={[styles.playingSideContent, isNativePlatform ? styles.playingSideContentNative : null]}
           showsVerticalScrollIndicator={false}
           onLayout={(event) => scrollbar.setViewportHeight(event.nativeEvent.layout.height)}
           onContentSizeChange={(_, height) => scrollbar.setContentHeight(height)}
@@ -786,8 +807,8 @@ function PlayingSidePanel({
           scrollEventThrottle={16}
         >
           <View style={styles.blankCdCaseWrap}>
-            <View style={styles.mainCdHoverTarget}>
-              <BlankCdCase loading={isLoading} artImageUrl={isLoading ? undefined : selectedSong.albumArtUrl} />
+            <View style={[styles.mainCdHoverTarget, { width: mainCdSize, height: mainCdSize }]}>
+              <BlankCdCase size={mainCdSize} loading={isLoading} artImageUrl={isLoading ? undefined : selectedSong.albumArtUrl} />
             </View>
             <View style={[styles.mainCdControlsRow, isNativePlatform ? styles.mainCdControlsRowNative : null]}>
               <PlayerControlButton
@@ -1050,13 +1071,15 @@ export function HiddenGemsScreen({
       return "";
     }
 
+    const focusCountryId = String(focusSelection.countryId ?? "").trim().toLowerCase();
+    const requestKey = String(focusSelection.requestKey ?? "").trim();
     const deezerTrackId = typeof focusSelection.deezerTrackId === "number" ? `${focusSelection.deezerTrackId}` : "";
     const songTitle = String(focusSelection.songTitle ?? "").trim().toLowerCase();
     const artist = String(focusSelection.artist ?? "").trim().toLowerCase();
     if (deezerTrackId) {
-      return `track::${deezerTrackId}`;
+      return `${focusCountryId}::${requestKey}::track::${deezerTrackId}`;
     }
-    return songTitle && artist ? `${songTitle}||${artist}` : "";
+    return songTitle && artist ? `${focusCountryId}::${requestKey}::${songTitle}||${artist}` : "";
   }, [focusSelection]);
 
   useEffect(() => {
@@ -1082,6 +1105,17 @@ export function HiddenGemsScreen({
       return;
     }
 
+    const targetCountryId = String(focusSelection?.countryId ?? "")
+      .trim()
+      .toLowerCase();
+    const matchesTargetCountry =
+      !targetCountryId ||
+      targetCountryId === country.id.trim().toLowerCase() ||
+      targetCountryId === country.code.trim().toLowerCase();
+    if (!matchesTargetCountry) {
+      return;
+    }
+
     if (initializedFocusSelectionKeyRef.current === focusSelectionKey) {
       return;
     }
@@ -1091,7 +1125,7 @@ export function HiddenGemsScreen({
     if (page !== 1) {
       setPage(1);
     }
-  }, [focusSelectionKey, page]);
+  }, [country.code, country.id, focusSelection?.countryId, focusSelectionKey, page]);
 
   useEffect(() => {
     if (!isActive || shouldShowNavIntro) {
@@ -1223,6 +1257,17 @@ export function HiddenGemsScreen({
       return;
     }
 
+    const targetCountryId = String(focusSelection.countryId ?? "")
+      .trim()
+      .toLowerCase();
+    const matchesTargetCountry =
+      !targetCountryId ||
+      targetCountryId === country.id.trim().toLowerCase() ||
+      targetCountryId === country.code.trim().toLowerCase();
+    if (!matchesTargetCountry) {
+      return;
+    }
+
     if (hiddenGemSongs.length === 0) {
       return;
     }
@@ -1243,17 +1288,6 @@ export function HiddenGemsScreen({
     const wantedTrackId = typeof focusSelection.deezerTrackId === "number" ? focusSelection.deezerTrackId : undefined;
     if (!wantedSong || !wantedArtist) {
       if (typeof wantedTrackId !== "number" && wantedPreviewIndex < 0) {
-        onFocusSelectionHandled?.();
-        return;
-      }
-    }
-
-    if (page === 1 && wantedPreviewIndex >= 0 && wantedPreviewIndex < hiddenGemSongs.length) {
-      const indexedSong = hiddenGemSongs[wantedPreviewIndex];
-      if (indexedSong) {
-        setActiveSongId(indexedSong.id);
-        setPreviewSongId(indexedSong.id);
-        onFocusSelectionHandled?.();
         return;
       }
     }
@@ -1290,13 +1324,23 @@ export function HiddenGemsScreen({
       return;
     }
 
+    if (page === 1 && wantedPreviewIndex >= 0 && wantedPreviewIndex < hiddenGemSongs.length) {
+      const indexedSong = hiddenGemSongs[wantedPreviewIndex];
+      if (indexedSong) {
+        setActiveSongId(indexedSong.id);
+        setPreviewSongId(indexedSong.id);
+        onFocusSelectionHandled?.();
+        return;
+      }
+    }
+
     if (hasNextPage) {
       beginPageTransition(page + 1);
       return;
     }
 
     onFocusSelectionHandled?.();
-  }, [focusSelection, hiddenGemSongs, isSongsLoading, hasNextPage, onFocusSelectionHandled, page]);
+  }, [country.code, country.id, focusSelection, hiddenGemSongs, isSongsLoading, hasNextPage, onFocusSelectionHandled, page]);
 
   useEffect(() => {
     void setAudioModeAsync({
@@ -1454,14 +1498,17 @@ export function HiddenGemsScreen({
 
   return (
     <ScreenScaffold alwaysScrollableOnWeb disableScroll={shouldShowNavIntro}>
-      <View style={[styles.pageFrame, shouldShowNavIntro && isNativePlatform ? styles.pageFrameHiddenBehindIntro : null]}>
+      <View
+        style={[styles.pageFrame, shouldShowNavIntro && isNativePlatform ? styles.pageFrameHiddenBehindIntro : null]}
+        pointerEvents={shouldShowNavIntro ? "none" : "auto"}
+      >
         <Panel style={styles.blurbPanel}>
           <LinearGradient
             colors={[colors.surfaceSecondary, "#27293B", "rgba(66,72,101,0.42)", "rgba(66,72,101,0.72)"]}
             locations={[0, 0.42, 0.78, 1]}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
-            style={styles.blurbFill}
+              style={styles.blurbFill}
           />
           <View style={[styles.blurbContent, isBlurbStacked ? styles.blurbContentStacked : null]}>
             <View
@@ -1471,18 +1518,16 @@ export function HiddenGemsScreen({
                 isBlurbStacked ? styles.blurbCopyStacked : null,
               ]}
             >
-              <Text style={styles.blurbText}>
+              <View style={styles.blurbHeadingRow}>
                 <Text style={styles.blurbHeading}>{displayCountryName}&apos;s Hidden Gems</Text>
-                {"  "}
                 <GemIcon size={16} style={styles.blurbIcon} />
-                {"  "}
-                <Text style={styles.blurbBody}>
-                  Hidden gems are songs that are loved in this country, but have not spread as widely
-                  {isBlurbStacked ? " " : "\n"}across other
-                  countries as of your selected year. Select optional filter(s), a country, and a year to view that
-                  country&apos;s Hidden Gems. Hover over the selected song&apos;s CD to view the previous, play, and
-                  skip buttons. Click play to listen to a 30-second preview of the song.
-                </Text>
+              </View>
+              <Text style={styles.blurbBody}>
+                Hidden gems are songs that are loved in this country, but have not spread as widely
+                {isBlurbStacked ? " " : "\n"}across other countries as of your selected year. Select optional
+                filter(s), a country, and a year to view that country&apos;s Hidden Gems. Hover over the selected
+                song&apos;s CD to view the previous, play, and skip buttons. Click play to listen to a 30-second
+                preview of the song.
               </Text>
             </View>
             <View style={[styles.blurbRightRail, isBlurbStacked ? styles.blurbRightRailStacked : null]}>
@@ -1528,7 +1573,11 @@ export function HiddenGemsScreen({
                   <Panel style={styles.filtersModal}>
                     <SecondarySurfaceFill />
                     <Text style={styles.filtersModalTitle}>All Filters</Text>
-                    <Text style={styles.filtersModalLine}>Genre(s): Genre info coming soon.</Text>
+                    {/* Genre filters are intentionally commented out for now.
+                        The current live genre data is API-fetched per song and is not normalized
+                        enough yet to support trustworthy Hidden Gems filtering. Keep this note here
+                        for a future normalized-genre iteration instead of deleting it. */}
+                    {/* <Text style={styles.filtersModalLine}>Genre(s): Genre info coming soon.</Text> */}
                     <Text style={styles.filtersModalLine}>Language(s): Language info coming soon.</Text>
                   </Panel>
                 ) : null}
@@ -2309,23 +2358,27 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     paddingRight: 18,
-    maxWidth: 630,
+    maxWidth: 680,
     justifyContent: "flex-start",
     transform: [{ translateY: 1 }],
   },
   blurbCopyWebReserved: {
-    width: 360,
-    maxWidth: 360,
-    flexGrow: 0,
-    flexShrink: 0,
+    minWidth: 360,
+    maxWidth: 520,
+    flexGrow: 1,
+    flexShrink: 1,
   },
   blurbCopyStacked: {
     width: "100%",
     maxWidth: "100%",
     paddingRight: 0,
   },
-  blurbText: {
-    textAlign: "left",
+  blurbHeadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    columnGap: 8,
+    rowGap: 6,
   },
   blurbIcon: {
     transform: [{ translateY: 1 }],
@@ -2341,6 +2394,7 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 20,
+    marginTop: 8,
   },
   blurbRightRail: {
     width: 392,
@@ -2680,6 +2734,10 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     gap: 10,
     alignItems: "center",
+  },
+  playingSideContentNative: {
+    paddingLeft: 20,
+    paddingRight: 20,
   },
   playingPanel: {
     minHeight: 760,

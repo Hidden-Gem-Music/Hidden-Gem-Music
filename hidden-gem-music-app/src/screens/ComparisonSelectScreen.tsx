@@ -533,7 +533,11 @@ function ComparisonSidebarPanels({
               {renderInlineFilterRow("Hidden Gems", "hiddenGems", ["All", "Only Show Countries with Hidden Gems", "Show Countries Without Hidden Gems", "Most Hidden Gems to Least", "Least Hidden Gems to Most"])}
               {renderInlineFilterRow("Region", "region", ["All", ...regionOptions])}
               {renderInlineFilterRow("Language", "language", ["All", ...languageOptions])}
-              {renderInlineFilterRow("Genre", "genre", ["All", ...genreOptions])}
+              {/* Genre filters are intentionally commented out for now.
+                  The current live genre data is API-fetched per song and is not normalized
+                  enough yet to support trustworthy comparison filtering. Keep this row here
+                  for a future normalized-genre iteration instead of deleting it. */}
+              {/* {renderInlineFilterRow("Genre", "genre", ["All", ...genreOptions])} */}
             </ScrollView>
             {showFilterScrollbar ? (
               <View

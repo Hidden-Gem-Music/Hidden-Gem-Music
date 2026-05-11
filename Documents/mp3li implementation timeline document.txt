@@ -1,6 +1,268 @@
 mp3li implementation timeline document
 
-Updated: May 9, 2026
+Updated: May 10, 2026
+
+Mobile / Web Regression Elimination Pass After Additional-Data Stabilization (May 10, 2026)
+- Objective:
+  - Return immediately to the live app after the previous additional-data stabilization pass and remove the remaining real visual/interaction regressions that were still failing during actual browser and mobile-style testing.
+  - Do not treat the prior pass as “done” just because the code compiled.
+  - Instead, keep tightening the app until the remaining known issues were either removed or reduced to a specifically identified next-step item.
+- Main problem during this follow-up:
+  - The previous pass improved a lot of the live app behavior, but actual testing still exposed a cluster of connected regressions.
+  - Several of them looked small at first glance, but they were tied together through shared app state, shared popup behavior, shared mobile/web screen paths, and the Hidden Gems preview-to-screen focus flow.
+  - This meant the work could not be treated as one simple CSS pass.
+  - It became a full regression-elimination pass across:
+    - app-level state behavior,
+    - welcome popup behavior,
+    - Discovery scroll behavior,
+    - Hidden Gems focus-selection routing,
+    - mobile Hidden Gems layout,
+    - and explicit-data hover behavior.
+
+Why this pass happened:
+- Real screen-by-screen verification continued after the previous update.
+- That testing showed that several remaining issues were still interconnected and needed another focused stabilization pass.
+- Some fixes improved one part of the experience but exposed additional shared-state, layout, or interaction problems elsewhere.
+- The follow-up therefore focused on:
+  - eliminating the remaining known issues through repeated validation,
+  - finding shared root causes instead of stacking more isolated tweaks,
+  - and repeatedly retesting both web and mobile behavior until the remaining known issues were specifically resolved.
+
+Most important functional problem uncovered during this pass:
+- Mobile testing became blocked by a repeated `Maximum update depth exceeded` error.
+- That was not just a visual issue.
+- It meant the app could get trapped in rerender behavior badly enough that other screen feedback became difficult to evaluate cleanly.
+- Because of that, the first priority in this pass became:
+  - identify and remove the app-level rerender loop before continuing with more surface-level tuning.
+
+App-level rerender-loop stabilization:
+- Traced the repeated update problem back into shared app state behavior rather than treating it as a single screen-only issue.
+- Stabilized the Discovery-country fallback path so the selected-year cache did not keep regenerating an unstable empty array shape during render cycles.
+- Added a shared empty-country fallback constant instead of rebuilding a brand-new empty array in the same place repeatedly.
+- Tightened the `comparisonIds` cleanup effect so it no longer writes new state when the filtered result is actually identical to the current state.
+- This mattered because:
+  - a state-cleanup effect that always produces a new array can keep causing pointless rerenders even when the meaningful data has not changed.
+- The net effect of that stabilization was:
+  - remove the repeated state churn,
+  - unblock mobile testing,
+  - and make the later screen-level verification cleaner and more reliable.
+
+Discovery country-pool cleanup and route consistency:
+- Discovery’s country pool had also started carrying through values that did not belong in the user-facing screen set.
+- Added a user-visible-country filter to exclude `GLOBAL`-style rows from the active Discovery and cross-screen country pool logic.
+- Applied that cleanup not only to the selected-year Discovery pool, but also to the all-years merged pool.
+- This helped reduce confusing behavior where shared route/state logic could otherwise carry along a non-real country row into user-facing interactions.
+
+Hidden Gems preview-click targeting repairs:
+- One of the core UX promises in the app is:
+  - clicking a hidden-gem preview should bring the user to that actual hidden gem on the full Hidden Gems screen.
+- Even after the earlier preview work, mobile still exposed cases where the full screen did not reliably land on the intended song.
+- Strengthened the focus-selection payload passed through app navigation by adding:
+  - the originating country identifier,
+  - and a unique request key.
+- This mattered because multiple selection attempts can otherwise collide when the same song title or artist appears in different routing contexts.
+- Tightened the Hidden Gems focus-resolution logic so it now:
+  - checks that the incoming focus selection actually belongs to the currently active country,
+  - resets page-selection flow only when the selection belongs to that target country,
+  - and uses the strengthened focus key rather than an overly weak title/artist-only shape.
+- Reordered the actual match logic so real track/title/artist matching is preferred before using preview-index fallback.
+- Kept the preview-index fallback only as a page-1 rescue path, not as the first guess.
+- This prevented weaker positional assumptions from overriding a stronger exact match.
+
+Hidden Gems duplicate-song cleanup:
+- During mobile Hidden Gems loading, a repeated issue appeared where the finished result could show duplicate songs, including duplicate slot-1 behavior.
+- Added dedupe handling when mapping the Hidden Gems response into frontend song objects.
+- Used Deezer track id when available as the strongest dedupe key.
+- Fell back to normalized `title + artist` matching when a track id was not present.
+- This removed repeated rows that were making the screen look broken even after load completion.
+
+Welcome popup and blocked-underlay interaction overhaul:
+- One of the most frustrating real interaction bugs in the app was the welcome popup dismissal behavior.
+- The goal had always been:
+  - when a popup is up, users should not accidentally activate underlying content while trying to dismiss the popup.
+- In actual testing, that was still failing in several ways:
+  - some underlying items remained interactable,
+  - some hover/click states still triggered under the popup,
+  - and clicking out of welcome could close the popup while also causing unrelated screen actions.
+- Reworked the welcome popup interaction model so the modal now fully blocks underlying preview interactions while active or closing.
+- Added a short closing/cooldown state instead of instantly dropping all guards the exact frame the modal starts closing.
+- Disabled welcome-preview interactions during:
+  - full modal visibility,
+  - modal close transition,
+  - and short cooldown after dismissal.
+- This specifically prevented accidental interactions with:
+  - preview list countries,
+  - preview globe countries,
+  - year controls,
+  - and other welcome-preview actions.
+- Clicking outside the welcome popup was then deliberately redefined to behave like the `Discovery Globe` button rather than like a generic bare dismiss.
+- That decision matched the requested product behavior and avoided the earlier “click out, then accidentally trigger something unrelated underneath” problem.
+
+Welcome popup button-route cleanup:
+- The welcome popup buttons also needed coordinated close behavior instead of routing instantly from a still-active modal.
+- Added a dedicated route transition helper for welcome-modal buttons.
+- That helper closes the modal first, applies the same guarded interaction cooldown, then routes to the selected destination.
+- Applied that same controlled behavior to:
+  - Discovery Globe,
+  - Comparison Mode,
+  - Hidden Gems,
+  - Dashboard,
+  - and Credits.
+- This prevented route changes from feeling like they were fighting with the modal state itself.
+
+Loading overlay placement correction so nav remains usable:
+- The user specifically wanted popup behavior to block underlying screen content while still allowing main navigation.
+- To support that correctly, the shared loading overlay could not keep sitting above the entire app shell.
+- Moved the loading overlay into the screen-area container instead of leaving it above both the screen content and nav.
+- Added relative positioning to the screen-area wrapper so the overlay can cover the active screen while leaving header/mobile navigation behavior intact.
+- This gave the popup/overlay system a cleaner layering model:
+  - active screen blocked,
+  - nav still accessible,
+  - no accidental whole-app lockout.
+
+Discovery web scroll regression and retest-blocker removal:
+- After the popup-blocking work landed, Discovery on web developed a new regression:
+  - the page could no longer scroll down to the year timeline area.
+- That created a major testing blocker because the Discovery year-change behavior could not even be retested properly on web while the screen would not scroll.
+- Traced that to the new wrapper around Discovery content:
+  - the blocking wrapper did not stretch to fill the available screen height,
+  - which meant the inner Discovery `ScrollView` no longer had the right layout context to scroll properly.
+- Fixed that by giving the wrapper its own full-height frame with `flex: 1` and `minHeight: 0`.
+- This restored Discovery web scrolling so the year-timeline area became reachable again.
+- That was important not just as a layout fix, but as a testing-enabler fix.
+
+Discovery sidebar and mobile/narrow panel behavior refinements:
+- Continued tightening Discovery sidebar behavior during this pass so the actual list/filter panel experience felt less brittle.
+- Changed the default expanded sidebar section toward the list-first experience rather than keeping filters open by default.
+- Added a proper loading state when the Discovery country list is empty instead of leaving it visually blank during load.
+- Improved near-end detection for list-based prefetching so repeated near-bottom triggers do not fire over and over without leaving and re-entering the threshold.
+- Reset list scroll position when the Discovery country set changes meaningfully by year or result set.
+- Added narrower-layout handling so mobile/native panel sizing does not keep inheriting web-style rigid heights where that would damage usability.
+
+Hidden Gems big-CD mobile resizing and centering:
+- The larger Hidden Gems CD on mobile still looked too large and slightly off-center after earlier changes.
+- Reduced it once, then reduced it again in a later pass after feedback confirmed the first shrink was still not enough.
+- Final mobile/narrow layout reduced the big CD substantially further rather than leaving it near the desktop scale.
+- Also adjusted the mobile side-panel content padding so the CD sits more cleanly centered inside its section instead of drifting visually to the left.
+- This was one of the most iterative style adjustments in the pass because the target was not just “smaller.”
+- The target was:
+  - smaller enough,
+  - still readable,
+  - and actually centered in the space it lives in.
+
+Hidden Gems mobile preview-text spacing work across multiple rounds:
+- The hidden-gem preview carousel on mobile needed very specific text positioning changes:
+  - the artist line had to stay in its exact spot,
+  - the song title needed to move upward,
+  - and the explicit `E` needed to move downward,
+  - with better spacing balance between them.
+- This could not be treated as one generic “lower the text block” change because feedback made it clear that moving the whole block together was not correct.
+- The adjustments happened in multiple rounds:
+  - first moved the combined text block lower,
+  - then corrected that approach because the artist line should not move,
+  - then independently raised only the song title,
+  - then lowered only the `E`,
+  - then increased the separation again because the spacing still felt too tight.
+- The final result was reached by:
+  - keeping the artist line stable,
+  - raising the song title more aggressively,
+  - and lowering the `E` enough that the spacing relationship finally matched the intended look.
+- This became one of the clearest examples in the pass of why small visual feedback had to be handled as exact placement work rather than through broader one-step layout changes.
+
+Hidden Gems page-frame interaction blocking during nav intro:
+- While tightening popup behavior elsewhere, applied the same general principle to the Hidden Gems intro state.
+- When the screen is still showing the nav-intro overlay state, the underlying Hidden Gems page frame should not remain interactable.
+- Added page-frame pointer-event blocking during that intro state so the real screen content does not respond behind the intro overlay.
+
+Explicit-data UI behavior overhaul:
+- Explicit-data UI had several separate problems across this pass:
+  - the `E` tooltip behavior was visually awkward,
+  - the tooltip could stretch absurdly,
+  - hover behavior could linger badly,
+  - mobile should not behave like a hover target at all,
+  - and the desktop popup felt more like a drifting custom floating box than a tight little explanation attached to the badge.
+- First tightened the tooltip wording so the explicit explanations read more cleanly:
+  - `Explicit song lyrics`
+  - and `Explicit album art`
+- On mobile, kept the `E` as a simple visual badge only:
+  - no hover treatment,
+  - no click styling,
+  - no fake interactivity.
+- On web, the first repair path tried to keep a custom tooltip while clamping it better to the viewport.
+- That improved some cases, but feedback showed it was still too long and too strange.
+- It could still feel detached from the actual `E`, especially in edge cases around page movement and long wrapped display.
+- After that, replaced the custom web tooltip path entirely with the browser’s native hover-title behavior.
+- This was intentionally simpler.
+- The goal was not fancy styling.
+- The goal was:
+  - a tiny, plain hover explanation,
+  - no stretched floating box,
+  - and predictable browser-native behavior.
+- That final change aligned much better with the requested “just make it like HTML alternative text when hovered” direction.
+
+Explicit badge sizing/placement cleanup in related UI:
+- Continued refining where the explicit badge sits in multiple places so it does not fight the surrounding layout.
+- On mobile hidden-gem previews specifically, moved the badge under the artist line rather than leaving it embedded into the title row.
+- On desktop/web contexts, kept the badge in the tighter inline positions where hover explanation still makes sense.
+- This separated the mobile visual treatment from the web hover treatment without introducing separate screen files.
+
+Web hover-acts-like-click regression elimination:
+- A particularly confusing bug was that web started acting like hover was triggering click-like behavior after dismissing the welcome popup by clicking outside it.
+- That made the interaction model feel inconsistent because seemingly unrelated hover states could behave like active presses.
+- This was tracked back into the welcome dismissal / preview interaction leak rather than being blamed on generic browser weirdness.
+- Once the welcome popup gained proper guarded dismissal and interaction cooldown behavior, that web hover/click leakage was eliminated.
+
+Repeated real testing and elimination of known issues:
+- This pass involved repeated rounds of:
+  - inspect current code,
+  - apply targeted fix,
+  - retest behavior,
+  - receive exact visual/interaction feedback,
+  - then correct again if the change was partial or wrong.
+- That testing was not limited to one screen.
+- It covered:
+  - welcome modal dismissal paths,
+  - popup underlay blocking,
+  - Discovery scroll access,
+  - Discovery timeline reachability,
+  - Hidden Gems mobile CD sizing,
+  - Hidden Gems preview click targeting,
+  - duplicate-song behavior,
+  - mobile hidden-gem preview typography spacing,
+  - explicit badge behavior,
+  - and web hover behavior.
+- The pass explicitly kept going until the remaining known issues called out in testing were either:
+  - marked fixed through visible behavior,
+  - or reduced to one specifically named next concern rather than a vague unresolved mess.
+
+Verification and stability checks performed during this pass:
+- Repeatedly used `npx tsc --noEmit` to make sure the frontend still compiled after the shared app/screen changes.
+- Repeatedly used `git diff --check` to ensure the patch state itself stayed clean.
+- Also used actual user-facing behavior feedback as a real gate because this phase was dominated by visual and interaction regressions, not by silent compile-only problems.
+- Final verification in the visible code state at the end of the pass showed:
+  - no TypeScript errors from the frontend check,
+  - and no patch-format errors from `git diff --check`.
+
+Final resolved outcomes from this follow-up pass:
+- Mobile hidden-gem preview explicit-badge placement was fully corrected.
+- Hidden Gems large-CD mobile size/centering was corrected.
+- Hidden-gem preview click targeting to the real Hidden Gems song was corrected.
+- Popup underlay click-through behavior was corrected on both web and mobile, while keeping nav usable.
+- Welcome click-out behavior was corrected to behave like Discovery Globe dismissal rather than a dangerous bare click-through.
+- Web hover-acts-like-click behavior after dismissing welcome was corrected.
+- Hidden Gems duplicate-song behavior during mobile load/result flow was corrected.
+- Discovery web scroll access was restored so the timeline area can be reached again.
+- Explicit `E` hover behavior on web was simplified into a much more predictable native browser tooltip, while mobile remained non-interactive.
+
+What this pass represented overall:
+- This was the cleanup and stabilization pass that turned the previous implementation work into a more consistent, fully testable app state across web and mobile.
+- The work was detailed and iterative because the remaining issues were shared across state, layout, interaction, and loading behavior rather than staying isolated to one screen.
+- The biggest themes were:
+  - stop rerender churn,
+  - stop popup interaction leaks,
+  - stop mismatched preview targeting,
+  - stop misleading hover behavior,
+  - and keep pushing on visual/mobile polish until the known issues were resolved in actual use.
 
 App-Side Additional Data Fine-Tuning Pass + Hidden Gems / Discovery / Comparison Stabilization (May 10, 2026)
 - Objective:

@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { Country } from "../types/content";
@@ -176,10 +176,67 @@ function WelcomeYearDropdown({
 }
 
 export function WelcomeScreen({ countries, availableYears, onNavigate, onSelectCountry, selectedYear, onChangeYear }: Props) {
-  const previewCountries = countries.slice(0, 5);
+  const previewCountries = useMemo(() => countries.slice(0, 5), [countries]);
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
   const [isWelcomeModalVisible, setIsWelcomeModalVisible] = useState(true);
+  const [isWelcomeModalClosing, setIsWelcomeModalClosing] = useState(false);
+  const [isWelcomeInteractionCooldown, setIsWelcomeInteractionCooldown] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewInteractionsDisabled = isWelcomeModalVisible || isWelcomeModalClosing || isWelcomeInteractionCooldown;
+  const dismissWelcomeModal = (navigateToDiscovery = false) => {
+    if (isWelcomeModalClosing || !isWelcomeModalVisible) {
+      return;
+    }
+
+    setIsWelcomeModalClosing(true);
+    setIsWelcomeInteractionCooldown(true);
+    const closeDelay = Platform.OS === "web" ? 120 : 90;
+    closeTimerRef.current = globalThis.setTimeout(() => {
+      setIsWelcomeModalVisible(false);
+      setIsWelcomeModalClosing(false);
+      if (navigateToDiscovery) {
+        onNavigate("discovery");
+      }
+    }, closeDelay);
+    cooldownTimerRef.current = globalThis.setTimeout(() => {
+      setIsWelcomeInteractionCooldown(false);
+    }, 650);
+  };
+  const navigateFromWelcomeModal = (route: ScreenRoute) => {
+    if (route === "discovery") {
+      dismissWelcomeModal(true);
+      return;
+    }
+
+    if (isWelcomeModalClosing) {
+      return;
+    }
+
+    setIsWelcomeModalClosing(true);
+    setIsWelcomeInteractionCooldown(true);
+    const closeDelay = Platform.OS === "web" ? 120 : 90;
+    closeTimerRef.current = globalThis.setTimeout(() => {
+      setIsWelcomeModalVisible(false);
+      setIsWelcomeModalClosing(false);
+      onNavigate(route);
+    }, closeDelay);
+    cooldownTimerRef.current = globalThis.setTimeout(() => {
+      setIsWelcomeInteractionCooldown(false);
+    }, 650);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+      }
+    };
+  }, []);
 
   const listColumn = (
     <View style={[styles.leftColumn, isStacked ? styles.columnStacked : null]}>
@@ -187,8 +244,8 @@ export function WelcomeScreen({ countries, availableYears, onNavigate, onSelectC
         countries={previewCountries}
         selectedYear={selectedYear}
         selectedCountryId={previewCountries[0]?.id}
-        onSelectCountry={onSelectCountry}
-        onOpenCountry={onSelectCountry}
+        onSelectCountry={previewInteractionsDisabled ? () => {} : onSelectCountry}
+        onOpenCountry={previewInteractionsDisabled ? () => {} : onSelectCountry}
       />
     </View>
   );
@@ -200,27 +257,31 @@ export function WelcomeScreen({ countries, availableYears, onNavigate, onSelectC
           countries={countries}
           activeCountryId={countries[0]?.id ?? ""}
           selectedYear={selectedYear}
-          onSelectCountry={onSelectCountry}
-          onOpenCountry={onSelectCountry}
+          onSelectCountry={previewInteractionsDisabled ? () => {} : onSelectCountry}
+          onOpenCountry={previewInteractionsDisabled ? () => {} : onSelectCountry}
           title="Globe View"
           rightActionLabel="All Filters"
-          onRightAction={() => onNavigate("discovery")}
+          onRightAction={previewInteractionsDisabled ? () => {} : () => onNavigate("discovery")}
           showHeader={false}
         />
         {isStacked ? (
           <View style={styles.mobileYearDropdownOverlay}>
-            <WelcomeYearDropdown selectedYear={selectedYear} years={availableYears} onChangeYear={onChangeYear} />
+            <WelcomeYearDropdown
+              selectedYear={selectedYear}
+              years={availableYears}
+              onChangeYear={previewInteractionsDisabled ? () => {} : onChangeYear}
+            />
           </View>
         ) : (
-          <YearSlider year={selectedYear} years={availableYears} onChangeYear={onChangeYear} />
+          <YearSlider year={selectedYear} years={availableYears} onChangeYear={previewInteractionsDisabled ? () => {} : onChangeYear} />
         )}
       </View>
     </View>
   );
 
   return (
-    <ScreenScaffold alwaysScrollableOnWeb disableScroll={isWelcomeModalVisible}>
-      <View style={styles.previewStack}>
+    <ScreenScaffold alwaysScrollableOnWeb disableScroll={isWelcomeModalVisible || isWelcomeModalClosing}>
+      <View style={styles.previewStack} pointerEvents={isWelcomeModalVisible || isWelcomeModalClosing ? "none" : "auto"}>
         <DiscoveryBlurb />
         <View style={[styles.previewLayout, isStacked ? styles.previewLayoutStacked : null]}>
           {isStacked ? globeColumn : listColumn}
@@ -228,9 +289,22 @@ export function WelcomeScreen({ countries, availableYears, onNavigate, onSelectC
         </View>
       </View>
 
-      {isWelcomeModalVisible ? (
-        <Pressable style={styles.overlay} onPress={() => setIsWelcomeModalVisible(false)}>
-          <View style={styles.overlayBackdrop} />
+      {isWelcomeModalVisible || isWelcomeModalClosing ? (
+        <View
+          style={styles.overlay}
+          pointerEvents="auto"
+          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => true}
+        >
+          <Pressable
+            style={styles.overlayBackdropPressTarget}
+            onPress={(event) => {
+              event.stopPropagation();
+              dismissWelcomeModal(true);
+            }}
+          >
+            <View style={styles.overlayBackdrop} />
+          </Pressable>
           <Pressable style={styles.modalPressTarget} onPress={(event) => event.stopPropagation()}>
             <Panel style={styles.modal}>
               <LinearGradient
@@ -250,16 +324,16 @@ export function WelcomeScreen({ countries, availableYears, onNavigate, onSelectC
                   TBD). Utilize filters in multiple areas of the app to fine tune your discovery.
                 </Text>
                 <View style={styles.buttonStack}>
-                  <ActionButton label="Discovery Globe" size="compact" onPress={() => onNavigate("discovery")} />
-                  <ActionButton label="Comparison Mode" size="compact" onPress={() => onNavigate("comparisonSelect")} />
-                  <ActionButton label="Hidden Gems" size="compact" onPress={() => onNavigate("hiddenGems")} />
-                  <ActionButton label="Dashboard" size="compact" onPress={() => onNavigate("dashboard")} />
-                  <ActionButton label="Credits" size="compact" onPress={() => onNavigate("credits")} />
+                  <ActionButton label="Discovery Globe" size="compact" onPress={() => navigateFromWelcomeModal("discovery")} />
+                  <ActionButton label="Comparison Mode" size="compact" onPress={() => navigateFromWelcomeModal("comparisonSelect")} />
+                  <ActionButton label="Hidden Gems" size="compact" onPress={() => navigateFromWelcomeModal("hiddenGems")} />
+                  <ActionButton label="Dashboard" size="compact" onPress={() => navigateFromWelcomeModal("dashboard")} />
+                  <ActionButton label="Credits" size="compact" onPress={() => navigateFromWelcomeModal("credits")} />
                 </View>
               </View>
             </Panel>
           </Pressable>
-        </Pressable>
+        </View>
       ) : null}
     </ScreenScaffold>
   );
@@ -391,6 +465,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
+    zIndex: 9999,
+  },
+  overlayBackdropPressTarget: {
+    ...StyleSheet.absoluteFillObject,
   },
   overlayBackdrop: {
     ...StyleSheet.absoluteFillObject,

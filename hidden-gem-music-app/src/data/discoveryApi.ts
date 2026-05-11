@@ -15,7 +15,8 @@ export async function loadDiscoveryCountries(year: number, fallbackCountries: Co
 
   const payload = (await response.json()) as ApiCountryGlobeSummary[];
 
-  return payload.map((item, index) => {
+  return payload
+    .map((item, index) => {
     const mapped = mapApiCountryGlobeSummary(item);
     const normalizedCode = mapped.countryCode.toUpperCase();
     const existing = existingByCode.get(normalizedCode);
@@ -37,5 +38,10 @@ export async function loadDiscoveryCountries(year: number, fallbackCountries: Co
       markerTop: existing?.markerTop ?? "-20%",
       markerLeft: existing?.markerLeft ?? "-20%",
     };
-  });
+    })
+    .filter((country) => {
+      const normalizedCode = country.code.trim().toUpperCase();
+      const normalizedName = country.name.trim().toLowerCase();
+      return normalizedCode !== "GLOBAL" && normalizedName !== "global";
+    });
 }

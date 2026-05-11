@@ -23,7 +23,7 @@ import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { getCachedCountryGenreSamples, loadAvailableYears, loadCountryHiddenGemsPreview, loadCountryProfile, loadCountrySongsPage } from "../data/countryApi";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiSong } from "../data/apiMappers";
-import { useLoadingText } from "../hooks/useLoadingText";
+import { useLoadingText, useStableLoadingText } from "../hooks/useLoadingText";
 import { getSongsForCountryYear } from "../data/mockData";
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
@@ -196,10 +196,10 @@ function songHasExplicitBadge(song: Pick<SongPreview, "explicitLyrics" | "explic
 function getExplicitTooltip(song: Pick<SongPreview, "explicitLyrics" | "explicitContentCover">) {
   const details: string[] = [];
   if (song.explicitLyrics) {
-    details.push("Song lyrics are explicit");
+    details.push("Explicit song lyrics");
   }
   if (song.explicitContentCover) {
-    details.push("Album art is explicit");
+    details.push("Explicit album art");
   }
   return details.length > 0 ? details.join(" | ") : "Explicit content";
 }
@@ -219,6 +219,41 @@ function formatGenreSummary(genres: string[]) {
   }
 
   return "";
+}
+
+function formatListWithAnd(items: string[]) {
+  const cleaned = items.map((item) => item.trim()).filter((item) => item.length > 0);
+  if (cleaned.length === 0) {
+    return "";
+  }
+  if (cleaned.length === 1) {
+    return cleaned[0];
+  }
+  if (cleaned.length === 2) {
+    return `${cleaned[0]} and ${cleaned[1]}`;
+  }
+  return `${cleaned.slice(0, -1).join(", ")}, and ${cleaned[cleaned.length - 1]}`;
+}
+
+function collectUniqueGenresFromSongs(songs: SongPreview[], limit: number) {
+  const seen = new Set<string>();
+  const results: string[] = [];
+
+  songs.slice(0, limit).forEach((song) => {
+    song.genres
+      .map((genre) => genre.trim())
+      .filter((genre) => genre.length > 0 && genre.toLowerCase() !== "unknown")
+      .forEach((genre) => {
+        const normalized = genre.toLowerCase();
+        if (seen.has(normalized)) {
+          return;
+        }
+        seen.add(normalized);
+        results.push(genre);
+      });
+  });
+
+  return results;
 }
 
 function getLanguageSampleList(languages: string[]) {
@@ -713,9 +748,10 @@ function MainComparisonArea({
   onLoadMore?: () => void;
   darkTheme?: boolean;
 }) {
+  const [hoveredSongKey, setHoveredSongKey] = useState<string | null>(null);
+  const [pressedSongKey, setPressedSongKey] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const trackRef = useRef<View>(null);
-  const [hoveredSongKey, setHoveredSongKey] = useState<string | null>(null);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const [scrollY, setScrollY] = useState(0);
@@ -744,6 +780,7 @@ function MainComparisonArea({
     }
   };
   const activeLoadingText = useLoadingText(isInitialLoading || isLoadingMore);
+  const loadingMoreText = useLoadingText(isLoadingMore, "Loading more hidden gems");
 
   const scrollToTrackLocation = (locationY: number) => {
     if (!hasOverflow || contentHeight <= viewportHeight) {
@@ -836,11 +873,33 @@ function MainComparisonArea({
             </View>
           ) : null}
           {songs.map((song, index) => (
-            <View
+            <Pressable
               key={`${title}-${song.title}-${song.artist}-${index}`}
               style={styles.songRowShell}
+              accessibilityRole={undefined}
+              onPress={() => {}}
+              onHoverIn={() => setHoveredSongKey(`${title}-${index}`)}
+              onHoverOut={() => setHoveredSongKey((current) => (current === `${title}-${index}` ? null : current))}
+              onPressIn={() => setPressedSongKey(`${title}-${index}`)}
+              onPressOut={() => setPressedSongKey((current) => (current === `${title}-${index}` ? null : current))}
             >
-              <View style={styles.songRow}>
+              {hoveredSongKey === `${title}-${index}` || pressedSongKey === `${title}-${index}` ? (
+                <LinearGradient
+                  colors={hoverGradient}
+                  locations={[0, 0.34, 1]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.songRowGradient}
+                />
+              ) : null}
+              <View
+                style={[
+                  styles.songRow,
+                  hoveredSongKey === `${title}-${index}` || pressedSongKey === `${title}-${index}`
+                    ? styles.songRowActive
+                    : null,
+                ]}
+              >
                 <View style={styles.songCopy}>
                   <Text style={[styles.songTitle, darkTheme ? styles.songTitleDark : null]}>
                     {song.title}
@@ -881,7 +940,7 @@ function MainComparisonArea({
                   />
                 </View>
               </View>
-            </View>
+            </Pressable>
           ))}
           {isLoadingMore
             ? Array.from({ length: 3 }).map((_, index) => (
@@ -909,6 +968,13 @@ function MainComparisonArea({
                 </View>
               ))
             : null}
+          {isLoadingMore ? (
+            <View style={styles.songListLoadingRow}>
+              <Text style={[styles.songListLoadingText, darkTheme ? styles.songListLoadingTextDark : null]}>
+                {loadingMoreText}
+              </Text>
+            </View>
+          ) : null}
         </ScrollView>
         {scrollbarVisible ? (
           <View
@@ -938,28 +1004,28 @@ function MainComparisonArea({
 
 function GenreSection({
   title,
-  items: _items,
-  visual: _visual = "bars",
+  bodyText,
 }: {
   title: string;
-  items: BreakdownItem[];
-  visual?: "bars" | "pie";
+  bodyText: string;
 }) {
   return (
     <CountryPageSection style={styles.genreSection} fillVariant="softBlue" contentStyle={styles.insightSectionContent}>
       <View style={styles.genreSectionHeader}>
         <Text style={styles.insightSectionTitle}>{title}</Text>
       </View>
+      <Text style={styles.insightSectionBody}>{bodyText}</Text>
     </CountryPageSection>
   );
 }
 
-function LanguageSection({ title, items: _items }: { title: string; items: BreakdownItem[] }) {
+function LanguageSection({ title, bodyText }: { title: string; bodyText: string }) {
   return (
     <CountryPageSection style={styles.languageSection} fillVariant="softBlue" contentStyle={styles.insightSectionContent}>
       <View style={styles.genreSectionHeader}>
         <Text style={styles.insightSectionTitle}>{title}</Text>
       </View>
+      <Text style={styles.insightSectionBody}>{bodyText}</Text>
     </CountryPageSection>
   );
 }
@@ -1105,27 +1171,49 @@ function HiddenSongsCarouselSection({
                   />
                 </View>
                 {isCenter ? (
+                  isCompact ? (
+                    <View style={styles.hiddenSongsCarouselNativeTextBlock}>
+                      <Text
+                        style={[
+                          styles.hiddenSongsCarouselSongTitle,
+                          styles.hiddenSongsCarouselSongTitleNative,
+                        ]}
+                      >
+                        {song.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.hiddenSongsCarouselSongArtist,
+                          styles.hiddenSongsCarouselSongArtistNative,
+                        ]}
+                      >
+                        {song.artist}
+                      </Text>
+                      {songHasExplicitBadge(song) ? (
+                        <View style={styles.hiddenSongsCarouselExplicitWrapBelowArtistNative}>
+                          <ExplicitIndicator size="medium" tooltip={getExplicitTooltip(song)} />
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : (
                   <>
                     <View
                       style={[
                         styles.hiddenSongsCarouselTitleRow,
-                        isCompact ? styles.hiddenSongsCarouselTitleRowNative : null,
                       ]}
                     >
                       {songHasExplicitBadge(song) ? (
                         <View
                           style={[
                             styles.hiddenSongsCarouselExplicitWrap,
-                            isCompact ? styles.hiddenSongsCarouselExplicitWrapNative : null,
                           ]}
                         >
-                          <ExplicitIndicator size={isCompact ? "medium" : "small"} tooltip={getExplicitTooltip(song)} />
+                          <ExplicitIndicator size="small" tooltip={getExplicitTooltip(song)} />
                         </View>
                       ) : null}
                       <Text
                         style={[
                           styles.hiddenSongsCarouselSongTitle,
-                          isCompact ? styles.hiddenSongsCarouselSongTitleNative : null,
                         ]}
                       >
                         {song.title}
@@ -1134,12 +1222,12 @@ function HiddenSongsCarouselSection({
                     <Text
                       style={[
                         styles.hiddenSongsCarouselSongArtist,
-                        isCompact ? styles.hiddenSongsCarouselSongArtistNative : null,
                       ]}
                     >
                       {song.artist}
                     </Text>
                   </>
+                  )
                 ) : null}
               </Pressable>
             );
@@ -1610,6 +1698,14 @@ function ComparisonCountryPane({
         : country.genres.filter((genre) => genre.trim().length > 0 && genre.trim().toLowerCase() !== "unknown");
   const isCoreLoading = initialLoadingProfile || initialLoadingUnique || initialLoadingShared;
   const loadingText = useLoadingText(isCoreLoading || initialLoadingPreview);
+  const sectionLoadingText = useStableLoadingText(isCoreLoading || initialLoadingPreview);
+  const lovedGenres = useMemo(
+    () => [
+      ...collectUniqueGenresFromSongs(profileStats.uniqueSongs, 5),
+      ...collectUniqueGenresFromSongs(profileStats.sharedSongs, 5),
+    ].filter((genre, index, source) => source.indexOf(genre) === index),
+    [profileStats.sharedSongs, profileStats.uniqueSongs]
+  );
 
   const generalDescriptionText = useMemo(() => {
     const genreA = sampleGenres[0] ?? "Unknown Genre";
@@ -1620,19 +1716,25 @@ function ComparisonCountryPane({
     const songA = profileStats.uniqueSongs[0] ?? profileStats.sharedSongs[0];
     const songB = profileStats.uniqueSongs[1] ?? profileStats.sharedSongs[1] ?? profileStats.sharedSongs[0];
     if (!artistA || !artistB || !songA || !songB) {
-      return `A mix of ${genreA}, ${genreB}, and ${genreC} are ${country.name}'s favorites in ${selectedYear}. Favorite artists include ${loadingText} and ${loadingText}, and favorite songs that year included ${loadingText} and ${loadingText}.`;
+      return `A mix of ${genreA}, ${genreB}, and ${genreC} are ${country.name}'s favorites in ${selectedYear}. Favorite artists include ${sectionLoadingText} and ${sectionLoadingText}, and favorite songs that year included ${sectionLoadingText} and ${sectionLoadingText}.`;
     }
     return `A mix of ${genreA}, ${genreB}, and ${genreC} are ${country.name}'s favorites in ${selectedYear}. Favorite artists include ${artistA} and ${artistB}, and favorite songs that year included ${songA.title} by ${songA.artist} and ${songB.title} by ${songB.artist}.`;
-  }, [country.name, favoriteArtists, loadingText, profileStats.sharedSongs, profileStats.uniqueSongs, sampleGenres, selectedYear]);
+  }, [country.name, favoriteArtists, profileStats.sharedSongs, profileStats.uniqueSongs, sampleGenres, sectionLoadingText, selectedYear]);
 
   const genreLanguageMixText = useMemo(() => {
-    const genreSummary = formatGenreSummary(sampleGenres);
+    const genreSummary = formatGenreSummary(lovedGenres.length > 0 ? lovedGenres : sampleGenres);
     if (!genreSummary) {
-      return `${country.name}'s loved genres include ${loadingText}. Languages in lyrics of songs loved in ${country.name} are coming soon.`;
+      return `Some of ${country.name}'s loved genres include ${sectionLoadingText}. Languages in lyrics of songs loved in ${country.name} are coming soon.`;
     }
 
-    return `${country.name}'s loved genres include ${genreSummary}. Languages in lyrics of songs loved in ${country.name} are coming soon.`;
-  }, [country.name, loadingText, sampleGenres]);
+    return `Some of ${country.name}'s loved genres include ${genreSummary}. Languages in lyrics of songs loved in ${country.name} are coming soon.`;
+  }, [country.name, lovedGenres, sampleGenres, sectionLoadingText]);
+  const lovedGenresSectionText = useMemo(() => {
+    if (lovedGenres.length > 0) {
+      return `Some of the loved genres in ${country.name} include ${formatListWithAnd(lovedGenres)}.`;
+    }
+    return `Some of the loved genres in ${country.name} include ${sectionLoadingText}.`;
+  }, [country.name, lovedGenres, sectionLoadingText]);
 
   return (
     <Panel style={styles.paneShell}>
@@ -1722,8 +1824,8 @@ function ComparisonCountryPane({
         </View>
 
         <View style={styles.genreAndLanguageSections}>
-          <GenreSection title={`${country.name}'s Loved Genres`} items={profileStats.genreBreakdown} visual="pie" />
-          <LanguageSection title={`${country.name}'s Languages`} items={profileStats.languageBreakdown} />
+          <GenreSection title={`${country.name}'s Loved Genres`} bodyText={lovedGenresSectionText} />
+          <LanguageSection title={`${country.name}'s Language(s) in Music`} bodyText="Language information coming soon." />
         </View>
 
         <HiddenSongsCarouselSection
@@ -2196,6 +2298,13 @@ const styles = StyleSheet.create({
     fontSize: 23,
     lineHeight: 27,
   },
+  insightSectionBody: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
+  },
   genreSectionPieLayout: {
     flexDirection: "row",
     alignItems: "center",
@@ -2567,6 +2676,10 @@ const styles = StyleSheet.create({
     marginTop: 1,
     marginRight: -2,
   },
+  hiddenSongsCarouselNativeTextBlock: {
+    marginTop: 10,
+    alignItems: "center",
+  },
   hiddenSongsCarouselSongTitleNative: {
     width: 220,
     maxWidth: 220,
@@ -2595,6 +2708,11 @@ const styles = StyleSheet.create({
     width: 220,
     maxWidth: 220,
     marginTop: 8,
+  },
+  hiddenSongsCarouselExplicitWrapBelowArtistNative: {
+    alignSelf: "center",
+    marginTop: 8,
+    marginBottom: 8,
   },
   hiddenSongsCarouselSongMetaNative: {
     width: 220,
@@ -2685,6 +2803,11 @@ const styles = StyleSheet.create({
     position: "relative",
     borderRadius: 16,
     overflow: "hidden",
+    ...(Platform.OS === "web"
+      ? ({
+          cursor: "auto",
+        } as ViewStyle)
+      : null),
   },
   songRowGradient: {
     ...StyleSheet.absoluteFillObject,
@@ -2703,7 +2826,8 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   songRowActive: {
-    backgroundColor: "transparent",
+    backgroundColor: "rgba(117,82,107,0.12)",
+    borderColor: "rgba(169,176,209,0.92)",
   },
   cdCaseFrame: {
     alignItems: "center",

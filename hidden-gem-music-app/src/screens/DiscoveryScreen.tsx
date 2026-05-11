@@ -463,7 +463,12 @@ export function DiscoveryScreen({
 
   return (
     <ScreenScaffold contentStyle={styles.scaffoldContent}>
-      {discoveryContent}
+      <View
+        style={styles.discoveryContentFrame}
+        pointerEvents={allFiltersOpen ? "none" : "auto"}
+      >
+        {discoveryContent}
+      </View>
 
       {/* Issue #6 follow-up area: this modal shell is in place now and will take the
           chart/filter-related UI refinements discussed after the April 21 meeting. */}
@@ -754,7 +759,11 @@ export function DiscoveryScreen({
                 </View>
               </Panel>
 
-              <Panel style={styles.filterSection}>
+              {/* Genre filters are intentionally commented out for now.
+                  The current live genre data is API-fetched per song and is not normalized
+                  enough yet to support trustworthy Discovery filtering. Keep this block for
+                  a future normalized-genre iteration instead of deleting it. */}
+              {/* <Panel style={styles.filterSection}>
                 <SecondarySurfaceFill />
                 <Text style={styles.filterSectionTitle}>Genre(s)</Text>
                 <View style={styles.optionGroup}>
@@ -769,7 +778,7 @@ export function DiscoveryScreen({
                     </View>
                   </View>
                 </View>
-              </Panel>
+              </Panel> */}
 
               <Panel style={styles.filterSection}>
                 <SecondarySurfaceFill />
@@ -812,6 +821,10 @@ const styles = StyleSheet.create({
   scaffoldContent: {
     padding: 0,
     gap: 0,
+  },
+  discoveryContentFrame: {
+    flex: 1,
+    minHeight: 0,
   },
   discoveryStack: {
     gap: 16,

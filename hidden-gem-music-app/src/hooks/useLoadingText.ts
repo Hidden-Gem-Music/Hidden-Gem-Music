@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export function useLoadingText(active: boolean, base = "Loading") {
+export function useLoadingDots(active: boolean) {
   const [dots, setDots] = useState(1);
 
   useEffect(() => {
@@ -16,5 +16,15 @@ export function useLoadingText(active: boolean, base = "Loading") {
     return () => clearInterval(timer);
   }, [active]);
 
-  return `${base}${".".repeat(dots)}${"\u00A0".repeat(3 - dots)}`;
+  return dots;
+}
+
+export function useLoadingText(active: boolean, base = "Loading") {
+  const dots = useLoadingDots(active);
+  return `${base}${".".repeat(dots)}${"\u2008".repeat(3 - dots)}`;
+}
+
+export function useStableLoadingText(active: boolean, base = "Loading") {
+  const dots = useLoadingDots(active);
+  return `${base}${".".repeat(dots)}${"·".repeat(3 - dots)}`;
 }

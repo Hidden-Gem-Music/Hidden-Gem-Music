@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from "react-native";
+import { ActivityIndicator, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from "react-native";
 import { useEffect, useRef, useState } from "react";
 
 import { Country } from "../types/content";
@@ -44,8 +44,10 @@ export function DiscoverySidebarPanels({
   onNearListEnd,
 }: Props) {
   const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === "web";
   const isNarrowHeader = width < 520;
-  const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("filters");
+  const countriesKey = countries.map((country) => country.id).join("|");
+  const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("list");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
   const positionsRef = useRef<Record<string, number>>({});
@@ -61,8 +63,9 @@ export function DiscoverySidebarPanels({
   const [listContentHeight, setListContentHeight] = useState(0);
   const [listScrollY, setListScrollY] = useState(0);
   const [isDraggingListScrollbar, setIsDraggingListScrollbar] = useState(false);
+  const nearListEndTriggeredRef = useRef(false);
 
-  const showFilterScrollbar = Platform.OS === "web" && expandedPanel === "filters" && filterViewportHeight > 0;
+  const showFilterScrollbar = isWeb && expandedPanel === "filters" && filterViewportHeight > 0;
   const filterHasOverflow = showFilterScrollbar && filterContentHeight > filterViewportHeight;
   const filterTrackHeight = Math.max(filterViewportHeight - 24, 1);
   const filterThumbHeight = showFilterScrollbar
@@ -75,7 +78,7 @@ export function DiscoverySidebarPanels({
       ? (filterScrollY / (filterContentHeight - filterViewportHeight)) * (filterViewportHeight - filterThumbHeight)
       : 0;
   const listScrollbarVisible =
-    Platform.OS === "web" && expandedPanel === "list" && listViewportHeight > 0 && listContentHeight > listViewportHeight;
+    isWeb && expandedPanel === "list" && listViewportHeight > 0 && listContentHeight > listViewportHeight;
   const listThumbHeight = listScrollbarVisible ? Math.max((listViewportHeight / listContentHeight) * listViewportHeight, 52) : 0;
   const listThumbTop =
     listScrollbarVisible && listContentHeight > listViewportHeight
@@ -105,8 +108,14 @@ export function DiscoverySidebarPanels({
     }
 
     const remaining = listContentHeight - (nextScrollY + listViewportHeight);
-    if (remaining < 220) {
+    if (remaining < 220 && !nearListEndTriggeredRef.current) {
+      nearListEndTriggeredRef.current = true;
       onNearListEnd();
+      return;
+    }
+
+    if (remaining > 360) {
+      nearListEndTriggeredRef.current = false;
     }
   };
 
@@ -153,7 +162,7 @@ export function DiscoverySidebarPanels({
   };
 
   useEffect(() => {
-    if (Platform.OS !== "web" || !isDraggingFilterScrollbar || typeof document === "undefined") {
+    if (!isWeb || !isDraggingFilterScrollbar || typeof document === "undefined") {
       return;
     }
 
@@ -177,10 +186,10 @@ export function DiscoverySidebarPanels({
       document.removeEventListener("mousemove", handleMove);
       document.removeEventListener("mouseup", handleUp);
     };
-  }, [isDraggingFilterScrollbar, filterHasOverflow, filterThumbHeight, filterTrackHeight, filterContentHeight, filterViewportHeight]);
+  }, [isDraggingFilterScrollbar, filterHasOverflow, filterThumbHeight, filterTrackHeight, filterContentHeight, filterViewportHeight, isWeb]);
 
   useEffect(() => {
-    if (Platform.OS !== "web" || !isDraggingListScrollbar || typeof document === "undefined") {
+    if (!isWeb || !isDraggingListScrollbar || typeof document === "undefined") {
       return;
     }
 
@@ -204,7 +213,7 @@ export function DiscoverySidebarPanels({
       document.removeEventListener("mousemove", handleMove);
       document.removeEventListener("mouseup", handleUp);
     };
-  }, [isDraggingListScrollbar, listScrollbarVisible, listThumbHeight, listTrackHeight, listContentHeight, listViewportHeight]);
+  }, [isDraggingListScrollbar, listScrollbarVisible, listThumbHeight, listTrackHeight, listContentHeight, listViewportHeight, isWeb]);
 
   useEffect(() => {
     if (expandedPanel !== "list" || !selectedCountryId || autoScrollSignal == null) {
@@ -216,6 +225,14 @@ export function DiscoverySidebarPanels({
       listScrollRef.current?.scrollTo({ y: Math.max(y - 18, 0), animated: false });
     }
   }, [autoScrollSignal, expandedPanel]);
+
+  useEffect(() => {
+    nearListEndTriggeredRef.current = false;
+    setListScrollY((current) => (current === 0 ? current : 0));
+    if (isWeb) {
+      listScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [countriesKey, isWeb, selectedYear]);
 
   const renderFilterButton = (label: string) => {
     const isActive = activeFilter === label;
@@ -257,7 +274,7 @@ export function DiscoverySidebarPanels({
   };
 
   return (
-    <View style={styles.frame}>
+    <View style={[styles.frame, !isWeb ? styles.frameNative : null]}>
       <Panel style={[styles.section, expandedPanel === "filters" ? styles.sectionExpanded : styles.sectionCollapsed]}>
         <SecondarySurfaceFill />
         <Pressable style={styles.sectionHeader} onPress={() => handleSectionPress("filters")}>
@@ -272,13 +289,14 @@ export function DiscoverySidebarPanels({
           <Text style={styles.sectionToggle}>{expandedPanel === "filters" ? "−" : "+"}</Text>
         </Pressable>
         {expandedPanel === "filters" ? (
-          <View style={styles.panelArea}>
+          <View style={[styles.panelArea, !isWeb ? styles.scrollAreaNative : null]}>
             <ScrollView
               ref={filterScrollRef}
               nativeID="discovery-sidebar-filters"
-              style={styles.panelScroll}
+              style={[styles.panelScroll, !isWeb ? styles.panelScrollNative : null]}
               contentContainerStyle={styles.filterContent}
               showsVerticalScrollIndicator={false}
+              scrollEnabled={isWeb}
               onLayout={(event) => setFilterViewportHeight(event.nativeEvent.layout.height)}
               onContentSizeChange={(_, height) => setFilterContentHeight(height)}
               onScroll={handleFilterScroll}
@@ -325,19 +343,25 @@ export function DiscoverySidebarPanels({
           <Text style={styles.sectionToggle}>{expandedPanel === "list" ? "−" : "+"}</Text>
         </Pressable>
         {expandedPanel === "list" ? (
-          <View style={styles.listArea}>
+          <View style={[styles.listArea, !isWeb ? styles.scrollAreaNative : null]}>
             <ScrollView
               ref={listScrollRef}
               nativeID="discovery-sidebar-list"
-              style={styles.panelScroll}
+              style={[styles.panelScroll, !isWeb ? styles.panelScrollNative : null]}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
+              scrollEnabled={isWeb}
               onLayout={(event) => setListViewportHeight(event.nativeEvent.layout.height)}
               onContentSizeChange={(_, height) => setListContentHeight(height)}
               onScroll={handleListScroll}
               scrollEventThrottle={16}
             >
-              {countries.map((country) => (
+              {countries.length === 0 ? (
+                <View style={styles.listLoadingState}>
+                  <ActivityIndicator size="large" color={colors.textLight} />
+                  <Text style={styles.listLoadingText}>Loading countries...</Text>
+                </View>
+              ) : countries.map((country) => (
                 <View
                   key={country.id}
                   onLayout={(event: LayoutChangeEvent) => {
@@ -404,6 +428,10 @@ const styles = StyleSheet.create({
     minHeight: 642,
     maxHeight: 642,
     gap: 16,
+  },
+  frameNative: {
+    minHeight: 0,
+    maxHeight: undefined,
   },
   section: {
     padding: 0,
@@ -535,6 +563,9 @@ const styles = StyleSheet.create({
     flex: 1,
     position: "relative",
   },
+  scrollAreaNative: {
+    flexGrow: 0,
+  },
   panelScroll: {
     flex: 1,
     ...(Platform.OS === "web"
@@ -544,11 +575,27 @@ const styles = StyleSheet.create({
         } as ViewStyle)
       : null),
   },
+  panelScrollNative: {
+    flexGrow: 0,
+  },
   listContent: {
     paddingHorizontal: 18,
     paddingBottom: 24,
     paddingRight: 28,
     gap: 14,
+  },
+  listLoadingState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 26,
+    gap: 10,
+  },
+  listLoadingText: {
+    color: colors.textLight,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 18,
+    textAlign: "center",
   },
   scrollbarTrack: {
     position: "absolute",

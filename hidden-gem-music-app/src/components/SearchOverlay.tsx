@@ -120,7 +120,12 @@ export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Pr
     );
   }
 
-  return content;
+  return (
+    <>
+      <Pressable style={styles.webBackdrop} onPress={onClose} />
+      {content}
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -170,6 +175,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.01)",
     paddingTop: 72,
+  },
+  webBackdrop: {
+    ...(Platform.OS === "web"
+      ? ({
+          position: "fixed",
+          top: 96,
+          right: 0,
+          bottom: 0,
+          left: 0,
+        } as unknown as ViewStyle)
+      : {}),
+    backgroundColor: "transparent",
+    zIndex: 5999,
   },
   panel: {
     width: "100%",

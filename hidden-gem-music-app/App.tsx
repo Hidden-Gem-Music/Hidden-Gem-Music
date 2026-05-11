@@ -43,7 +43,15 @@ type PersistedAppState = {
   comparisonIds?: string[];
 };
 
+const EMPTY_COUNTRIES: Country[] = [];
+
+function isUiVisibleCountry(country: Pick<Country, "code" | "name">) {
+  return country.code.trim().toUpperCase() !== "GLOBAL" && country.name.trim().toLowerCase() !== "global";
+}
+
 type HiddenGemsFocusSelection = {
+  countryId?: string;
+  requestKey?: string;
   songTitle?: string;
   artist?: string;
   previewIndex?: number;
@@ -204,7 +212,7 @@ export default function App() {
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
   const [discoveryCountries, setDiscoveryCountries] = useState<Country[]>([]);
-  const cachedCountriesForSelectedYear = discoveryCountriesByYear[selectedYear] ?? [];
+  const cachedCountriesForSelectedYear = discoveryCountriesByYear[selectedYear] ?? EMPTY_COUNTRIES;
   const shouldHydrateApiCountryPool = currentRoute !== "dashboard" && currentRoute !== "credits";
   const allYearsDiscoveryCountries = useMemo(() => {
     if (apiAvailableYears.length === 0) {
@@ -222,12 +230,14 @@ export default function App() {
       }
     }
 
-    const merged = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const merged = Array.from(byId.values())
+      .filter(isUiVisibleCountry)
+      .sort((a, b) => a.name.localeCompare(b.name));
     return merged.length > 0 ? merged : discoveryCountries;
   }, [apiAvailableYears, discoveryCountries, discoveryCountriesByYear]);
   const featuredCountry = useMemo(() => getFeaturedCountry(selectedYear), [selectedYear]);
   const apiCountryPool = useMemo(
-    () => (cachedCountriesForSelectedYear.length > 0 ? cachedCountriesForSelectedYear : discoveryCountries),
+    () => (cachedCountriesForSelectedYear.length > 0 ? cachedCountriesForSelectedYear : discoveryCountries).filter(isUiVisibleCountry),
     [cachedCountriesForSelectedYear, discoveryCountries]
   );
 
@@ -395,7 +405,11 @@ export default function App() {
       return;
     }
 
-    setHiddenGemsFocusSelection(selection ?? null);
+    setHiddenGemsFocusSelection(
+      selection
+        ? { ...selection, countryId: selectedCountryId, requestKey: `${Date.now()}-${Math.random()}` }
+        : null
+    );
     setShowHiddenGemsNavIntro(false);
     navigationRef.navigate("hiddenGems", getRouteParams("hiddenGems", selectedYear, selectedCountryId));
   };
@@ -463,7 +477,9 @@ export default function App() {
     }
 
     setSelectedCountryId(countryId);
-    setHiddenGemsFocusSelection(selection ?? null);
+    setHiddenGemsFocusSelection(
+      selection ? { ...selection, countryId, requestKey: `${Date.now()}-${Math.random()}` } : null
+    );
     setShowHiddenGemsNavIntro(false);
 
     if (!navigationRef.isReady()) {
@@ -492,7 +508,17 @@ export default function App() {
   }, [apiCountryPool, countries, currentRoute, featuredCountry.id, selectedCountryId]);
 
   useEffect(() => {
-    setComparisonIds((current) => current.filter((id) => comparisonCountryPool.some((country) => country.id === id || country.code === id)).slice(0, 2));
+    setComparisonIds((current) => {
+      const next = current
+        .filter((id) => comparisonCountryPool.some((country) => country.id === id || country.code === id))
+        .slice(0, 2);
+
+      if (next.length === current.length && next.every((id, index) => id === current[index])) {
+        return current;
+      }
+
+      return next;
+    });
   }, [comparisonCountryPool]);
 
   useEffect(() => {
@@ -1008,6 +1034,10 @@ export default function App() {
 
               <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />
             </Stack.Navigator>
+            <LoadingOverlay
+              visible={Boolean(loadingMessage)}
+              message={loadingMessage ?? undefined}
+            />
           </View>
           <MobileBottomNav
             currentRoute={currentRoute}
@@ -1015,10 +1045,6 @@ export default function App() {
             onNavigate={navigateToRoute}
             onToggleSearch={() => setSearchOpen((open) => !open)}
             onCloseSearch={() => setSearchOpen(false)}
-          />
-          <LoadingOverlay
-            visible={Boolean(loadingMessage)}
-            message={loadingMessage ?? undefined}
           />
         </View>
       </NavigationContainer>
@@ -1062,5 +1088,6 @@ const styles = StyleSheet.create({
   },
   screenArea: {
     flex: 1,
+    position: "relative",
   },
 });
