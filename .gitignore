@@ -17,6 +17,10 @@ node_modules/
 .Spotlight-V100
 .Trashes
 
+# Python cache
+__pycache__/
+*.pyc
+
 # User-specific files
 *.rsuser
 *.suo
