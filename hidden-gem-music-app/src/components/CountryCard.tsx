@@ -15,9 +15,21 @@ type Props = {
   onPressIn?: () => void;
   onTitlePress?: () => void;
   onHover?: () => void;
+  genreLine?: string;
+  languageLine?: string;
 };
 
-export function CountryCard({ country, selectedYear, selected, onPress, onPressIn, onTitlePress, onHover }: Props) {
+export function CountryCard({
+  country,
+  selectedYear,
+  selected,
+  onPress,
+  onPressIn,
+  onTitlePress,
+  onHover,
+  genreLine,
+  languageLine,
+}: Props) {
   const [hovered, setHovered] = useState(false);
   const hasHiddenGems = country.hiddenSongs > 0;
   const noHiddenGemsCopy = selectedYear ? `No Hidden Gems for ${selectedYear}` : "No Hidden Gems for this year";
@@ -56,8 +68,8 @@ export function CountryCard({ country, selectedYear, selected, onPress, onPressI
               <Text style={styles.detail}>
                 • Hidden Gems:  {hasHiddenGems ? `${country.hiddenSongs}` : noHiddenGemsCopy}
               </Text>
-              <Text style={styles.detail}>• Genre(s):  Genre info coming soon.</Text>
-              <Text style={styles.detail}>• Language(s):  Language info coming soon.</Text>
+              <Text style={styles.detail}>• Genre(s):  {genreLine ?? "Loading..."}</Text>
+              <Text style={styles.detail}>• Language(s):  {languageLine ?? "Loading..."}</Text>
               {hasNoSongData ? (
                 <Text style={styles.detail}>• Most popular album:  {noSongDataCopy}</Text>
               ) : (

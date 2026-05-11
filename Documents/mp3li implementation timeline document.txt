@@ -1,8 +1,849 @@
 mp3li implementation timeline document
 
-Updated: May 9, 2026
+Updated: May 10, 2026
 
-Additional API Endpoint Documentation Completion + Continued Live-Enrichment UI Stabilization + Where I Left Off (May 9, 2026)
+Mobile / Web Regression Elimination Pass After Additional-Data Stabilization (May 10, 2026)
+- Objective:
+  - Return immediately to the live app after the previous additional-data stabilization pass and remove the remaining real visual/interaction regressions that were still failing during actual browser and mobile-style testing.
+  - Do not treat the prior pass as “done” just because the code compiled.
+  - Instead, keep tightening the app until the remaining known issues were either removed or reduced to a specifically identified next-step item.
+- Main problem during this follow-up:
+  - The previous pass improved a lot of the live app behavior, but actual testing still exposed a cluster of connected regressions.
+  - Several of them looked small at first glance, but they were tied together through shared app state, shared popup behavior, shared mobile/web screen paths, and the Hidden Gems preview-to-screen focus flow.
+  - This meant the work could not be treated as one simple CSS pass.
+  - It became a full regression-elimination pass across:
+    - app-level state behavior,
+    - welcome popup behavior,
+    - Discovery scroll behavior,
+    - Hidden Gems focus-selection routing,
+    - mobile Hidden Gems layout,
+    - and explicit-data hover behavior.
+
+Why this pass happened:
+- Real screen-by-screen verification continued after the previous update.
+- That testing showed that several remaining issues were still interconnected and needed another focused stabilization pass.
+- Some fixes improved one part of the experience but exposed additional shared-state, layout, or interaction problems elsewhere.
+- The follow-up therefore focused on:
+  - eliminating the remaining known issues through repeated validation,
+  - finding shared root causes instead of stacking more isolated tweaks,
+  - and repeatedly retesting both web and mobile behavior until the remaining known issues were specifically resolved.
+
+Most important functional problem uncovered during this pass:
+- Mobile testing became blocked by a repeated `Maximum update depth exceeded` error.
+- That was not just a visual issue.
+- It meant the app could get trapped in rerender behavior badly enough that other screen feedback became difficult to evaluate cleanly.
+- Because of that, the first priority in this pass became:
+  - identify and remove the app-level rerender loop before continuing with more surface-level tuning.
+
+App-level rerender-loop stabilization:
+- Traced the repeated update problem back into shared app state behavior rather than treating it as a single screen-only issue.
+- Stabilized the Discovery-country fallback path so the selected-year cache did not keep regenerating an unstable empty array shape during render cycles.
+- Added a shared empty-country fallback constant instead of rebuilding a brand-new empty array in the same place repeatedly.
+- Tightened the `comparisonIds` cleanup effect so it no longer writes new state when the filtered result is actually identical to the current state.
+- This mattered because:
+  - a state-cleanup effect that always produces a new array can keep causing pointless rerenders even when the meaningful data has not changed.
+- The net effect of that stabilization was:
+  - remove the repeated state churn,
+  - unblock mobile testing,
+  - and make the later screen-level verification cleaner and more reliable.
+
+Discovery country-pool cleanup and route consistency:
+- Discovery’s country pool had also started carrying through values that did not belong in the user-facing screen set.
+- Added a user-visible-country filter to exclude `GLOBAL`-style rows from the active Discovery and cross-screen country pool logic.
+- Applied that cleanup not only to the selected-year Discovery pool, but also to the all-years merged pool.
+- This helped reduce confusing behavior where shared route/state logic could otherwise carry along a non-real country row into user-facing interactions.
+
+Hidden Gems preview-click targeting repairs:
+- One of the core UX promises in the app is:
+  - clicking a hidden-gem preview should bring the user to that actual hidden gem on the full Hidden Gems screen.
+- Even after the earlier preview work, mobile still exposed cases where the full screen did not reliably land on the intended song.
+- Strengthened the focus-selection payload passed through app navigation by adding:
+  - the originating country identifier,
+  - and a unique request key.
+- This mattered because multiple selection attempts can otherwise collide when the same song title or artist appears in different routing contexts.
+- Tightened the Hidden Gems focus-resolution logic so it now:
+  - checks that the incoming focus selection actually belongs to the currently active country,
+  - resets page-selection flow only when the selection belongs to that target country,
+  - and uses the strengthened focus key rather than an overly weak title/artist-only shape.
+- Reordered the actual match logic so real track/title/artist matching is preferred before using preview-index fallback.
+- Kept the preview-index fallback only as a page-1 rescue path, not as the first guess.
+- This prevented weaker positional assumptions from overriding a stronger exact match.
+
+Hidden Gems duplicate-song cleanup:
+- During mobile Hidden Gems loading, a repeated issue appeared where the finished result could show duplicate songs, including duplicate slot-1 behavior.
+- Added dedupe handling when mapping the Hidden Gems response into frontend song objects.
+- Used Deezer track id when available as the strongest dedupe key.
+- Fell back to normalized `title + artist` matching when a track id was not present.
+- This removed repeated rows that were making the screen look broken even after load completion.
+
+Welcome popup and blocked-underlay interaction overhaul:
+- One of the most frustrating real interaction bugs in the app was the welcome popup dismissal behavior.
+- The goal had always been:
+  - when a popup is up, users should not accidentally activate underlying content while trying to dismiss the popup.
+- In actual testing, that was still failing in several ways:
+  - some underlying items remained interactable,
+  - some hover/click states still triggered under the popup,
+  - and clicking out of welcome could close the popup while also causing unrelated screen actions.
+- Reworked the welcome popup interaction model so the modal now fully blocks underlying preview interactions while active or closing.
+- Added a short closing/cooldown state instead of instantly dropping all guards the exact frame the modal starts closing.
+- Disabled welcome-preview interactions during:
+  - full modal visibility,
+  - modal close transition,
+  - and short cooldown after dismissal.
+- This specifically prevented accidental interactions with:
+  - preview list countries,
+  - preview globe countries,
+  - year controls,
+  - and other welcome-preview actions.
+- Clicking outside the welcome popup was then deliberately redefined to behave like the `Discovery Globe` button rather than like a generic bare dismiss.
+- That decision matched the requested product behavior and avoided the earlier “click out, then accidentally trigger something unrelated underneath” problem.
+
+Welcome popup button-route cleanup:
+- The welcome popup buttons also needed coordinated close behavior instead of routing instantly from a still-active modal.
+- Added a dedicated route transition helper for welcome-modal buttons.
+- That helper closes the modal first, applies the same guarded interaction cooldown, then routes to the selected destination.
+- Applied that same controlled behavior to:
+  - Discovery Globe,
+  - Comparison Mode,
+  - Hidden Gems,
+  - Dashboard,
+  - and Credits.
+- This prevented route changes from feeling like they were fighting with the modal state itself.
+
+Loading overlay placement correction so nav remains usable:
+- The user specifically wanted popup behavior to block underlying screen content while still allowing main navigation.
+- To support that correctly, the shared loading overlay could not keep sitting above the entire app shell.
+- Moved the loading overlay into the screen-area container instead of leaving it above both the screen content and nav.
+- Added relative positioning to the screen-area wrapper so the overlay can cover the active screen while leaving header/mobile navigation behavior intact.
+- This gave the popup/overlay system a cleaner layering model:
+  - active screen blocked,
+  - nav still accessible,
+  - no accidental whole-app lockout.
+
+Discovery web scroll regression and retest-blocker removal:
+- After the popup-blocking work landed, Discovery on web developed a new regression:
+  - the page could no longer scroll down to the year timeline area.
+- That created a major testing blocker because the Discovery year-change behavior could not even be retested properly on web while the screen would not scroll.
+- Traced that to the new wrapper around Discovery content:
+  - the blocking wrapper did not stretch to fill the available screen height,
+  - which meant the inner Discovery `ScrollView` no longer had the right layout context to scroll properly.
+- Fixed that by giving the wrapper its own full-height frame with `flex: 1` and `minHeight: 0`.
+- This restored Discovery web scrolling so the year-timeline area became reachable again.
+- That was important not just as a layout fix, but as a testing-enabler fix.
+
+Discovery sidebar and mobile/narrow panel behavior refinements:
+- Continued tightening Discovery sidebar behavior during this pass so the actual list/filter panel experience felt less brittle.
+- Changed the default expanded sidebar section toward the list-first experience rather than keeping filters open by default.
+- Added a proper loading state when the Discovery country list is empty instead of leaving it visually blank during load.
+- Improved near-end detection for list-based prefetching so repeated near-bottom triggers do not fire over and over without leaving and re-entering the threshold.
+- Reset list scroll position when the Discovery country set changes meaningfully by year or result set.
+- Added narrower-layout handling so mobile/native panel sizing does not keep inheriting web-style rigid heights where that would damage usability.
+
+Hidden Gems big-CD mobile resizing and centering:
+- The larger Hidden Gems CD on mobile still looked too large and slightly off-center after earlier changes.
+- Reduced it once, then reduced it again in a later pass after feedback confirmed the first shrink was still not enough.
+- Final mobile/narrow layout reduced the big CD substantially further rather than leaving it near the desktop scale.
+- Also adjusted the mobile side-panel content padding so the CD sits more cleanly centered inside its section instead of drifting visually to the left.
+- This was one of the most iterative style adjustments in the pass because the target was not just “smaller.”
+- The target was:
+  - smaller enough,
+  - still readable,
+  - and actually centered in the space it lives in.
+
+Hidden Gems mobile preview-text spacing work across multiple rounds:
+- The hidden-gem preview carousel on mobile needed very specific text positioning changes:
+  - the artist line had to stay in its exact spot,
+  - the song title needed to move upward,
+  - and the explicit `E` needed to move downward,
+  - with better spacing balance between them.
+- This could not be treated as one generic “lower the text block” change because feedback made it clear that moving the whole block together was not correct.
+- The adjustments happened in multiple rounds:
+  - first moved the combined text block lower,
+  - then corrected that approach because the artist line should not move,
+  - then independently raised only the song title,
+  - then lowered only the `E`,
+  - then increased the separation again because the spacing still felt too tight.
+- The final result was reached by:
+  - keeping the artist line stable,
+  - raising the song title more aggressively,
+  - and lowering the `E` enough that the spacing relationship finally matched the intended look.
+- This became one of the clearest examples in the pass of why small visual feedback had to be handled as exact placement work rather than through broader one-step layout changes.
+
+Hidden Gems page-frame interaction blocking during nav intro:
+- While tightening popup behavior elsewhere, applied the same general principle to the Hidden Gems intro state.
+- When the screen is still showing the nav-intro overlay state, the underlying Hidden Gems page frame should not remain interactable.
+- Added page-frame pointer-event blocking during that intro state so the real screen content does not respond behind the intro overlay.
+
+Explicit-data UI behavior overhaul:
+- Explicit-data UI had several separate problems across this pass:
+  - the `E` tooltip behavior was visually awkward,
+  - the tooltip could stretch absurdly,
+  - hover behavior could linger badly,
+  - mobile should not behave like a hover target at all,
+  - and the desktop popup felt more like a drifting custom floating box than a tight little explanation attached to the badge.
+- First tightened the tooltip wording so the explicit explanations read more cleanly:
+  - `Explicit song lyrics`
+  - and `Explicit album art`
+- On mobile, kept the `E` as a simple visual badge only:
+  - no hover treatment,
+  - no click styling,
+  - no fake interactivity.
+- On web, the first repair path tried to keep a custom tooltip while clamping it better to the viewport.
+- That improved some cases, but feedback showed it was still too long and too strange.
+- It could still feel detached from the actual `E`, especially in edge cases around page movement and long wrapped display.
+- After that, replaced the custom web tooltip path entirely with the browser’s native hover-title behavior.
+- This was intentionally simpler.
+- The goal was not fancy styling.
+- The goal was:
+  - a tiny, plain hover explanation,
+  - no stretched floating box,
+  - and predictable browser-native behavior.
+- That final change aligned much better with the requested “just make it like HTML alternative text when hovered” direction.
+
+Explicit badge sizing/placement cleanup in related UI:
+- Continued refining where the explicit badge sits in multiple places so it does not fight the surrounding layout.
+- On mobile hidden-gem previews specifically, moved the badge under the artist line rather than leaving it embedded into the title row.
+- On desktop/web contexts, kept the badge in the tighter inline positions where hover explanation still makes sense.
+- This separated the mobile visual treatment from the web hover treatment without introducing separate screen files.
+
+Web hover-acts-like-click regression elimination:
+- A particularly confusing bug was that web started acting like hover was triggering click-like behavior after dismissing the welcome popup by clicking outside it.
+- That made the interaction model feel inconsistent because seemingly unrelated hover states could behave like active presses.
+- This was tracked back into the welcome dismissal / preview interaction leak rather than being blamed on generic browser weirdness.
+- Once the welcome popup gained proper guarded dismissal and interaction cooldown behavior, that web hover/click leakage was eliminated.
+
+Repeated real testing and elimination of known issues:
+- This pass involved repeated rounds of:
+  - inspect current code,
+  - apply targeted fix,
+  - retest behavior,
+  - receive exact visual/interaction feedback,
+  - then correct again if the change was partial or wrong.
+- That testing was not limited to one screen.
+- It covered:
+  - welcome modal dismissal paths,
+  - popup underlay blocking,
+  - Discovery scroll access,
+  - Discovery timeline reachability,
+  - Hidden Gems mobile CD sizing,
+  - Hidden Gems preview click targeting,
+  - duplicate-song behavior,
+  - mobile hidden-gem preview typography spacing,
+  - explicit badge behavior,
+  - and web hover behavior.
+- The pass explicitly kept going until the remaining known issues called out in testing were either:
+  - marked fixed through visible behavior,
+  - or reduced to one specifically named next concern rather than a vague unresolved mess.
+
+Verification and stability checks performed during this pass:
+- Repeatedly used `npx tsc --noEmit` to make sure the frontend still compiled after the shared app/screen changes.
+- Repeatedly used `git diff --check` to ensure the patch state itself stayed clean.
+- Also used actual user-facing behavior feedback as a real gate because this phase was dominated by visual and interaction regressions, not by silent compile-only problems.
+- Final verification in the visible code state at the end of the pass showed:
+  - no TypeScript errors from the frontend check,
+  - and no patch-format errors from `git diff --check`.
+
+Final resolved outcomes from this follow-up pass:
+- Mobile hidden-gem preview explicit-badge placement was fully corrected.
+- Hidden Gems large-CD mobile size/centering was corrected.
+- Hidden-gem preview click targeting to the real Hidden Gems song was corrected.
+- Popup underlay click-through behavior was corrected on both web and mobile, while keeping nav usable.
+- Welcome click-out behavior was corrected to behave like Discovery Globe dismissal rather than a dangerous bare click-through.
+- Web hover-acts-like-click behavior after dismissing welcome was corrected.
+- Hidden Gems duplicate-song behavior during mobile load/result flow was corrected.
+- Discovery web scroll access was restored so the timeline area can be reached again.
+- Explicit `E` hover behavior on web was simplified into a much more predictable native browser tooltip, while mobile remained non-interactive.
+
+What this pass represented overall:
+- This was the cleanup and stabilization pass that turned the previous implementation work into a more consistent, fully testable app state across web and mobile.
+- The work was detailed and iterative because the remaining issues were shared across state, layout, interaction, and loading behavior rather than staying isolated to one screen.
+- The biggest themes were:
+  - stop rerender churn,
+  - stop popup interaction leaks,
+  - stop mismatched preview targeting,
+  - stop misleading hover behavior,
+  - and keep pushing on visual/mobile polish until the known issues were resolved in actual use.
+
+App-Side Additional Data Fine-Tuning Pass + Hidden Gems / Discovery / Comparison Stabilization (May 10, 2026)
+- Objective:
+  - Return to the live app/backend additional-data implementation work after getting `mp3li's Additional Data Getter v2` stable enough to run in the background.
+  - Test the real frontend/backend behavior and then tighten the parts that still felt wrong in actual browser use.
+  - Specifically improve:
+    - Discovery request behavior and data reuse,
+    - Country and Comparison page additional-data presentation,
+    - Hidden Gems loading and paging behavior,
+    - explicit-data UI behavior,
+    - preview playback behavior,
+    - and the click-through relationship between hidden-gem preview carousels and the full Hidden Gems screen.
+
+Why this pass happened:
+- Shifted back to the actual app implementation work for the required and reach additional data after the `v2` Genius Web work was stable enough to let run in the background.
+- At that point the question was no longer “can the enrichment tools get more data?”
+- The question became:
+  - “How does the live app actually feel right now when using all of this additional data?”
+- So this pass was driven by real browser/mobile-style testing and immediate visual/behavioral feedback rather than by endpoint documentation or tool-building.
+
+Discovery Globe and frontend reuse/caching refinements:
+- Focused first on Discovery, Country, Comparison, and Hidden Gems fetch behavior so the app would stop feeling like it was constantly repulling everything.
+- Added frontend-side in-memory reuse for:
+  - Discovery year payloads,
+  - country profiles,
+  - country hidden-gem previews,
+  - paged Hidden Gems results,
+  - paged country-song results,
+  - and Discovery genre samples.
+- The purpose of this was not to replace the backend cache.
+- The purpose was:
+  - smoother repeat visits during the same running session,
+  - fewer redundant frontend requests,
+  - and better reuse of already-loaded data between screens.
+- Reused Discovery-loaded genre sample data inside Country Summary and Comparison Summary so those sections could benefit from Discovery work that had already happened earlier in the session.
+
+Clarification that mattered during this work:
+- Explicitly separated two kinds of “local” data reuse:
+  - backend-side saved enrichment/cache data, which persists locally and survives refreshes,
+  - and frontend in-memory state reuse, which only lasts for the current running app session.
+- This mattered because the goal was to be sure the already-pinged and locally built-up additional data was not being accidentally lost.
+- The answer there was:
+  - no, the important backend-enriched local data is not lost on browser hard refresh,
+  - but the frontend session cache does reset when the browser session reloads.
+
+Country and Comparison UI/behavior cleanup tied to the new additional data:
+- Removed click behavior from:
+  - `Most Loved in This Country`
+  - and `Loved Here and Elsewhere`
+- The reason was straightforward:
+  - those songs are not guaranteed to be hidden gems,
+  - so treating them like they can open a hidden-gem 30-second preview flow is misleading.
+- Corrected the cursor behavior there so hovering uses a normal mouse instead of a click/finger pointer.
+- Tightened the inner Country Summary sections on both Country and Comparison pages because they had unnecessary dead vertical space at the bottom that was never being used by text.
+- Improved the data shown in those song-list sections by adding:
+  - full genre list,
+  - record type,
+  - and a stable `album name • release date` line that stays in the right order even when titles/languages vary.
+
+Featured Artists cleanup across all screens:
+- Featured Artists originally had a fake-looking hover treatment that felt more like a weird button box than a real shadow.
+- Went through multiple rounds of refinement on that because the first attempt removed too much, and later attempts still looked visibly wrong.
+- The goals were:
+  - keep Featured Artists non-clickable,
+  - keep a normal cursor on hover,
+  - and make the hover state feel like a real shadow behind the CD/photo footprint rather than a button effect or circular bubble.
+- This affected Featured Artists on:
+  - Country pages,
+  - Comparison pages,
+  - and Hidden Gems pages.
+
+Hidden Gems loading behavior and backend over-pulling fix:
+- One of the most important real functional problems was that Hidden Gems felt so slow that it was easy to give up before it finished.
+- The terminal activity also made it obvious that it was pulling far too much.
+- The key backend problem was:
+  - Hidden Gems was effectively enriching/scanning too much of the dataset just to serve the current page.
+- Changed Hidden Gems so it now stops after:
+  - the current page,
+  - plus just enough extra work to know whether another page exists.
+- That massively improved initial Hidden Gems responsiveness and reduced runaway pulling behavior.
+- This was one of the most important actual performance/stability fixes in this pass because it directly reduced wasteful enrichment work while using the screen.
+
+Hidden Gems art/data rendering repairs after the loading fix:
+- After Hidden Gems started loading much faster, it became obvious that some important additional-data fields were no longer rendering correctly there.
+- Album art disappeared.
+- Featured-artist art disappeared.
+- Release date behavior was not using the richer Deezer field properly.
+- Widened the frontend/backend mapping path so Hidden Gems again carried through the richer Deezer-backed fields needed for:
+  - album art,
+  - artist image,
+  - release date,
+  - genres,
+  - record type,
+  - contributors,
+  - explicit fields,
+  - and tracklist.
+- Moved metadata around in the big-CD info section to make the additional-data layout read more naturally.
+
+Hidden Gems playback and transport improvements:
+- Originally, Hidden Gems play/pause only toggled visual UI state and did not actually play anything on web.
+- Wired real preview playback into the big-CD transport controls so:
+  - play/pause actually plays and pauses the selected song’s preview,
+  - previous/next change the selected song,
+  - previous/next dim correctly at real boundaries,
+  - and page-boundary next/previous can trigger page changes.
+- Added a spinner over the play button while the preview is buffering so it does not feel broken or dead during the load moment.
+- Replaced the original web-only audio path with a shared `expo-audio` path so the preview behavior is aligned across web and mobile rather than being browser-only.
+
+Hidden Gems paging, counts, and page-boundary behavior:
+- Found a backend count bug where Hidden Gems could show obviously wrong totals like:
+  - `13 hidden gems`,
+  - then page counts growing like `3 of 3`, `4 of 4`, etc. while paging.
+- That was caused by the backend response not using the real overall count correctly.
+- Fixed the backend so Hidden Gems now reports the real `total_count` consistently.
+- After that, the Hidden Gems stat square and total-pages behavior correctly reflected the full country/year result set instead of a misleading first-page window.
+- Changed the Hidden Gems page size from `12` to `13` so the full Hidden Gems page lines up with the hidden-gem preview carousel count more naturally.
+
+Hidden Gems preview carousel vs full Hidden Gems page alignment work:
+- A major UX goal in this pass was:
+  - when a user clicks the center song in the hidden-gem preview carousel,
+  - the full Hidden Gems page should open on that specific song.
+- Confirmed first that just changing the page size was not enough by itself.
+- The deeper issue was that the preview and full Hidden Gems flows had been drifting in multiple ways.
+- Changed the preview data path so the preview carousel is now built from:
+  - page 1 of the real Hidden Gems endpoint,
+  - instead of a separate preview-only endpoint path.
+- Wired the preview carousel so it carries the actual Deezer ids into the click selection instead of dropping them during the preview-song mapping stage.
+- Added a first-page preview-index fallback:
+  - because once the preview was confirmed to truly be page 1,
+  - the app can use the clicked preview slot number directly as a very strong positioning hint.
+- Patched a race condition so the focus-selection logic waits until there is real page data before trying to resolve the target song.
+- The intended result of this sequence was:
+  - non-center preview clicks still just move that song into the center,
+  - center preview clicks open Hidden Gems,
+  - and Hidden Gems should open focused to that actual song instead of defaulting to item 1.
+
+Discovery request cancellation and strict screen-leave behavior:
+- Another real behavior problem was that Discovery could still be visibly fetching after the screen had already been left.
+- Wanted that to be strict:
+  - when the page is left, the page should stop sending requests.
+- Tightened route-gated request behavior so Discovery and other active screen fetches abort on leave instead of continuing to queue work after the user navigates away.
+- One important nuance kept in mind:
+  - aborting on the frontend can stop in-flight client work and stop new work from being queued,
+  - but if a request already fully reached the backend a split second before leaving, the backend may still finish that single request.
+- The important outcome is:
+  - the screen itself should stop actively driving more work after the user leaves it.
+
+Comparison Mode and Hidden Gems popup regression caused by the request-gating work:
+- While tightening Discovery and route-gated request behavior, a dependency problem surfaced:
+  - some other parts of the app were still relying too directly on Discovery-fed country data.
+- That caused real regressions like:
+  - empty Comparison Mode country lists,
+  - placeholder countries showing up,
+  - and empty Hidden Gems country dropdowns in the popup.
+- Fixed that by making those areas use the real API country pool more safely, rather than relying on Discovery being the active screen.
+- This restored the proper country source behavior without bringing back the old “Discovery keeps pulling while the user is not on it” problem.
+
+Explicit-data implementation and display pass:
+- Added the explicit-data fields into the real user-facing app path rather than leaving them as unused reach data.
+- The explicit fields involved were:
+  - whether song lyrics are explicit,
+  - whether album art is explicit,
+  - and whether the album as a whole contains explicit lyrics.
+- Added those as labeled lines in the big Hidden Gems metadata section.
+- Reused the explicit badge component and surfaced it:
+  - to the left of album art in the relevant song lists,
+  - inline in hidden-gem preview carousel title areas,
+  - and next to the main big-CD song line on Hidden Gems.
+- Refined the `E` presentation:
+  - made it bigger,
+  - changed its look to fit the rest of the app better,
+  - and made its hover explanation surface above the rest of the UI instead of getting clipped.
+- Found that the hover explanation could still become an absurdly tall wrapped popup, so tightened the tooltip behavior further after that.
+
+Additional reach-data surfaced in the live UI:
+- Beyond the required additional data, surfaced more of the reach data where it fit cleanly:
+  - full genre lists for individual songs,
+  - record type,
+  - contributors,
+  - artist album count,
+  - tracklist,
+  - explicit flags,
+  - and better release-date use from Deezer.
+- For tracklist specifically, placed it as the last section under the big CD in Hidden Gems as:
+  - `Album Tracklist:`
+  - followed by a numbered list of song names.
+- Removed redundant metadata lines when they no longer added value, such as the unnecessary repeated artist-name line under the big CD once the title line already said `Song by Artist`.
+
+Welcome/header and smaller UI cleanup included in this pass:
+- Made the welcome header gradient treatment consistent on mobile.
+- Aligned play/pause glyph styling more closely with the app’s gem icon colors.
+- Corrected the wording slip where Comparison used `Comparison View` in a blurb when it should say `Comparison Mode`.
+
+What this pass represented overall:
+- This was not a single isolated fix.
+- It was a real-world stabilization pass over the live additional-data implementation across the app.
+- The work moved back and forth between:
+  - frontend rendering,
+  - frontend request behavior,
+  - backend Hidden Gems paging/count logic,
+  - shared additional-data mapping,
+  - explicit-data presentation,
+  - and playback/interaction behavior.
+- The biggest theme of the whole pass was:
+  - stop fake or misleading behavior,
+  - reuse real additional data where possible,
+  - reduce wasteful loading,
+  - and make the app feel more truthful and responsive when the live additional data is actually being used.
+
+Genius Web Matching Upgrade Pass + Confirmed Real-World URL Patterns + v1/v2 Tool Naming Cleanup (May 9, 2026)
+- Objective:
+  - Use real skipped-song examples and real manually verified Genius URLs to tighten the `Genius Web Scraping` path further.
+  - Make `Smart Catch-Up` meaningfully revisit older skipped rows from the beginning when new URL-attempt logic is added.
+  - Clean up the tool naming in the repo so the original enrichment tool is clearly `v1` and the isolated newer tool is clearly `v2`.
+
+Why this follow-up pass happened:
+- After getting `v2` running much faster and more stably, started spot-checking skipped songs manually in Google/Genius to see whether the remaining misses were just “Genius truly does not have this song” or whether my URL-construction logic still needed improvement.
+- That manual checking immediately exposed additional concrete Genius URL patterns that the current fallback logic still was not handling well enough.
+- So instead of leaving those as vague suspicions, used the manually verified examples to improve the matching rules directly.
+
+Important manual URL confirmations from real skipped songs:
+- Confirmed `feat.` stripping pattern:
+  - Real Genius URL found manually:
+    - `https://genius.com/Bob-airplanes-lyrics`
+  - The skipped row that motivated this confirmation was a case where the song’s displayed title still included featured-artist metadata.
+  - This confirmed that for Genius URL construction, featured metadata should often be removed completely from the title rather than preserved in the slug.
+- Confirmed clean-title pattern:
+  - Real Genius URL found manually:
+    - `https://genius.com/Gemitaiz-alaska-lyrics`
+  - Skipped row:
+    - `Alaska (feat. Priestess)` by `Gemitaiz`
+  - This confirmed that the useful Genius URL was the clean main title only, not the longer title including `(feat. Priestess)`.
+- Confirmed full multi-artist “and” pattern:
+  - Real Genius URL found manually:
+    - `https://genius.com/Lookas-and-krewella-alarm-lyrics`
+  - Skipped row:
+    - `Alarm` by `Lookas, Krewella`
+  - This confirmed that some collaboration rows need a full-artist slug where the artists are joined with `and`, not just comma-flattened into a simple hyphen chain and not always reduced to the first artist alone.
+
+What this confirmed:
+- The previous fallback logic had improved a lot already, but it still had two important problems:
+  1. It could stop too early on a page-text mismatch.
+  2. It still did not explicitly try a full multi-artist slug joined with `and` for rows that list multiple artists.
+- That meant some rows were getting marked skipped even though the correct Genius URL shape was still within reach.
+
+Specific matching logic changes made in this pass:
+- Page-text mismatch no longer stops the fallback chain immediately:
+  - Previously, a result like:
+    - `Constructed Genius URL page text did not match song+artist`
+  - could short-circuit later fallback attempts.
+  - That was a problem because a wrong first guess should not automatically prevent trying a better clean-title or artist-variant guess.
+  - Changed the logic so deterministic mismatch now behaves more like a recoverable candidate failure rather than an immediate end-state for the whole row.
+- More aggressive `feat.` cleanup now matters even more:
+  - The clean-title path already removed featured metadata, but the manually confirmed examples strengthened the case that this is not just a “nice maybe” fallback.
+  - It is a real recurring Genius URL pattern.
+- Full multi-artist slug fallback was added:
+  - Rows like:
+    - `Lookas, Krewella`
+  - can now produce a fallback candidate more like:
+    - `lookas-and-krewella`
+  - instead of only:
+    - flattened comma forms
+    - or first-artist-only forms
+- Existing punctuation strategy expansion remained in place:
+  - the tool still keeps both:
+    - old punctuation-stripping behavior
+    - and newer punctuation-as-separator behavior
+  - so titles like `Heal'lang` can still try both:
+    - `heallang`
+    - and `heal-lang`
+
+Why these changes matter to Smart Catch-Up:
+- Once added new candidate labels and new slug patterns, the old skipped rows could no longer be treated as “fully exhausted” in the same way as before.
+- A row that had previously consumed the older attempt set might still have brand-new valid attempts available under the expanded logic.
+- Because `Smart Catch-Up` classifies rows by:
+  - existing `lyrics_url`
+  - prior `attempt_trail`
+  - and currently available candidate labels
+- adding new attempt labels means older skipped rows now naturally show up as still having remaining useful work left.
+- In practical terms:
+  - this means `Smart Catch-Up` should be restarted and allowed to scan from the beginning again,
+  - not because the whole system forgot progress,
+  - but because the matching vocabulary itself became richer and older skips need to be reevaluated against the new attempt set.
+
+Verification of the new candidate behavior on the concrete examples:
+- For `Alaska (feat. Priestess)` by `Gemitaiz`, the candidate builder now includes:
+  - full original title form
+  - clean-title form:
+    - `https://genius.com/gemitaiz-alaska-lyrics`
+- For `Alarm` by `Lookas, Krewella`, the candidate builder now includes:
+  - simple flattened collaboration form
+  - full all-artists `and` form:
+    - `https://genius.com/lookas-and-krewella-alarm-lyrics`
+  - and first-artist fallback form
+- This made the candidate set line up better with the manually verified real Genius URLs.
+
+Original tool naming cleanup completed in the same pass:
+- Also wanted the repo naming to reflect what the tools actually are now.
+- The older enrichment tool under:
+  - `tools/song_data_enrichment/`
+  - is now described as:
+    - `mp3li's Additional Data Getter v1`
+- The newer isolated tool under:
+  - `tools/mp3li_additional_data_getter_v2/`
+  - remains:
+    - `mp3li's Additional Data Getter v2`
+- Deliberately did not rename the original folder path itself because:
+  - `v2` still references the older tool/folder in docs and related repo wiring,
+  - and the visible naming cleanup was enough to make the distinction clear without breaking paths.
+
+What was updated to reflect the v1 naming:
+- `tools/song_data_enrichment/README.md`
+  - now presents the original tool as `mp3li's Additional Data Getter v1`
+- `tools/song_data_enrichment/enrich_songs.py`
+  - CLI help text now presents the original tool as `v1`
+- `tools/song_data_enrichment/run_enrichment_chunks.py`
+  - CLI help text now presents the original tool as `v1`
+- `tools/mp3li_additional_data_getter_v2/README.md`
+  - now explicitly states that the older `tools/song_data_enrichment` tool is the original `v1`
+
+Why this naming cleanup mattered:
+- At this point there are now clearly two related but different tools:
+  - `v1` = original enrichment workflow under `tools/song_data_enrichment`
+  - `v2` = isolated later tool with source-specific runtime paths and more advanced Genius Web tuning
+- Leaving only one of them named as `v2` while the older one had no matching visible version label was getting confusing.
+- The visible `v1` naming makes timeline/handoff/tool discussions cleaner without needing to refactor folder paths.
+
+Net effect of this pass:
+- The Genius Web path now has a better chance to resolve:
+  - clean-title songs,
+  - collaboration songs that need `and` in the artist slug,
+  - and rows where the first candidate mismatches but later fallbacks are still worth trying.
+- `Smart Catch-Up` is now more meaningfully able to revisit older skipped rows from the beginning because those rows may have brand-new candidate attempts available under the upgraded logic.
+- The repo’s original-vs-newer enrichment tooling story is also much clearer because the old tool is now visibly `v1`.
+
+Genius Web Data Getter v2 Recovery + Smart Catch-Up + Long-Run Throughput Tuning (May 9, 2026)
+- Objective:
+  - Pause the in-app additional-data implementation work briefly so the `Genius Web Scraping` path inside `mp3li's Additional Data Getter v2` could be verified as stable, resumable, and fast enough to run continuously for the next couple of days while other project work continues.
+  - Recover the real previous Genius Web runtime state/output instead of accidentally starting that long run over from scratch.
+  - Rework the `v2` Genius Web path so it uses the new no-duplicates song list only, resumes correctly from real prior progress, avoids wasting time re-trying already-solved songs, and improves throughput enough to be worth leaving running in the background.
+
+Why this pause in the main additional-data implementation work happened:
+- Am in the middle of fine-tuning the live additional-data implementation path across the app/backend flow, especially around the Deezer-backed user-facing enrichment behavior.
+- At the same time, the current goal is still to the separate Genius route to keep progressing in parallel because:
+  - Genius is still my main realistic route for lyrics URL discovery,
+  - it remains the future path most likely to help with lyrics-based language handling later,
+  - and it is long-running enough that it makes sense to let it grind in the background for days while other project work continues.
+- So this was not a “switch projects” moment.
+- It was a deliberate support pass to make the background `v2` Genius path trustworthy enough to leave running continuously while the main app/backend implementation work continues.
+
+What surfaced first:
+- The current branch did not contain the older isolated `v2` tool folder anymore, even though it had previously been built and used.
+- The branch also did not currently contain the old Genius Web runtime state/output folders in the working tree.
+- That initially made it look like the old long Genius Web run might be gone or unrecoverable.
+
+Recovery of the tool and prior progress:
+- Brought `tools/mp3li_additional_data_getter_v2/` back into the current branch from the earlier Issue 107 line of work.
+- Then searched locally for the missing Genius Web runtime state/output folders because prior long-run progress already existed that path for a very long time already.
+- The missing runtime folders were found in Trash, not lost:
+  - `/Users/stellar/.Trash/tools/mp3li_additional_data_getter_v2/state_genius_web`
+  - `/Users/stellar/.Trash/tools/mp3li_additional_data_getter_v2/output_genius_web`
+- Verified that those old Genius Web runtime folders contained:
+  - `run_state.json`
+  - `rows_cache.json`
+  - `enriched_songs.csv`
+  - `enriched_songs.json`
+- Restored those folders back into the current repo under:
+  - `tools/mp3li_additional_data_getter_v2/state_genius_web/`
+  - `tools/mp3li_additional_data_getter_v2/output_genius_web/`
+
+What that restored Genius Web run looked like:
+- The recovered Genius Web state showed:
+  - `next_index = 82049`
+  - `last_completed_index = 82048`
+  - `source = genius_web`
+  - `mode = resume`
+- Also checked the restored outputs/state for duplicate `song_name + artist_name` rows.
+- The restored Genius Web state/output files did not contain duplicate song+artist rows.
+
+No-duplicates input migration work:
+- Around the same time, had already changed the song list workflow so the authoritative input is now:
+  - `tools/song_data_enrichment/no_dupes_input_songs.csv`
+- Explicitly did not want `v2` to silently fall back to the old:
+  - `tools/song_data_enrichment/input_songs.csv`
+- Also did not want `v2` doing another defensive dedupe pass after loading, because the whole point of the new file is that the input is already deduped.
+- Changed `v2` to:
+  - use `no_dupes_input_songs.csv` only,
+  - reject the old input path instead of falling back,
+  - and trust the deduped file as the single authoritative input source.
+
+Resume-path fixes made so the new no-dupes list would not break continuity:
+- Updated the `v2` resume behavior so it no longer trusts only a raw index.
+- Instead, it compares the no-dupes list against:
+  - `rows_cache.json`
+  - and `skipped_songs` in `run_state.json`
+- This matters because the deduped input file changed the raw row set, so a simple “resume at old CSV line number” approach would be too fragile.
+- The revised behavior now resumes based on actual processed `song_name + artist_name` keys rather than pretending the old index alone is always enough.
+
+Additional recovery/safety behavior added to `v2`:
+- Also taught the `v2` runtime to recover resume state from real existing output files if needed.
+- If `rows_cache.json` is missing, it can now reconstruct runtime knowledge from:
+  - `output_genius_web/enriched_songs.json`
+  - or `output_genius_web/enriched_songs.csv`
+- This was added so future recovery is less brittle if one runtime file disappears but the exported outputs still exist.
+
+What was confirmed about the old Genius URLs from the older enrichment tool:
+- Explicitly re-checked whether the old Genius URLs from the earlier enrichment workflow could be trusted as guidance.
+- They could not.
+- They were not simply “imperfect but useful.”
+- They were wrong enough that stopped treating them as examples for correct URL construction.
+- That meant the correct path was:
+  - trust only the new Genius Web validation logic,
+  - not the older enrichment tool’s historical lyrics URLs.
+
+First round of Genius Web `v2` improvements:
+- Made the Genius Web path prefer the deduped input and restored runtime state cleanly.
+- Then added true concurrent Genius Web processing instead of one-at-a-time serial processing.
+- The initial parallel version:
+  - used `3` concurrent song workers,
+  - kept one shared limiter across them,
+  - and displayed one active terminal line per worker under the divider line.
+- This changed the terminal view from a single live song line to a multi-line live worker display so multiple concurrent Genius Web lookups happening.
+
+Why that first parallel version still was not fast enough:
+- Even after increasing concurrency and later even after disabling the explicit Genius Web limiter, the actual observed throughput still stayed too slow at first.
+- That told me the limiter was not the real bottleneck anymore.
+- The stronger clue came from an interrupted run:
+  - Stopped the program with `^C`,
+  - and the stack trace showed the tool was inside `write_outputs(...)`,
+  - specifically rewriting the large JSON export file.
+- That made it clear the main thread was spending too much time repeatedly rewriting:
+  - `run_state.json`
+  - `rows_cache.json`
+  - `enriched_songs.csv`
+  - `enriched_songs.json`
+  - `enriched_songs.txt`
+- In other words, the real slowdown had become file-writing churn rather than request throttling.
+
+Genius Web fallback-matching improvements added before more speed tuning:
+- Before pushing the speed further, also improved the actual Genius URL-attempt logic so more real songs had a chance to resolve.
+- The original approach effectively started from a single direct constructed slug.
+- Expanded that into a safer fallback ladder that still keeps strong validation:
+  1. current full constructed slug
+  2. clean-title fallback
+  3. clean-title + first-artist fallback
+- “Clean title” here means fallback-only removal of extra metadata like:
+  - `(feat. ...)`
+  - `(Live)`
+  - bracketed metadata
+  - and trailing ` - Remix` / ` - From ...` style suffixes
+- “First artist” here means:
+  - if a row lists many artists/collaborators,
+  - the fallback can try the main artist alone instead of the full long artist string
+- Important rule preserved:
+  - a URL is still accepted only if the fetched Genius page text matches the intended song/artist after normalization.
+- So this increased the number of URL candidates without weakening correctness checks.
+
+Punctuation/apostrophe slug handling improvements:
+- While live-testing, noticed a case like:
+  - `Heal'lang"(folang)`
+- At that moment, the slug builder was stripping apostrophes out completely, which produced forms more like:
+  - `heallang`
+- Did not want to lose the old behavior entirely, because some existing hits may still depend on it.
+- But the goal was also the tool to be able to try:
+  - `heal-lang`
+- So expanded the candidate builder again:
+  - it now tries both punctuation strategies
+  - old style: strip quote-like punctuation out
+  - new style: allow punctuation to contribute separators/hyphens
+- Example result after that change:
+  - `slug_build_full` -> `...heallang-folang...`
+  - `slug_build_full_punctuation_separator` -> `...heal-lang-folang...`
+  - plus the corresponding clean-title variants
+- This preserved existing behavior while expanding the slug search space for punctuation-heavy titles.
+
+Smart Catch-Up mode added for Genius Web only:
+- Then realized the old `retry skipped` behavior was too blunt.
+- Once the tool had already failed a full deterministic attempt set, it was wasteful to keep retrying those same rows forever.
+- Also, once the tool already had a real `lyrics_url` for a song, it should not waste time reprocessing that row.
+- Added a new Genius Web-only mode:
+  - `Smart Catch-Up`
+- What this mode does:
+  - skips rows that already have a stored Genius `lyrics_url`
+  - revisits skipped rows only if they still have untried fallback attempts left
+  - avoids rerunning the already-failed first slug if that exact deterministic attempt has already been consumed
+  - automatically continues into normal forward progress for never-before-tried songs once the “useful skipped backlog” has been handled
+  - treats rows as fully exhausted once all deterministic Genius Web attempts have already failed cleanly
+  - still leaves room to retry transient/infrastructure-style failures later
+- This was important because it made the background Genius Web run much more intelligent:
+  - it stopped wasting time on already-solved rows,
+  - stopped repeatedly hammering fully exhausted deterministic misses,
+  - and still kept moving the run forward.
+
+Aggressive throughput tuning work:
+- After the logic-side improvements, pushed the throughput more aggressively because the whole point was to leave this background process running while other work continued.
+- Increased the worker count in stages:
+  - first `3`
+  - then `5`
+  - then `10`
+- Matched the shared request cap upward while those limiters were still active.
+- Then, because the real bottleneck still did not appear to be pure request throttling anymore, disabled the explicit Genius Web limiter entirely for that path.
+- At that point the tool still was not hitting the throughput the goal was.
+- That reinforced the conclusion that the repeated file rewrites were the real slowdown.
+
+Batch-write redesign for the Genius Web path:
+- To address that, changed the Genius Web path so it no longer writes full runtime/output files after every completed song.
+- Instead, the Genius Web path now batches writes every `10` processed rows.
+- Specifically, it now buffers and flushes in chunks of `10` for:
+  - `run_state.json`
+  - `rows_cache.json`
+  - `enriched_songs.csv`
+  - `enriched_songs.json`
+  - `enriched_songs.txt`
+- Leftover buffered work still flushes at chunk end.
+- Forced-stop / backoff paths still do an immediate forced flush.
+- Tradeoff accepted on purpose:
+  - if the process is interrupted between flushes, up to `9` newest Genius Web completions can be lost from disk
+  - but the repeated per-song write stall is much lower
+- This was a deliberate throughput tradeoff because the whole point of this pass was to make the background run actually practical over long unattended periods.
+
+Live run observations after the bigger throughput changes:
+- After those changes, sampled the live Genius Web checkpoint while the process was running.
+- The live process was confirmed running in `smart_catch_up` mode.
+- Over a roughly `12` second checkpoint sample, the live state advanced by:
+  - `79` rows
+- That works out to about:
+  - `6.6 rows/second`
+- Important interpretation:
+  - that is a checkpoint-based row throughput estimate, not a perfect per-request stopwatch
+  - and some rows can consume multiple fallback URL attempts
+- But it did show that the run was no longer stuck in the old “one every 3 seconds” feeling once the concurrency + write-batching changes were all in place.
+
+What the live error mix looked like after these changes:
+- During the faster live run, the observed skip reasons were still mostly normal deterministic ones:
+  - `Genius URL returned HTTP 404`
+  - `Constructed Genius URL page text did not match song+artist`
+- The log was also still producing successful matches interleaved with those skips.
+- Was not seeing obvious high-speed failure signals like:
+  - `429`
+  - `502`
+  - disconnect errors
+  - timeout clusters
+- So at the time of this pass, the run looked aggressive but not obviously unstable.
+
+Why this matters to the broader additional-data implementation work:
+- The main app/backend implementation work is still centered on getting the required additional data wired into the real project flow, especially through the current live Deezer route.
+- But now the separate Genius Web route is in a much better background-running state:
+  - restored from real prior progress
+  - aligned to the no-dupes input
+  - more intelligent about resume/catch-up behavior
+  - more capable on punctuation-heavy titles
+  - less wasteful on already-solved / already-exhausted rows
+  - and much less bottlenecked by constant output rewrites
+- This means that Genius Web path can be left running for the next couple of days while other project tasks continue and while sleeping, instead of babysitting a fragile or inefficient long-run process.
+
+Most important commands/workflow states from this pass:
+- Main interactive run command remains:
+  - `python3 tools/mp3li_additional_data_getter_v2/main.py`
+- Genius Web + Smart Catch-Up direct mode:
+  - `python3 tools/mp3li_additional_data_getter_v2/main.py --source genius_web --mode smart_catch_up`
+- Current Genius Web mode availability now includes:
+  - `Start from Beginning`
+  - `Resume at Next Song`
+  - `Fill Missing Fields Only`
+  - `Retry Skipped Songs Only`
+  - `Smart Catch-Up (Genius Web Only)`
+
+What intentionally did not change in this pass:
+- Did not change the main app/backend additional-data architecture because this pass was focused on the background `v2` Genius path.
+- Did not start using the old broken Genius URLs from the earlier enrichment tool as truth.
+- Did not reintroduce fallback to the old non-deduped input file.
+- Did not remove the page-text validation guardrails just to get superficially more “matches.”
+- Did not convert the Genius path into a “trust any plausible URL” workflow.
+
+Verification completed during this pass:
+- Repeatedly re-ran syntax/load verification after the major tool changes above:
+  - `python3 -m py_compile tools/mp3li_additional_data_getter_v2/main.py tools/mp3li_additional_data_getter_v2/genius_client.py`
+  - `python3 tools/mp3li_additional_data_getter_v2/main.py --help`
+- Also sanity-checked the live run by sampling the runtime checkpoint while it was actually running.
+
+Additional API Endpoint Documentation Completion + Continued Live-Enrichment UI Stabilization + Where the Work Was Left (May 9, 2026)
 - Objective:
   - Finish documenting the external API/provider route for additional song metadata in a durable repo folder instead of leaving the knowledge scattered across tool code, backend code, and local memory.
   - Continue stabilizing the live Deezer enrichment UI after real browser/mobile testing exposed several loading-state and stale-data problems.
@@ -18,7 +859,7 @@ Additional API endpoint documentation work completed:
   - `backend/Capstone.API/Documentation/apis/additional-data-research-notes.md`
 - Why this folder was added:
   - The issue required provider-by-provider endpoint documentation in a dedicated location.
-  - I needed one durable place that explains:
+  - Needed one durable place that explains:
     - which providers are used,
     - which endpoints are needed,
     - which required fields each endpoint covers,
@@ -144,8 +985,8 @@ Continued live-enrichment UI stabilization work completed after the previous tim
   - Reason:
     - when leaving the page during heavy load, the old behavior could keep stacking and finishing requests that were no longer useful.
 
-Where I Left Off:
-- I left the app in a state where the following intended behaviors were just implemented and still need direct browser/mobile confirmation:
+Where the work was left:
+- Left the app in a state where the following intended behaviors were just implemented and still need direct browser/mobile confirmation:
   - Discovery Globe country-list `Language(s)` should now say `Coming Soon`.
   - animated `Loading...` text should no longer resize/reflow summary paragraphs while dots animate.
   - `Genre + Language Mix` should no longer imply that current live enrichment is already supplying real language metadata.
@@ -211,39 +1052,39 @@ How To Run (Local Backend Config - mp3li personal setup)
 Live Deezer Enrichment Pivot + CD Art Placement Rule + Visible-Only Loading Strategy (May 9, 2026)
 - Objective:
   - Stop treating additional song metadata as an all-or-nothing “finish a full preload pipeline first” requirement for the current project milestone.
-  - Keep my `v2` additional-data getter work meaningful for later iterations, but change the current app implementation to a route I could actually finish, stabilize, and test within the remaining time.
-  - Make the app show real song metadata and real art now, while still preserving a future path where fuller pre-organized data can be generated by my tools and used later if I want that architecture.
+  - Keep the `v2` additional-data getter work meaningful for later iterations, but change the current app implementation to a route that could actually be finished, stabilized, and tested within the remaining time.
+  - Make the app show real song metadata and real art now, while still preserving a future path where fuller pre-organized data can be generated by the tools and used later if that architecture is still wanted.
 
-Why I made this switch:
-- I do still plan to finish doing full runs with my `v2` data getter in the future.
-- I still want future iterations of the app to have the option of using more fully pulled/organized song data rather than depending only on live enrichment.
-- However, for this phase of the project I deliberately changed direction because:
+Why this switch happened:
+- Still plan to finish doing full runs with my `v2` data getter in the future.
+- Still want future iterations of the app to have the option of using more fully pulled/organized song data rather than depending only on live enrichment.
+- However, for this phase of the project the direction deliberately changed because:
   - time left in the project was becoming a real constraint,
-  - I am already comfortable working with external APIs directly,
-  - Deezer already exposes most of the extra display metadata I immediately needed,
+  - Am already comfortable working with external APIs directly,
+  - Deezer already exposes most of the extra display metadata immediately needed,
   - the app did not actually need every possible extra field pre-written into the database in order to improve the user-facing experience right now,
   - and preview URLs were always going to be awkward to treat as permanent DB fields anyway because they expire.
 - So the practical decision became:
   - for now, use the live external Deezer API instead of requiring a full “pull everything with my `v2` tool and write it into the database first” workflow,
-  - but keep the `v2` tool untouched because I still expect it to matter for future iterations.
+  - but keep the `v2` tool untouched because it is still expected to matter for future iterations.
 
 What this pivot means and what it does not mean:
 - It means:
   - the app now resolves most additional song display metadata live when songs are actually needed on screen.
 - It does not mean:
-  - I abandoned my `v2` tool,
-  - I no longer care about fuller organized data,
-  - or I concluded that live-only enrichment is the final forever architecture for the project.
+  - Abandoned my `v2` tool,
+  - No longer care about fuller organized data,
+  - or the conclusion was that live-only enrichment is the final forever architecture for the project.
 - This was a milestone-driven implementation pivot, not a “delete the old direction and pretend it never mattered” change.
 
-What I explicitly did not change:
-- I did not rewrite or delete my tools.
-- I kept `tools/` untouched on purpose.
-- I did not convert the app to use lyrics pulling in this route.
-- I did not implement language extraction in this route.
-- I did not bulk-insert all of the new Deezer metadata into the shared project database.
-- I did not treat preview URLs as permanent truth because they expire.
-- I did not move Deezer API calling into the frontend.
+What explicitly did not change:
+- Did not rewrite or delete the tools.
+- Kept `tools/` untouched on purpose.
+- Did not convert the app to use lyrics pulling in this route.
+- Did not implement language extraction in this route.
+- Did not bulk-insert all of the new Deezer metadata into the shared project database.
+- Did not treat preview URLs as permanent truth because they expire.
+- Did not move Deezer API calling into the frontend.
 
 Core architecture after the pivot:
 - The project database is still the source of the base song lists.
@@ -320,16 +1161,16 @@ What the backend is trying to resolve from Deezer in this current route:
 - contributor list
 - artist album count
 
-What I intentionally skipped for now:
+What intentionally stayed skipped for now:
 - language detection
 - lyrics pulling
 - lyrics-URL usage in the UI
 - any logic that requires full lyrics text processing
 
 Why language was skipped:
-- Deezer is not the clean solution for that requirement in the way I need it.
+- Deezer is not the clean solution for that requirement in the needed way.
 - The more likely route for language would come from lyrics-related processing.
-- Since I deliberately did not want to pull lyrics in this milestone path, I skipped language too instead of pretending I had a good answer when I did not.
+- Since the goal in this milestone path was not to pull lyrics, language stayed skipped too instead of pretending there was already a good answer.
 
 How the backend resolves a song now:
 1. A screen asks the backend for a country/profile/hidden-gem song payload.
@@ -374,7 +1215,7 @@ What each cache file is for:
   - useful for inspection / scanning / spreadsheet-like review
 - `live_song_cache.txt`
   - readable block-style export of resolved entries
-  - useful when I just want to inspect the data quickly in plain text
+  - useful when quick plain-text inspection of the data is needed
 
 How the cache works in practice:
 - On first service use, the backend loads `live_song_cache.json` into memory as `_cacheByKey`.
@@ -454,7 +1295,7 @@ What “keep preview URLs temporarily” means in this implementation:
 - If refresh fails and the old preview is expired:
   - do not keep pretending the expired preview is valid
 
-Rate-limit rule I implemented:
+Implemented rate-limit rule:
 - Treat Deezer as:
   - `50 requests every 4.9 seconds`
 - Code constants:
@@ -463,7 +1304,7 @@ Rate-limit rule I implemented:
 - Enforcement mechanism:
   - sliding-window rate limiter in the enrichment service
 
-Reason I used `4.9` instead of `5.0`:
+Reason `4.9` was used instead of `5.0`:
 - The goal was to stay slightly inside the limit rather than riding the exact edge of it.
 
 Failure/retry hardening added after real backend errors:
@@ -522,7 +1363,7 @@ How Country Hidden Gems Preview now uses live enrichment:
   - stop once the requested number of usable unique preview items has been collected
 
 Why that hidden-gems preview over-fetching was necessary:
-- If some songs fail Deezer resolution and I only fetched the exact visible count from SQL, the preview strip could come back too short or broken.
+- If some songs fail Deezer resolution and only the exact visible count from SQL, the preview strip could come back too short or broken.
 - Over-fetching lets the backend find enough usable preview songs while still keeping the UI count clean.
 
 Dedupe protection added for hidden-gems preview:
@@ -554,7 +1395,7 @@ How Country Songs paging now uses live enrichment:
 
 Why the country-song paging had to be handled that way:
 - Once unresolved Deezer songs are skipped, raw SQL row counts and visible usable song counts are no longer the same thing.
-- If I had left paging based only on raw DB rows, the frontend could ask for a page and get too few visible usable songs or inconsistent “has more” behavior.
+- If paging had been left based only on raw DB rows, the frontend could ask for a page and get too few visible usable songs or inconsistent “has more” behavior.
 
 How Hidden Gems page now uses live enrichment:
 - Backend route:
@@ -604,8 +1445,8 @@ Release-date fallback rule:
 - Prefer Deezer `release_date` when available.
 - If release date is not available, fall back to the selected chart year in the UI where needed.
 
-Important UI/loading philosophy I locked in:
-- I never wanted big sections of the app to look blank just because Deezer enrichment was still in progress.
+UI/loading philosophy locked in:
+- Never wanted big sections of the app to look blank just because Deezer enrichment was still in progress.
 - The preferred behavior became:
   - render the structure immediately
   - show whatever DB/profile content is already available
@@ -620,14 +1461,14 @@ Problem with the first live-enrichment version:
 - Country/Comparison screens could wait too long on larger follow-up song loads.
 - Major sections could remain in `Loading...` longer than acceptable even though enough visible data already existed to render a meaningful first state.
 
-Visible-only loading / scroll-driven strategy I switched to:
-- I explicitly did not want the app to request metadata for songs the user could not even see yet.
+Visible-only loading / scroll-driven strategy:
+- Explicitly did not want the app to request metadata for songs the user could not even see yet.
 - So the desired rule became:
   - initial render should use the first visible content that is already available
   - deeper long-list enrichment should happen only when the user scrolls enough to need more
 - This was meant to match the same philosophy already used to avoid overloading the database with giant initial song pulls.
 
-Country / Comparison loading changes I made:
+Country / Comparison loading changes:
 - Initial visible country/comparison content now uses the profile response first.
 - That means these areas no longer have to sit around waiting on longer paged song requests before rendering:
   - `Most Loved in This Country`
@@ -642,14 +1483,14 @@ Frontend chunk size after the visible-only change:
   - `hidden-gem-music-app/src/screens/CountryScreen.tsx`
   - `hidden-gem-music-app/src/screens/ComparisonResultsScreen.tsx`
 
-Why I reduced that chunk size:
+Why that chunk size was reduced:
 - Smaller chunks mean:
   - less initial Deezer pressure
   - less chance of long visible stalls
   - less chance of wasting requests on songs not visible yet
-  - a better fit with the “only load more as the user scrolls” behavior I wanted
+  - a better fit with the “only load more as the user scrolls” behavior the goal was
 
-Loading UI decisions I intentionally chose:
+Loading UI decisions intentionally chosen:
 - If art/details are still being resolved:
   - do not leave empty holes
   - keep the placeholder art-color blocks
@@ -658,9 +1499,9 @@ Loading UI decisions I intentionally chose:
 - This was explicitly preferred over blank UI while waiting.
 
 CD art placement standardization work:
-- Once real Deezer art started appearing, I paused and standardized the actual geometry of how art sits behind the transparent CD case image.
+- Once real Deezer art started appearing, standardized the actual geometry of how art sits behind the transparent CD case image.
 - Reason:
-  - I did not want every screen / every CD size / every art slot to “mostly match” by eyeballing it
+  - Did not want every screen / every CD size / every art slot to “mostly match” by eyeballing it
   - the art is square, so this should be one reusable math rule
 
 Reference assets used for this placement work:
@@ -685,7 +1526,7 @@ Measured placement analysis:
   - final square:
     - `608 x 608`
 
-Reusable CD art placement rule I implemented:
+Reusable CD art placement rule:
 - Centralized component:
   - `hidden-gem-music-app/src/components/CdCaseArt.tsx`
 - Normalized ratios in that shared component:
@@ -738,7 +1579,7 @@ Backend files significantly involved in the live Deezer path:
 - `backend/Capstone.API/Program.cs`
 - `.gitignore`
 
-Key incidents encountered during this pivot and what I changed because of them:
+Key incidents encountered during this pivot and the resulting changes:
 1. Deezer transport connections were occasionally reset mid-request.
   - Effect:
     - country-song endpoints could fail because an external Deezer call failed
@@ -762,7 +1603,7 @@ Key incidents encountered during this pivot and what I changed because of them:
   - Fix:
     - shared `CdCaseArt` component plus normalized square-placement math
 
-Things I intentionally preserved during this pivot:
+Things intentionally preserved during this pivot:
 - my tool folders
 - the ability to continue future `v2` data runs later
 - the project database as the base song source of truth
@@ -792,7 +1633,7 @@ Bottom-line outcome of this pivot:
   - visible-first rendering
   - cached reuse
   - live external enrichment only when actually needed on screen
-  - and a future-friendly path where fuller pre-organized data can still be added later if I choose
+  - and a future-friendly path where fuller pre-organized data can still be added later if desired
 
 Unified Screen Ownership + Cross-Platform UI Stabilization Sweep (May 8, 2026)
 - Objective: stop the app from effectively routing phone usage through web-owned screen files, preserve the mobile-sized look the user liked, and then finish a long cross-platform UI correction pass without re-breaking web behavior.

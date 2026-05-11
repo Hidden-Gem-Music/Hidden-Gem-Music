@@ -13,6 +13,22 @@ export type UiSongPreview = {
   title: string;
   artist: string;
   album: string;
+  deezerTrackId?: number;
+  deezerAlbumId?: number;
+  deezerArtistId?: number;
+  artistImageUrl?: string;
+  albumArtUrl?: string;
+  genres?: string[];
+  previewUrl?: string;
+  previewExpiresAtUtc?: string;
+  explicitLyrics?: boolean;
+  explicitContentCover?: boolean;
+  albumExplicitLyrics?: boolean;
+  releaseDate?: string;
+  recordType?: string;
+  contributors?: string[];
+  artistAlbumCount?: number;
+  tracklist?: string[];
 };
 
 export type UiSharedSongPreview = UiSongPreview & {
@@ -30,6 +46,7 @@ export type UiCountryProfile = {
   overlapPercent: number;
   topSharedSongs: UiSongPreview[];
   topUniqueSongs: UiSongPreview[];
+  sampleGenres: string[];
 };
 
 export type UiCountryComparisonSide = {
@@ -89,6 +106,26 @@ export const mapApiSong = (song: ApiSong): UiSongPreview => ({
   title: toNonEmpty(song.songName, "Unknown Song"),
   artist: toNonEmpty(song.artistName, "Unknown Artist"),
   album: toNonEmpty(song.albumName, "Unknown Album"),
+  deezerTrackId: typeof song.deezerTrackId === "number" ? song.deezerTrackId : undefined,
+  deezerAlbumId: typeof song.deezerAlbumId === "number" ? song.deezerAlbumId : undefined,
+  deezerArtistId: typeof song.deezerArtistId === "number" ? song.deezerArtistId : undefined,
+  artistImageUrl: toNonEmpty(song.artistImageUrl, ""),
+  albumArtUrl: toNonEmpty(song.albumArtUrl, ""),
+  genres: Array.isArray(song.genres) ? song.genres.filter((genre): genre is string => typeof genre === "string" && genre.trim().length > 0) : [],
+  previewUrl: toNonEmpty(song.previewUrl, ""),
+  previewExpiresAtUtc: toNonEmpty(song.previewExpiresAtUtc, ""),
+  explicitLyrics: typeof song.explicitLyrics === "boolean" ? song.explicitLyrics : undefined,
+  explicitContentCover: typeof song.explicitContentCover === "boolean" ? song.explicitContentCover : undefined,
+  albumExplicitLyrics: typeof song.albumExplicitLyrics === "boolean" ? song.albumExplicitLyrics : undefined,
+  releaseDate: toNonEmpty(song.releaseDate, ""),
+  recordType: toNonEmpty(song.recordType, ""),
+  contributors: Array.isArray(song.contributors)
+    ? song.contributors.filter((contributor): contributor is string => typeof contributor === "string" && contributor.trim().length > 0)
+    : [],
+  artistAlbumCount: typeof song.artistAlbumCount === "number" ? song.artistAlbumCount : undefined,
+  tracklist: Array.isArray(song.tracklist)
+    ? song.tracklist.filter((track): track is string => typeof track === "string" && track.trim().length > 0)
+    : [],
 });
 
 export const mapApiSharedSong = (song: ApiSharedSong): UiSharedSongPreview => ({
@@ -109,6 +146,9 @@ export const mapApiCountryProfile = (profile: ApiCountryProfile): UiCountryProfi
   overlapPercent: profile.overlapPct,
   topSharedSongs: profile.topSharedSongs.map(mapApiSong).filter((song) => hasKnownSongTitle(song.title)),
   topUniqueSongs: profile.topUniqueSongs.map(mapApiSong).filter((song) => hasKnownSongTitle(song.title)),
+  sampleGenres: Array.isArray(profile.sampleGenres)
+    ? profile.sampleGenres.filter((genre): genre is string => typeof genre === "string" && genre.trim().length > 0)
+    : [],
 });
 
 export const mapApiComparisonSide = (side: ApiCountryComparisonSide): UiCountryComparisonSide => ({

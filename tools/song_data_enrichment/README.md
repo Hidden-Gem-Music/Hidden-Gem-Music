@@ -1,4 +1,12 @@
-# Song Data Enrichment (Deezer + Genius)
+# mp3li's Additional Data Getter v1 (Deezer + Genius)
+
+This is the original additional-data getter tool.
+
+Tool folder path remains:
+
+`tools/song_data_enrichment`
+
+so the newer `v2` tool and any existing repo wiring do not break.
 
 This tool enriches `song_title + artist_name` rows and outputs identical dataset content as:
 - `enriched_songs.csv`
@@ -28,6 +36,12 @@ Then export results:
 Put that file at:
 
 `tools/song_data_enrichment/input_songs.csv`
+
+If you create a deduped version named:
+
+`tools/song_data_enrichment/no_dupes_input_songs.csv`
+
+the enrichment scripts now prefer that file automatically.
 
 ## 2. Configure API secrets safely
 
@@ -87,6 +101,7 @@ Outputs are written to:
 ## Optional flags
 
 - `--input <path>` custom input CSV path
+- default input path behavior: prefers `tools/song_data_enrichment/no_dupes_input_songs.csv`, then falls back to `tools/song_data_enrichment/input_songs.csv`
 - `--output-dir <path>` custom output folder
 - `--env-file <path>` custom env file
 - `--include-lyrics-text` include extracted lyrics text in outputs
@@ -123,6 +138,9 @@ What it does:
 - Runs `enrich_songs.py` in `--merge-output` chunk mode.
 - Writes rolling checkpoint events to:
   - `tools/song_data_enrichment/output/chunk_checkpoints.jsonl`
+- Resume safety with the no-dupes file:
+  - offsets are based on the tool's deduped `song_title + artist_name` view, not raw CSV line numbers
+  - so using `no_dupes_input_songs.csv` preserves normal resume behavior for the existing "pick up where I left off" flow
 - After each chunk, validates:
   - output files exist/readable
   - output row count is non-decreasing (dedupe-safe)

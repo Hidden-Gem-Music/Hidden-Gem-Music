@@ -205,12 +205,12 @@ function ComparisonBlurb({
       <View style={[styles.blurbContent, isCompact ? styles.blurbContentCompact : null]}>
         <View style={[styles.blurbCopy, isCompact ? styles.blurbCopyCompact : null]}>
           <Text style={styles.blurbText}>
-            <Text style={styles.blurbHeading}>Comparison View</Text>
+            <Text style={styles.blurbHeading}>Comparison Mode</Text>
             {"  "}
             <GemIcon size={16} style={styles.blurbIcon} />
             {"  "}
             <Text style={styles.blurbBody}>
-              Use Comparison View by selecting a year in the dropdown and optional filters like region, Biggest Hits, Fast Rising Songs, All Songs, and more, and then select two countries in the list before selecting 'Done' to view comparison results. The country list displays countries that have songs included in the app data for that year. Selecting other years may display different countries. On the comparison results screen, you can also select different countries and years to keep discovering even further.
+              Use Comparison Mode by selecting a year in the dropdown and optional filters like region, Biggest Hits, Fast Rising Songs, All Songs, and more, and then select two countries in the list before selecting 'Done' to view comparison results. The country list displays countries that have songs included in the app data for that year. Selecting other years may display different countries. On the comparison results screen, you can also select different countries and years to keep discovering even further.
             </Text>
           </Text>
         </View>
@@ -533,7 +533,11 @@ function ComparisonSidebarPanels({
               {renderInlineFilterRow("Hidden Gems", "hiddenGems", ["All", "Only Show Countries with Hidden Gems", "Show Countries Without Hidden Gems", "Most Hidden Gems to Least", "Least Hidden Gems to Most"])}
               {renderInlineFilterRow("Region", "region", ["All", ...regionOptions])}
               {renderInlineFilterRow("Language", "language", ["All", ...languageOptions])}
-              {renderInlineFilterRow("Genre", "genre", ["All", ...genreOptions])}
+              {/* Genre filters are intentionally commented out for now.
+                  The current live genre data is API-fetched per song and is not normalized
+                  enough yet to support trustworthy comparison filtering. Keep this row here
+                  for a future normalized-genre iteration instead of deleting it. */}
+              {/* {renderInlineFilterRow("Genre", "genre", ["All", ...genreOptions])} */}
             </ScrollView>
             {showFilterScrollbar ? (
               <View

@@ -1,12 +1,24 @@
 # Additional Data API Documentation
 
 **Author:** mp3li
-**Date:** 2026-05-09
+**Date:** 2026-05-10
 
 This folder documents the external API endpoints currently relevant to additional song metadata for Hidden Gem Music.
 
+It also includes current supplement docs for the live backend API surface where the accepted backend ADRs are now intentionally left untouched as historical architecture records.
+
 ## Files in this folder
 
+- `current-backend-api-surface.md`
+  - current controller/endpoint inventory
+  - live route/query behavior
+  - controller-to-repository-to-stored-procedure mapping
+  - current differences between older ADR route counts and the live backend surface
+- `backend-local-run-and-testing.md`
+  - local backend run commands
+  - Local vs Development environment behavior
+  - browser/API smoke-test flow
+  - how backend testing fits with frontend LAN/mobile testing
 - `deezer-api.md`
   - Deezer endpoints currently used or planned for live song enrichment
   - required fields
@@ -73,6 +85,8 @@ For the current project direction:
 ## Important project note
 
 This folder documents the endpoint research and implementation path selection.
+
+It now also documents the current live backend API contract alongside the provider-specific additional-data notes.
 
 It does **not** mean every one of the 200,000+ songs has already been fully enriched and written into the shared database.
 

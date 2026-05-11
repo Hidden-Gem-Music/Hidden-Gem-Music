@@ -22,6 +22,10 @@ type Props = {
   showHeader?: boolean;
   frameStyle?: StyleProp<ViewStyle>;
   selectOnHover?: boolean;
+  genreSummaryByCountryCode?: Record<string, string | undefined>;
+  genreLoadingByCountryCode?: Record<string, boolean | undefined>;
+  loadingText?: string;
+  onEnsureGenreSample?: (countryCode: string) => void;
 };
 
 export function GlobePanel({
@@ -37,6 +41,10 @@ export function GlobePanel({
   showHeader = true,
   frameStyle,
   selectOnHover = true,
+  genreSummaryByCountryCode,
+  genreLoadingByCountryCode,
+  loadingText,
+  onEnsureGenreSample,
 }: Props) {
   const activeCountry = countries.find((country) => country.id === activeCountryId);
   const [isButtonHovered, setIsButtonHovered] = useState(false);
@@ -61,6 +69,10 @@ export function GlobePanel({
           onSelectCountry={onSelectCountry}
           onOpenCountry={onOpenCountry}
           selectOnHover={selectOnHover}
+          genreSummaryByCountryCode={genreSummaryByCountryCode}
+          genreLoadingByCountryCode={genreLoadingByCountryCode}
+          loadingText={loadingText}
+          onEnsureGenreSample={onEnsureGenreSample}
         />
         {onRightAction ? (
           <Pressable
