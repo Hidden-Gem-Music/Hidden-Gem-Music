@@ -36,12 +36,13 @@ namespace Capstone.API.Controllers
             [FromQuery] int year = 2021,
             [FromQuery] int minCountries = 2,
             [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 25)
+            [FromQuery] int pageSize = 25,
+            CancellationToken cancellationToken = default)
         {
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 25;
 
-            var result = await _repo.GetHiddenGemsAsync(code.ToUpper(), year, minCountries, page, pageSize);
+            var result = await _repo.GetHiddenGemsAsync(code.ToUpper(), year, minCountries, page, pageSize, cancellationToken);
             return Ok(result);
         }
     }

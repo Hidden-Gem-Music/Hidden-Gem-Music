@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { Country } from "../types/content";
 import { GemIcon } from "./GemIcon";
@@ -18,6 +18,8 @@ const navItems: Array<{ label: string; route: ScreenRoute }> = [
   { label: "Credits", route: "credits" },
 ];
 
+type BrandVariant = "webLarge" | "webSmall" | "mobile";
+
 type Props = {
   currentRoute: ScreenRoute;
   onNavigate: (route: ScreenRoute) => void;
@@ -29,25 +31,96 @@ type Props = {
   onOpenCountry: (countryId: string) => void;
 };
 
-function HiddenWord({ compact }: { compact: boolean }) {
+function HiddenWord({ variant }: { variant: BrandVariant }) {
+  const isMobile = variant === "mobile";
+  const isWebSmall = variant === "webSmall";
+
   return (
     <View style={styles.brandWord}>
-      <Text style={[styles.brandText, compact ? styles.brandTextCompact : null]}>H</Text>
-      <View style={styles.hiddenIWrap}>
-        <GemIcon size={14} style={styles.hiddenIGem} />
-        <Text style={[styles.brandText, styles.hiddenIText]}>ı</Text>
+      <View style={isMobile ? styles.hiddenHWrapMobile : null}>
+        <Text
+          style={[
+            styles.brandText,
+            isWebSmall ? styles.brandTextWebSmall : null,
+            isMobile ? styles.brandTextMobile : null,
+            isMobile ? styles.hiddenHTextMobile : null,
+          ]}
+        >
+          H
+        </Text>
       </View>
-      <Text style={[styles.brandText, compact ? styles.brandTextCompact : null]}>dden</Text>
+      <View
+        style={[
+          styles.hiddenIWrap,
+          isWebSmall ? styles.hiddenIWrapWebSmall : null,
+          isMobile ? styles.hiddenIWrapMobile : null,
+        ]}
+      >
+        <GemIcon
+          size={isMobile ? 12 : isWebSmall ? 13 : 14}
+          style={[
+            styles.hiddenIGem,
+            isWebSmall ? styles.hiddenIGemWebSmall : null,
+            isMobile ? styles.hiddenIGemMobile : null,
+          ]}
+        />
+        <Text
+          style={[
+            styles.brandText,
+            styles.hiddenIText,
+            isWebSmall ? styles.brandTextWebSmall : null,
+            isWebSmall ? styles.hiddenITextWebSmall : null,
+            isMobile ? styles.brandTextMobile : null,
+            isMobile ? styles.hiddenITextMobile : null,
+          ]}
+        >
+          ı
+        </Text>
+      </View>
+      <Text
+        style={[
+          styles.brandText,
+          isWebSmall ? styles.brandTextWebSmall : null,
+          isMobile ? styles.brandTextMobile : null,
+        ]}
+      >
+        dden
+      </Text>
     </View>
   );
 }
 
-function BrandWordmark({ compact }: { compact: boolean }) {
+function BrandWordmark({ variant }: { variant: BrandVariant }) {
+  const isMobile = variant === "mobile";
+  const isWebSmall = variant === "webSmall";
+
   return (
-    <View style={[styles.brandLockup, compact ? styles.brandLockupCompact : null]}>
-      <HiddenWord compact={compact} />
-      <Text style={[styles.brandText, compact ? styles.brandTextCompact : null]}>Gem</Text>
-      <Text style={[styles.brandText, compact ? styles.brandTextCompact : null]}>Music</Text>
+    <View
+      style={[
+        styles.brandLockup,
+        isWebSmall ? styles.brandLockupWebSmall : null,
+        isMobile ? styles.brandLockupMobile : null,
+      ]}
+    >
+      <HiddenWord variant={variant} />
+      <Text
+        style={[
+          styles.brandText,
+          isWebSmall ? styles.brandTextWebSmall : null,
+          isMobile ? styles.brandTextMobile : null,
+        ]}
+      >
+        Gem
+      </Text>
+      <Text
+        style={[
+          styles.brandText,
+          isWebSmall ? styles.brandTextWebSmall : null,
+          isMobile ? styles.brandTextMobile : null,
+        ]}
+      >
+        Music
+      </Text>
     </View>
   );
 }
@@ -65,18 +138,26 @@ export function AppHeader({
   const { width } = useWindowDimensions();
   const isCompact = width < 980;
   const isTight = width < 680;
-  const [menuOpen, setMenuOpen] = useState(false);
+  const brandVariant: BrandVariant = Platform.OS !== "web" ? "mobile" : width < 1280 ? "webSmall" : "webLarge";
   const [hoveredRoute, setHoveredRoute] = useState<ScreenRoute | null>(null);
   const [hoveringSearch, setHoveringSearch] = useState(false);
+  const [pressedBreadcrumbIndex, setPressedBreadcrumbIndex] = useState<number | null>(null);
+  const activeBreadcrumbIndex = useMemo(() => Math.max(breadcrumbs.length - 1, 0), [breadcrumbs.length]);
+  const isNavItemActive = (route: ScreenRoute) =>
+    currentRoute === route ||
+    (route === "comparisonSelect" && currentRoute === "comparisonResults") ||
+    (route === "discovery" && currentRoute === "country");
+
+  useEffect(() => {
+    setPressedBreadcrumbIndex(null);
+  }, [currentRoute]);
 
   const handleNavigate = (route: ScreenRoute) => {
-    setMenuOpen(false);
     onCloseSearch();
     onNavigate(route);
   };
 
   const handleToggleSearch = () => {
-    setMenuOpen(false);
     onToggleSearch();
   };
 
@@ -104,39 +185,22 @@ export function AppHeader({
       end={{ x: 1, y: 0.5 }}
       style={styles.wrapper}
     >
-      <View style={[styles.brandRow, isCompact ? styles.brandRowCompact : null]}>
-        <Pressable onPress={() => handleNavigate("welcome")} style={styles.brandPressable}>
-          <BrandWordmark compact={isCompact} />
+      <View
+        style={[
+          styles.brandRow,
+          brandVariant === "webSmall" ? styles.brandRowWebSmall : null,
+          isCompact ? styles.brandRowCompact : null,
+        ]}
+      >
+        <Pressable
+          onPress={() => handleNavigate("welcome")}
+          style={[styles.brandPressable, brandVariant === "mobile" ? styles.brandPressableMobile : null]}
+        >
+          <BrandWordmark variant={brandVariant} />
         </Pressable>
 
         {isCompact ? (
-          <View style={styles.mobileMenuWrap}>
-            <Pressable onPress={() => setMenuOpen((open) => !open)} style={styles.menuButton}>
-              <GemIcon size={20} />
-              <Text style={styles.menuButtonText}>Menu</Text>
-            </Pressable>
-
-            {menuOpen ? (
-              <View style={styles.mobileMenuPanel}>
-                {navItems.map((item) => (
-                  <Pressable
-                    key={item.route}
-                    onPress={() => handleNavigate(item.route)}
-                    style={[styles.mobileMenuItem, currentRoute === item.route ? styles.mobileMenuItemActive : null]}
-                  >
-                    <Text style={[styles.mobileMenuText, currentRoute === item.route ? styles.mobileMenuTextActive : null]}>{item.label}</Text>
-                  </Pressable>
-                ))}
-                <Pressable onPress={handleToggleSearch} style={[styles.mobileMenuItem, searchOpen ? styles.mobileMenuItemActive : null]}>
-                  <View style={styles.mobileSearchRow}>
-                    <Text style={[styles.mobileMenuText, searchOpen ? styles.mobileMenuTextActive : null]}>Search</Text>
-                    <Text style={styles.searchIcon}>⌕</Text>
-                  </View>
-                </Pressable>
-              </View>
-            ) : null}
-
-          </View>
+          <View style={styles.mobileMenuWrap} />
         ) : (
           <View style={[styles.nav, isTight ? styles.navCompact : null]}>
             <View style={[styles.navLinks, isTight ? styles.navLinksTight : null]}>
@@ -149,8 +213,8 @@ export function AppHeader({
                   style={[
                     styles.navItem,
                     isTight ? styles.navItemTight : null,
-                    hoveredRoute === item.route && currentRoute !== item.route ? styles.navItemHover : null,
-                    currentRoute === item.route ? styles.navItemActive : null,
+                    hoveredRoute === item.route && !isNavItemActive(item.route) ? styles.navItemHover : null,
+                    isNavItemActive(item.route) ? styles.navItemActive : null,
                   ]}
                 >
                   <Text style={styles.navText}>{item.label}</Text>
@@ -172,11 +236,24 @@ export function AppHeader({
             return (
               <View key={`${crumb.label}-${index}`} style={styles.breadcrumbItem}>
                 {crumb.route && !isLast ? (
-                  <Pressable onPress={() => handleNavigate(crumb.route!)} hitSlop={6}>
-                    <Text style={[styles.breadcrumbText, index === 0 ? styles.breadcrumbHome : styles.breadcrumbLink]}>{crumb.label}</Text>
+                  <Pressable
+                    onPress={() => handleNavigate(crumb.route!)}
+                    onPressIn={() => setPressedBreadcrumbIndex(index)}
+                    onPressOut={() => setPressedBreadcrumbIndex((current) => (current === index ? null : current))}
+                    hitSlop={6}
+                  >
+                    <Text
+                      style={[
+                        styles.breadcrumbText,
+                        index === activeBreadcrumbIndex ? styles.breadcrumbActive : styles.breadcrumbLink,
+                        pressedBreadcrumbIndex === index ? styles.breadcrumbPressed : null,
+                      ]}
+                    >
+                      {crumb.label}
+                    </Text>
                   </Pressable>
                 ) : (
-                  <Text style={[styles.breadcrumbText, isLast ? styles.breadcrumbCurrent : null]}>{crumb.label}</Text>
+                  <Text style={[styles.breadcrumbText, isLast ? styles.breadcrumbActive : null]}>{crumb.label}</Text>
                 )}
                 {!isLast ? <Text style={styles.breadcrumbSeparator}> / </Text> : null}
               </View>
@@ -191,34 +268,50 @@ export function AppHeader({
 
 const styles = StyleSheet.create({
   wrapper: {
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xl + 4,
     paddingHorizontal: spacing.lg,
     paddingBottom: 0,
     position: "relative",
-    zIndex: 20,
+    zIndex: 500,
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 24,
+    marginTop: 8,
+  },
+  brandRowWebSmall: {
+    marginTop: 12,
   },
   brandRowCompact: {
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: 16,
     flexWrap: "wrap",
+    marginTop: 18,
   },
   brandPressable: {
     flexShrink: 0,
+    overflow: "visible",
+  },
+  brandPressableMobile: {
+    paddingTop: 6,
+    paddingRight: 30,
   },
   brandLockup: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 10,
     flexWrap: "wrap",
+    paddingRight: 6,
+    overflow: "visible",
   },
-  brandLockupCompact: {
+  brandLockupWebSmall: {
     gap: 8,
+  },
+  brandLockupMobile: {
+    gap: 5,
+    paddingRight: 28,
   },
   brandWord: {
     flexDirection: "row",
@@ -229,27 +322,72 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.display,
     fontSize: 42,
     fontWeight: "600",
-    letterSpacing: -2,
+    letterSpacing: -1.2,
+    lineHeight: 50,
   },
-  brandTextCompact: {
+  brandTextWebSmall: {
+    fontSize: 36,
+    lineHeight: 42,
+  },
+  brandTextMobile: {
     fontSize: 34,
+    lineHeight: 40,
+    paddingRight: 0,
   },
   hiddenIWrap: {
-    width: 14,
-    height: 46,
+    width: 15,
+    height: 50,
     position: "relative",
     justifyContent: "flex-end",
     alignItems: "center",
-    marginRight: 1,
+    marginRight: 0,
+  },
+  hiddenIWrapWebSmall: {
+    width: 13,
+    height: 42,
+  },
+  hiddenIWrapMobile: {
+    width: 12,
+    height: 40,
+    marginRight: 0,
+    zIndex: 1,
   },
   hiddenIGem: {
     position: "absolute",
-    top: -3,
-    right: -7,
+    top: 0,
+    right: -6,
+  },
+  hiddenIGemWebSmall: {
+    top: 0,
+    right: -5,
+  },
+  hiddenIGemMobile: {
+    top: 5,
+    right: -4,
   },
   hiddenIText: {
-    lineHeight: 42,
+    lineHeight: 44,
     transform: [{ translateY: -4 }],
+  },
+  hiddenITextWebSmall: {
+    lineHeight: 36,
+    transform: [{ translateY: -3 }],
+  },
+  hiddenITextMobile: {
+    fontSize: 29,
+    lineHeight: 34,
+    transform: [{ translateY: -1 }],
+  },
+  hiddenHWrapMobile: {
+    position: "relative",
+    zIndex: 6,
+    overflow: "visible",
+  },
+  hiddenHTextMobile: {
+    position: "relative",
+    zIndex: 6,
+    paddingRight: 3,
+    marginRight: -3,
   },
   nav: {
     flexDirection: "row",
@@ -301,7 +439,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   breadcrumbText: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
@@ -309,14 +447,14 @@ const styles = StyleSheet.create({
   breadcrumbLink: {
     textDecorationLine: "none",
   },
-  breadcrumbHome: {
+  breadcrumbActive: {
     textDecorationLine: "underline",
   },
-  breadcrumbCurrent: {
-    color: colors.text,
+  breadcrumbPressed: {
+    color: colors.accent,
   },
   breadcrumbSeparator: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
@@ -356,58 +494,6 @@ const styles = StyleSheet.create({
   },
   mobileMenuWrap: {
     marginLeft: "auto",
-    minWidth: 150,
-    position: "relative",
-  },
-  menuButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    minWidth: 150,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.button,
-    borderWidth: 4,
-    borderColor: colors.border,
-    borderRadius: 18,
-  },
-  menuButtonText: {
-    color: colors.border,
-    fontFamily: typefaces.condensed,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  mobileMenuPanel: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 18,
-    borderWidth: 4,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceSecondary,
-    gap: 8,
-  },
-  mobileMenuItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  mobileMenuItemActive: {
-    backgroundColor: "rgba(117,82,107,0.18)",
-  },
-  mobileMenuText: {
-    color: colors.textStrong,
-    fontFamily: typefaces.display,
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  mobileMenuTextActive: {
-    color: colors.border,
-  },
-  mobileSearchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
+    minWidth: 1,
   },
 });

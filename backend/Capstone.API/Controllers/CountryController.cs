@@ -20,6 +20,7 @@ namespace Capstone.API.Controllers
         private const int DefaultSongsPage = 1;
         private const int DefaultSongsPageSize = 50;
         private const int MaxSongsPageSize = 100;
+        private const int MaxGenreSampleCodes = 16;
         private const string AvailableYearsCacheKey = "country-controller-available-years";
 
         private readonly ICountryRepository _repo;
@@ -49,7 +50,7 @@ namespace Capstone.API.Controllers
         /// <param name="code">2-letter ISO country code (e.g. "US", "JP").</param>
         /// <param name="year">The chart year to display. Defaults to 2021.</param>
         [HttpGet("{code}")]
-        public async Task<IActionResult> GetCountryProfile(string code, [FromQuery] int year = 2021)
+        public async Task<IActionResult> GetCountryProfile(string code, [FromQuery] int year = 2021, CancellationToken cancellationToken = default)
         {
             var validationError = await ValidateInputsAsync(code, year);
             if (validationError != null)
@@ -58,7 +59,7 @@ namespace Capstone.API.Controllers
             try
             {
                 var normalizedCode = code.ToUpperInvariant();
-                var result = await _repo.GetCountryProfileAsync(normalizedCode, year);
+                var result = await _repo.GetCountryProfileAsync(normalizedCode, year, cancellationToken);
                 if (result == null)
                     return NotFound();
 
@@ -83,7 +84,7 @@ namespace Capstone.API.Controllers
         /// <param name="code">2-letter ISO country code.</param>
         /// <param name="year">The chart year to display. Defaults to 2021.</param>
         [HttpGet("{code}/hidden-gems/preview")]
-        public async Task<IActionResult> GetHiddenGemsPreview(string code, [FromQuery] int year = 2021, [FromQuery] int limit = DefaultPreviewLimit)
+        public async Task<IActionResult> GetHiddenGemsPreview(string code, [FromQuery] int year = 2021, [FromQuery] int limit = DefaultPreviewLimit, CancellationToken cancellationToken = default)
         {
             var validationError = await ValidateInputsAsync(code, year);
             if (validationError != null)
@@ -94,7 +95,7 @@ namespace Capstone.API.Controllers
             try
             {
                 var normalizedCode = code.ToUpperInvariant();
-                var result = await _repo.GetHiddenGemsPreviewAsync(normalizedCode, year, normalizedLimit);
+                var result = await _repo.GetHiddenGemsPreviewAsync(normalizedCode, year, normalizedLimit, cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -124,7 +125,8 @@ namespace Capstone.API.Controllers
             [FromQuery] int year = 2021,
             [FromQuery] string listType = "shared",
             [FromQuery] int page = DefaultSongsPage,
-            [FromQuery] int pageSize = DefaultSongsPageSize)
+            [FromQuery] int pageSize = DefaultSongsPageSize,
+            CancellationToken cancellationToken = default)
         {
             var validationError = await ValidateInputsAsync(code, year);
             if (validationError != null)
@@ -145,7 +147,8 @@ namespace Capstone.API.Controllers
                     year,
                     normalizedListType,
                     normalizedPage,
-                    normalizedPageSize);
+                    normalizedPageSize,
+                    cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -157,6 +160,82 @@ namespace Capstone.API.Controllers
             {
                 _logger.LogError(ex, "Error getting country songs for {CountryCode} year {Year} listType {ListType}", code, year, listType);
                 return StatusCode(500, new { message = "An unexpected error occurred while retrieving country songs data." });
+            }
+        }
+
+        /// <summary>
+        /// Returns small live-resolved genre samples for one or more countries in a selected year.
+        /// GET /api/country/genre-samples?year={year}&amp;codes=US,CA,JP
+        /// </summary>
+        [HttpGet("genre-samples")]
+        public async Task<IActionResult> GetCountryGenreSamples(
+            [FromQuery] int year = 2021,
+            [FromQuery] string codes = "",
+            CancellationToken cancellationToken = default)
+        {
+            var availableYears = await _memoryCache.GetOrCreateAsync(AvailableYearsCacheKey, async (entry) =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+                return (await _metadataRepo.GetAvailableYearsAsync()).ToHashSet();
+            }) ?? new HashSet<int>();
+
+            if (!availableYears.Contains(year))
+            {
+                return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
+            }
+
+            var normalizedCodes = codes
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select((value) => value.ToUpperInvariant())
+                .Where((value) => CountryCodeRegex.IsMatch(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxGenreSampleCodes)
+                .ToList();
+
+            if (normalizedCodes.Count == 0)
+            {
+                return BadRequest(new { message = "At least one valid 2-letter country code is required." });
+            }
+
+            try
+            {
+                var results = new List<Capstone.API.Models.Country.CountryGenreSample>(normalizedCodes.Count);
+                foreach (var countryCode in normalizedCodes)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var cacheKey = $"country-genre-sample::{year}::{countryCode}";
+                    var cached = await _memoryCache.GetOrCreateAsync(cacheKey, async (entry) =>
+                    {
+                        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
+                        var genres = await _repo.GetCountryGenreSampleAsync(countryCode, year, cancellationToken);
+                        return new Capstone.API.Models.Country.CountryGenreSample
+                        {
+                            CountryCode = countryCode,
+                            Genres = genres.ToList()
+                        };
+                    });
+
+                    if (cached is not null)
+                    {
+                        results.Add(cached);
+                    }
+                }
+
+                return Ok(results);
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "SQL error getting country genre samples for year {Year} codes {Codes}", year, codes);
+                return StatusCode(503, new { message = "Database temporarily unavailable while retrieving country genre samples." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting country genre samples for year {Year} codes {Codes}", year, codes);
+                return StatusCode(500, new { message = "An unexpected error occurred while retrieving country genre samples." });
             }
         }
 

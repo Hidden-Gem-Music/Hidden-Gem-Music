@@ -193,14 +193,14 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   title: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 24,
     fontWeight: "800",
     transform: [{ translateY: 14 }],
   },
   subtitle: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 15,
     lineHeight: 22,

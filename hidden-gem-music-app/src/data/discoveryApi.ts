@@ -3,11 +3,11 @@ import { mapApiCountryGlobeSummary } from "./apiMappers";
 import type { ApiCountryGlobeSummary } from "../types/api";
 import { getApiBaseUrl } from "./apiBaseUrl";
 
-export async function loadDiscoveryCountries(year: number, fallbackCountries: Country[]): Promise<Country[]> {
+export async function loadDiscoveryCountries(year: number, fallbackCountries: Country[], signal?: AbortSignal): Promise<Country[]> {
   const existingByCode = new Map(fallbackCountries.map((country) => [country.code.toUpperCase(), country]));
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/discovery/countries?year=${year}`;
-  const response = await fetch(endpoint);
+  const response = await fetch(endpoint, { signal });
 
   if (!response.ok) {
     throw new Error(`Discovery country request failed with status ${response.status}.`);
@@ -15,7 +15,8 @@ export async function loadDiscoveryCountries(year: number, fallbackCountries: Co
 
   const payload = (await response.json()) as ApiCountryGlobeSummary[];
 
-  return payload.map((item, index) => {
+  return payload
+    .map((item, index) => {
     const mapped = mapApiCountryGlobeSummary(item);
     const normalizedCode = mapped.countryCode.toUpperCase();
     const existing = existingByCode.get(normalizedCode);
@@ -37,5 +38,10 @@ export async function loadDiscoveryCountries(year: number, fallbackCountries: Co
       markerTop: existing?.markerTop ?? "-20%",
       markerLeft: existing?.markerLeft ?? "-20%",
     };
-  });
+    })
+    .filter((country) => {
+      const normalizedCode = country.code.trim().toUpperCase();
+      const normalizedName = country.name.trim().toLowerCase();
+      return normalizedCode !== "GLOBAL" && normalizedName !== "global";
+    });
 }
