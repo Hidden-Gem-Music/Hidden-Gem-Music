@@ -1,3 +1,4 @@
 {
-    "chat.agent.codeBlockProgress": false
+    "chat.agent.codeBlockProgress": false,
+    "js/ts.tsdk.path": "hidden-gem-music-app/node_modules/typescript/lib"
 }
