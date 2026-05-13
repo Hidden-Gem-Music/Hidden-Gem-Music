@@ -8,7 +8,7 @@ namespace Capstone.API.Models.Dashboard
     public class DiscoveryGapBucket
     {
         /// <summary>
-        /// Gets or sets the display label for this bucket (e.g. "0-7d", "8-14d", "15-30d", "31-60d", "61-90d", "90d+").
+        /// Gets or sets the display label for this bucket (e.g. "1-7d", "8-14d", "15-30d", "31-60d", "61-90d", "90d+").
         /// </summary>
         public string? BucketLabel { get; set; }
 

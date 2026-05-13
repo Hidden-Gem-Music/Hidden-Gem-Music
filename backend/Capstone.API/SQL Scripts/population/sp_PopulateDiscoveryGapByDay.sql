@@ -1,11 +1,14 @@
 -- =============================================
 -- Author:      Leena Komenski
 -- Create date: 04/23/2026
--- Updated: 05/08/2026 -- Added AND ce.chart_type_id != 2 to FirstAppearance CTE 
--- to exclude Viral 50 entries from discovery gap calculations
+-- Updated:     05/08/2026 — Excluded Viral 50 (chart_type_id != 2)
+--              05/13/2026 — Added first_chart_date column to support accurate
+--              date range filtering in read proc. Raised floor from gap_days > 0
+--              to gap_days > 1 to exclude global rollout entries (songs released
+--              simultaneously across markets on launch day are not organic spread).
 -- Description: For each song charting in 2+ countries: calculates days between first chart
 -- appearance anywhere (origin) and first appearance in each subsequent country.
--- Pre-buckets into gap bands: 0-7d, 8-14d, 15-30d, 31-60d, 61-90d, 90d+.
+-- Pre-buckets into gap bands: 1-7d, 8-14d, 15-30d, 31-60d, 61-90d, 90d+.
 -- EXEC sp_PopulateDiscoveryGapByDay;
 -- =============================================
 
@@ -50,14 +53,14 @@ BEGIN
         WHERE fa.country_id <> o.origin_country_id
     )
     INSERT INTO DiscoveryGapByDay
-        (song_id, origin_country_id, spread_country_id, days_to_spread, bucket_label, bucket_order)
+        (song_id, origin_country_id, spread_country_id, days_to_spread, bucket_label, bucket_order, first_chart_date)
     SELECT
         song_id,
         origin_country_id,
         spread_country_id,
         gap_days AS days_to_spread,
         CASE
-            WHEN gap_days <=  7  THEN N'0-7d'
+            WHEN gap_days <=  7  THEN N'1-7d'
             WHEN gap_days <=  14 THEN N'8-14d'
             WHEN gap_days <=  30 THEN N'15-30d'
             WHEN gap_days <=  60 THEN N'31-60d'
@@ -71,8 +74,9 @@ BEGIN
             WHEN gap_days <=  60 THEN 4
             WHEN gap_days <=  90 THEN 5
             ELSE                      6
-        END AS bucket_order
+        END AS bucket_order,
+        origin_date AS first_chart_date
     FROM Spread
-    WHERE gap_days > 0;
+    WHERE gap_days > 1;
 END;
 GO

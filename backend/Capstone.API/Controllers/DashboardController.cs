@@ -57,7 +57,7 @@ namespace Capstone.API.Controllers
 
         /// <summary>
         /// Returns pre-bucketed histogram data for the Discovery Gap Distribution chart.
-        /// Buckets: 0-7d, 8-14d, 15-30d, 31-60d, 61-90d, 90d+.
+        /// Buckets: 1-7d, 8-14d, 15-30d, 31-60d, 61-90d, 90d+.
         /// GET /api/dashboard/gap-distribution?start={date}&amp;end={date}
         /// </summary>
         [HttpGet("gap-distribution")]
