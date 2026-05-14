@@ -1,4 +1,4 @@
-import { ActivityIndicator, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { ActivityIndicator, Platform, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { Country } from "../../types/content";
 import { colors } from "../../theme/colors";
 import { typefaces } from "../../theme/typography";
@@ -12,8 +12,10 @@ type Props = {
   activeCountryId?: string;
   selectedCountryIds?: string[];
   selectedYear?: number;
+  availableYears?: number[];
   onSelectCountry: (countryId: string) => void;
   onOpenCountry?: (countryId: string) => void;
+  onChangeYear?: (year: number) => void;
   title: string;
   subtitle?: string;
   rightActionLabel?: string;
@@ -34,8 +36,10 @@ export function GlobePanel({
   activeCountryId,
   selectedCountryIds,
   selectedYear,
+  availableYears,
   onSelectCountry,
   onOpenCountry,
+  onChangeYear,
   title,
   subtitle,
   rightActionLabel = "All Filters",
@@ -71,8 +75,10 @@ export function GlobePanel({
             activeCountry={activeCountry}
             selectedCountryIds={selectedCountryIds}
             selectedYear={selectedYear}
+            availableYears={availableYears}
             onSelectCountry={onSelectCountry}
             onOpenCountry={onOpenCountry}
+            onChangeYear={onChangeYear}
             onFiltersPress={onRightAction}
             selectOnHover={selectOnHover}
             genreSummaryByCountryCode={genreSummaryByCountryCode}
@@ -116,14 +122,14 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 14 }],
   },
   frame: {
-    minHeight: 520,
+    minHeight: Platform.OS === "web" ? 520 : 0,
     overflow: "hidden",
     padding: 0,
     backgroundColor: colors.background,
   },
   loadingState: {
     flex: 1,
-    minHeight: 520,
+    minHeight: Platform.OS === "web" ? 520 : 360,
     alignItems: "center",
     justifyContent: "center",
   },

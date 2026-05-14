@@ -418,8 +418,10 @@ export function DiscoveryScreen({
           isLoading={isLoading}
           activeCountryId={visibleSelectedCountryId}
           selectedYear={selectedYear}
+          availableYears={timelineYears}
           onSelectCountry={handleGlobeFocus}
           onOpenCountry={onOpenCountry}
+          onChangeYear={onChangeYear}
           title="Discovery Map"
           onRightAction={() => setAllFiltersOpen(true)}
           showHeader={false}
@@ -428,11 +430,6 @@ export function DiscoveryScreen({
           loadingText={discoveryLoadingText}
           onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
         />
-        {isStacked ? (
-          <View style={styles.mobileYearDropdownOverlay}>
-            <DiscoveryYearDropdown selectedYear={selectedYear} years={timelineYears} onChangeYear={onChangeYear} />
-          </View>
-        ) : null}
       </View>
       {isStacked ? null : (
         <YearSlider

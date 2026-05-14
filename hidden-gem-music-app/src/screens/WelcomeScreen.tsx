@@ -10,7 +10,7 @@ import { typefaces } from "../theme/typography";
 
 export type Props = {
   onDismiss: () => void;
-  onNavigate: (route: ScreenRoute) => void;
+  onSelectRoute: (route: ScreenRoute) => void;
 };
 
 const popupBottomDepthGradient = ["rgba(108,119,142,0)", "rgba(108,119,142,0.12)", "rgba(108,119,142,0.3)"] as const;
@@ -79,7 +79,7 @@ function WelcomeGradientTitle() {
   );
 }
 
-export function WelcomeScreen({ onDismiss, onNavigate }: Props) {
+export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
   const [isClosing, setIsClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,7 +89,7 @@ export function WelcomeScreen({ onDismiss, onNavigate }: Props) {
     }
 
     setIsClosing(true);
-    const closeDelay = Platform.OS === "web" ? 120 : 90;
+    const closeDelay = Platform.OS === "web" ? 120 : 24;
     closeTimerRef.current = globalThis.setTimeout(() => {
       action();
     }, closeDelay);
@@ -138,19 +138,19 @@ export function WelcomeScreen({ onDismiss, onNavigate }: Props) {
               multiple areas of the app to fine tune your discovery.
             </Text>
             <View style={styles.buttonStack}>
-              <ActionButton label="Discovery Map" size="compact" onPress={() => dismissWithAction(() => onNavigate("discovery"))} />
+              <ActionButton label="Discovery Map" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("discovery"))} />
               <ActionButton
                 label="Comparison Mode"
                 size="compact"
-                onPress={() => dismissWithAction(() => onNavigate("comparisonSelect"))}
+                onPress={() => dismissWithAction(() => onSelectRoute("comparisonSelect"))}
               />
               <ActionButton
                 label="Hidden Gems"
                 size="compact"
-                onPress={() => dismissWithAction(() => onNavigate("hiddenGems"))}
+                onPress={() => dismissWithAction(() => onSelectRoute("hiddenGems"))}
               />
-              <ActionButton label="Dashboard" size="compact" onPress={() => dismissWithAction(() => onNavigate("dashboard"))} />
-              <ActionButton label="Credits" size="compact" onPress={() => dismissWithAction(() => onNavigate("credits"))} />
+              <ActionButton label="Dashboard" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("dashboard"))} />
+              <ActionButton label="Credits" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("credits"))} />
             </View>
           </View>
         </Panel>

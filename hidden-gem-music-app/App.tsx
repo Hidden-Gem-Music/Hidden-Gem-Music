@@ -401,6 +401,21 @@ export default function App() {
     }
   };
 
+  const handleWelcomeRouteSelection = (route: ScreenRoute) => {
+    if (!navigationRef.isReady()) {
+      return;
+    }
+
+    navigationRef.goBack();
+    if (route === "discovery") {
+      return;
+    }
+
+    globalThis.setTimeout(() => {
+      navigateToRoute(route);
+    }, 40);
+  };
+
   const openHiddenGems = (selection?: HiddenGemsFocusSelection) => {
     if (!navigationRef.isReady()) {
       return;
@@ -585,7 +600,7 @@ export default function App() {
     }
 
     const controller = new AbortController();
-    setIsDiscoveryLoading(true);
+    setIsDiscoveryLoading(discoveryCountries.length === 0);
 
     loadDiscoveryCountries(selectedYear, countries, controller.signal)
       .then((apiCountries) => {
@@ -611,7 +626,7 @@ export default function App() {
     return () => {
       controller.abort();
     };
-  }, [countries, discoveryCountriesByYear, selectedYear, shouldHydrateApiCountryPool]);
+  }, [countries, discoveryCountries.length, discoveryCountriesByYear, selectedYear, shouldHydrateApiCountryPool]);
 
   useEffect(() => {
     if (!isDiscoveryLoading) {
@@ -939,7 +954,7 @@ export default function App() {
                 {() => (
                   <WelcomeScreen
                     onDismiss={() => navigationRef.goBack()}
-                    onNavigate={navigateToRoute}
+                    onSelectRoute={handleWelcomeRouteSelection}
                   />
                 )}
               </Stack.Screen>
@@ -1103,5 +1118,6 @@ const styles = StyleSheet.create({
   screenArea: {
     flex: 1,
     position: "relative",
+    overflow: "hidden",
   },
 });
