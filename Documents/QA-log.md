@@ -129,3 +129,45 @@ All remaining non-nullable value-type properties (`int` counts, `decimal` percen
 1. Call `GET /api/dashboard/overlap-trend?start=2017-01-01&end=2024-12-31` — the response should include rows where `overlapPct`, `avgCountries`, `totalUniqueSongs`, and `songsIn2Plus` are `null` (not `0`) when `isGap` is `true`
 2. Verify the dashboard gap region renders as a dashed line, not a flat zero line through the data gap
 3. Call `GET /api/dashboard/peak-reach?start=2017-01-01&end=2024-12-31` — `peakDate` should be `null` if the SP returns NULL, not `"0001-01-01"`
+
+---
+
+## 2026-05-13 — Frontend Load Optimization (Redundant API Calls)
+
+**Branch:** `loading-optimization`
+**Scope:** `discoveryApi.ts`, `dashboardApi.ts`, `countryApi.ts`
+
+### What I noticed
+
+Audited all API fetch functions for repeat pinging — cases where the same endpoint was being called multiple times when once was enough. Found two categories: functions with no cache at all, and a race condition in a newly-added cache.
+
+### What was wrong
+
+| File | Function | Problem |
+|---|---|---|
+| `dashboardApi.ts` | All 7 functions | No caching — all 7 dashboard endpoints re-fired on every visit to the dashboard screen (every mount) |
+| `countryApi.ts` | `loadAvailableYears` | No cache — called independently in `App.tsx`, `CountryScreen`, and `ComparisonResultsScreen`; fired on every mount of each |
+| `discoveryApi.ts` | `loadDiscoveryCountries` | No module-level cache — relied entirely on `App.tsx` React state, which doesn't deduplicate concurrent calls |
+
+### What was fixed
+
+**`dashboardApi.ts`** — Added a `Map` cache to all 7 functions (`loadOverlapRate`, `loadDiscoveryGap`, `loadIsolationLeader`, `loadPeakReach`, `loadOverlapTrend`, `loadIsolationRanking`, `loadGapDistribution`) keyed on the date range string. First visit fetches; every subsequent visit is served from the module cache with zero network requests.
+
+**`countryApi.ts` — `loadAvailableYears`** — Replaced the simple result cache (which still had a race window) with a Promise-level cache. All concurrent callers share the same in-flight request rather than each firing their own. If the request fails, the cache clears so the next call retries.
+
+**`discoveryApi.ts` — `loadDiscoveryCountries`** — Added a module-level result cache and in-flight Promise deduplication, both keyed on year. On a cache hit, returns instantly. If a request for the same year is already in-flight (e.g., two callers at startup), the second caller shares the existing Promise instead of firing a second request.
+
+### Why it matters
+
+The dashboard had 7 concurrent SP calls on every screen visit with no way to reuse results — navigating away and back re-fired all 7 every time. `loadAvailableYears` was being called from 3 separate places with no coordination. These are the same pattern of repeat pinging that caused performance issues in earlier iterations.
+
+### Remaining SQL-side opportunity (not yet implemented)
+
+`sp_GetDiscoverPageInfo` is the only major read SP not backed by a pre-computed summary table. It scans `ChartEntry` for an entire year to find the top song per country via `ROW_NUMBER()`. All dashboard SPs read from pre-computed tables and return instantly — this one doesn't. Pre-computing it into a summary table (similar to `sp_PopulateGlobalOverlapByYear` pattern) would be the remaining backend load-time win for the globe screen.
+
+### How to test
+
+1. Open the app and navigate to the Dashboard — note load time
+2. Navigate away and return to the Dashboard — should render **instantly** with no network requests visible in DevTools → Network tab
+3. Open DevTools → Network, filter by `/api/metadata/years` — should appear **once** total across the session regardless of how many screens call it
+4. Open DevTools → Network, filter by `/api/discovery/countries` — should appear **once per year** across the session; switching years fetches once for that year, switching back is instant
