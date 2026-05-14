@@ -48,7 +48,7 @@ namespace Capstone.API.Infrastructure.Repositories
                     { "@MinCountries", minCountries },
                     { "@Offset", scanOffset },
                     { "@PageSize", rawBatchSize }
-                })).ToList();
+                }, cancellationToken)).ToList();
 
                 if (rows.Count == 0)
                 {

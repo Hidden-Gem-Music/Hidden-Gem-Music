@@ -14,7 +14,7 @@ namespace Capstone.API.Infrastructure.Interfaces
         /// <param name="countryCodeA">2-letter ISO code for Country A.</param>
         /// <param name="countryCodeB">2-letter ISO code for Country B.</param>
         /// <param name="year">The chart year to filter by.</param>
-        Task<ComparisonResult?> GetCountryComparisonAsync(string countryCodeA, string countryCodeB, int year);
+        Task<ComparisonResult?> GetCountryComparisonAsync(string countryCodeA, string countryCodeB, int year, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Returns songs trending in surrounding regions that are absent from both compared countries.
@@ -23,6 +23,6 @@ namespace Capstone.API.Infrastructure.Interfaces
         /// <param name="countryCodeA">2-letter ISO code for Country A.</param>
         /// <param name="countryCodeB">2-letter ISO code for Country B.</param>
         /// <param name="year">The chart year to filter by.</param>
-        Task<IEnumerable<ComparisonHiddenGem>> GetComparisonHiddenGemsAsync(string countryCodeA, string countryCodeB, int year);
+        Task<IEnumerable<ComparisonHiddenGem>> GetComparisonHiddenGemsAsync(string countryCodeA, string countryCodeB, int year, CancellationToken cancellationToken = default);
     }
 }

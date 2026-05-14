@@ -20,12 +20,12 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<CountryGlobeSummary>> GetGlobeSummaryAsync(int year)
+        public async Task<IEnumerable<CountryGlobeSummary>> GetGlobeSummaryAsync(int year, CancellationToken cancellationToken = default)
         {
             var rows = await _db.GetDataAsync("sp_GetDiscoverPageInfo", new Dictionary<string, object?>
             {
                 { "@Year", year }
-            });
+            }, cancellationToken);
 
             return rows.Select(MapRow);
         }

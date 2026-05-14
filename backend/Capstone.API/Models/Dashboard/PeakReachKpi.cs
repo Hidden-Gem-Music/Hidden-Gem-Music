@@ -26,6 +26,6 @@ namespace Capstone.API.Models.Dashboard
         /// <summary>
         /// Gets or sets the date on which peak reach was recorded.
         /// </summary>
-        public DateOnly PeakDate { get; set; }
+        public DateOnly? PeakDate { get; set; }
     }
 }

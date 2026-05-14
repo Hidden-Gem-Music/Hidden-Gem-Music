@@ -9,6 +9,6 @@ namespace Capstone.API.Infrastructure.Interfaces
         /// Returns the list of available chart years present in the dataset.
         /// Calls sp_GetAvailableYears.
         /// </summary>
-        Task<IEnumerable<int>> GetAvailableYearsAsync();
+        Task<IEnumerable<int>> GetAvailableYearsAsync(CancellationToken cancellationToken = default);
     }
 }

@@ -20,9 +20,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<GlobalOverlapRateKpi?> GetOverlapRateAsync(DateOnly start, DateOnly end)
+        public async Task<GlobalOverlapRateKpi?> GetOverlapRateAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetGlobalOverlapRate", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetGlobalOverlapRate", DateRange(start, end), cancellationToken);
             var row = rows.FirstOrDefault();
             if (row == null) return null;
 
@@ -35,14 +35,14 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<DiscoveryGapKpi?> GetDiscoveryGapAsync(DateOnly start, DateOnly end, int minCountries = 2)
+        public async Task<DiscoveryGapKpi?> GetDiscoveryGapAsync(DateOnly start, DateOnly end, int minCountries = 2, CancellationToken cancellationToken = default)
         {
             var rows = await _db.GetDataAsync("sp_GetAverageDiscoveryGap", new Dictionary<string, object?>
             {
                 { "@DateStart", start.ToDateTime(TimeOnly.MinValue) },
                 { "@DateEnd", end.ToDateTime(TimeOnly.MinValue) },
                 { "@MinCountries", minCountries }
-            });
+            }, cancellationToken);
 
             var row = rows.FirstOrDefault();
             if (row == null) return null;
@@ -56,9 +56,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<DiscoveryGapBucket>> GetGapDistributionAsync(DateOnly start, DateOnly end)
+        public async Task<IEnumerable<DiscoveryGapBucket>> GetGapDistributionAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetDiscoveryGapDistribution", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetDiscoveryGapDistribution", DateRange(start, end), cancellationToken);
 
             return rows.Select(row => new DiscoveryGapBucket
             {
@@ -69,9 +69,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IsolationLeaderKpi?> GetIsolationLeaderAsync(DateOnly start, DateOnly end)
+        public async Task<IsolationLeaderKpi?> GetIsolationLeaderAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetIsolationLeader", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetIsolationLeader", DateRange(start, end), cancellationToken);
             var row = rows.FirstOrDefault();
             if (row == null) return null;
 
@@ -84,9 +84,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<IsolationRankingEntry>> GetIsolationRankingAsync(DateOnly start, DateOnly end)
+        public async Task<IEnumerable<IsolationRankingEntry>> GetIsolationRankingAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetIsolationRanking", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetIsolationRanking", DateRange(start, end), cancellationToken);
 
             return rows.Select(row => new IsolationRankingEntry
             {
@@ -98,9 +98,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<PeakReachKpi?> GetPeakReachAsync(DateOnly start, DateOnly end)
+        public async Task<PeakReachKpi?> GetPeakReachAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetPeakCrossRegionalReach", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetPeakCrossRegionalReach", DateRange(start, end), cancellationToken);
             var row = rows.FirstOrDefault();
             if (row == null) return null;
 
@@ -109,24 +109,24 @@ namespace Capstone.API.Infrastructure.Repositories
                 PeakCountryCount = AsInt(row, "peak_country_count"),
                 SongTitle = AsString(row, "song_title"),
                 ArtistName = AsString(row, "artist_name"),
-                PeakDate = AsDateOnly(row, "peak_date")
+                PeakDate = AsNullableDateOnly(row, "peak_date")
             };
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<GlobalTrendPoint>> GetOverlapTrendAsync(DateOnly start, DateOnly end)
+        public async Task<IEnumerable<GlobalTrendPoint>> GetOverlapTrendAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetGlobalOverlapTrend", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetGlobalOverlapTrend", DateRange(start, end), cancellationToken);
 
             return rows.Select(row => new GlobalTrendPoint
             {
                 PeriodLabel = AsString(row, "period_label"),
                 PeriodYear = AsInt(row, "period_year"),
                 PeriodMonth = AsNullableInt(row, "period_month"),
-                OverlapPct = AsDecimal(row, "overlap_pct"),
-                AvgCountries = AsDecimal(row, "avg_countries"),
-                TotalUniqueSongs = AsInt(row, "total_unique_songs"),
-                SongsIn2Plus = AsInt(row, "songs_in_2plus"),
+                OverlapPct = AsNullableDecimal(row, "overlap_pct"),
+                AvgCountries = AsNullableDecimal(row, "avg_countries"),
+                TotalUniqueSongs = AsNullableInt(row, "total_unique_songs"),
+                SongsIn2Plus = AsNullableInt(row, "songs_in_2plus"),
                 IsGap = AsBool(row, "is_gap")
             });
         }
@@ -153,10 +153,13 @@ namespace Capstone.API.Infrastructure.Repositories
         private static decimal AsDecimal(IDictionary<string, object?> row, string key)
             => row.TryGetValue(key, out var v) && v != null ? Convert.ToDecimal(v) : 0m;
 
+        private static decimal? AsNullableDecimal(IDictionary<string, object?> row, string key)
+            => row.TryGetValue(key, out var v) && v != null ? Convert.ToDecimal(v) : null;
+
         private static bool AsBool(IDictionary<string, object?> row, string key)
             => row.TryGetValue(key, out var v) && v != null && Convert.ToBoolean(v);
 
-        private static DateOnly AsDateOnly(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) && v is DateTime dt ? DateOnly.FromDateTime(dt) : DateOnly.MinValue;
+        private static DateOnly? AsNullableDateOnly(IDictionary<string, object?> row, string key)
+            => row.TryGetValue(key, out var v) && v is DateTime dt ? DateOnly.FromDateTime(dt) : null;
     }
 }

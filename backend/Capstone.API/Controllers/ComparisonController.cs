@@ -41,7 +41,8 @@ namespace Capstone.API.Controllers
         public async Task<IActionResult> GetCountryComparison(
             [FromQuery] string countryA,
             [FromQuery] string countryB,
-            [FromQuery] int year = 2021)
+            [FromQuery] int year = 2021,
+            CancellationToken cancellationToken = default)
         {
             if (!TryValidateInputs(countryA, countryB, year, out var validationError))
                 return BadRequest(new { message = validationError });
@@ -51,7 +52,8 @@ namespace Capstone.API.Controllers
                 var result = await _repo.GetCountryComparisonAsync(
                     countryA.ToUpperInvariant(),
                     countryB.ToUpperInvariant(),
-                    year);
+                    year,
+                    cancellationToken);
 
                 if (result == null)
                     return NotFound();
@@ -67,6 +69,10 @@ namespace Capstone.API.Controllers
                     countryB,
                     year);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving country comparison data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {
@@ -91,7 +97,8 @@ namespace Capstone.API.Controllers
         public async Task<IActionResult> GetComparisonHiddenGems(
             [FromQuery] string countryA,
             [FromQuery] string countryB,
-            [FromQuery] int year = 2021)
+            [FromQuery] int year = 2021,
+            CancellationToken cancellationToken = default)
         {
             if (!TryValidateInputs(countryA, countryB, year, out var validationError))
                 return BadRequest(new { message = validationError });
@@ -101,7 +108,8 @@ namespace Capstone.API.Controllers
                 var result = await _repo.GetComparisonHiddenGemsAsync(
                     countryA.ToUpperInvariant(),
                     countryB.ToUpperInvariant(),
-                    year);
+                    year,
+                    cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -113,6 +121,10 @@ namespace Capstone.API.Controllers
                     countryB,
                     year);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving comparison hidden gems data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {
