@@ -107,6 +107,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   labelActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
 });

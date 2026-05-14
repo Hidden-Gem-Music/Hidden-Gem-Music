@@ -1,6 +1,10 @@
 -- =============================================
 -- Author:      Leena Komenski
 -- Create date: 04/23/2026
+-- Updated:     05/13/2026 — Replaced SongCountryPresence join with direct filter on
+--              DiscoveryGapByDay.first_chart_date to match sp_GetDiscoveryGapDistribution.
+--              Raised floor from days_to_spread >= 0 to > 1 to exclude global rollout
+--              entries, consistent with population proc update.
 -- Description: KPI 2: average and median days between a song's first chart appearance
 -- anywhere and its first appearance in a second country.
 -- EXEC sp_GetAverageDiscoveryGap @DateStart = '2017-01-01', @DateEnd = '2021-12-31', @MinCountries = 2;
@@ -17,24 +21,23 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Only include songs that spread to N+ countries within the date range
     WITH Filtered AS (
         SELECT
             dgd.song_id,
             dgd.days_to_spread
         FROM DiscoveryGapByDay dgd
-        WHERE dgd.days_to_spread >= 0
-        AND EXISTS (
-            SELECT 1
-            FROM SongCountryPresence scp
-            WHERE scp.song_id      = dgd.song_id
-              AND scp.chart_year   BETWEEN YEAR(@DateStart) AND YEAR(@DateEnd)
-              AND scp.country_count >= @MinCountries
-        )
+        WHERE dgd.days_to_spread > 1
+          AND dgd.first_chart_date BETWEEN @DateStart AND @DateEnd
+          AND EXISTS (
+              SELECT 1
+              FROM SongCountryPresence scp
+              WHERE scp.song_id       = dgd.song_id
+                AND scp.country_count >= @MinCountries
+          )
     ),
     MedianCalc AS (
         SELECT
-            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY days_to_spread) 
+            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY days_to_spread)
                 OVER () AS median_gap_days
         FROM Filtered
     )

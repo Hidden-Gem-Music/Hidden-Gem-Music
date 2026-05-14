@@ -22,6 +22,10 @@ type Props = {
   showHeader?: boolean;
   frameStyle?: StyleProp<ViewStyle>;
   selectOnHover?: boolean;
+  genreSummaryByCountryCode?: Record<string, string | undefined>;
+  genreLoadingByCountryCode?: Record<string, boolean | undefined>;
+  loadingText?: string;
+  onEnsureGenreSample?: (countryCode: string) => void;
 };
 
 export function GlobePanel({
@@ -37,6 +41,10 @@ export function GlobePanel({
   showHeader = true,
   frameStyle,
   selectOnHover = true,
+  genreSummaryByCountryCode,
+  genreLoadingByCountryCode,
+  loadingText,
+  onEnsureGenreSample,
 }: Props) {
   const activeCountry = countries.find((country) => country.id === activeCountryId);
   const [isButtonHovered, setIsButtonHovered] = useState(false);
@@ -61,6 +69,10 @@ export function GlobePanel({
           onSelectCountry={onSelectCountry}
           onOpenCountry={onOpenCountry}
           selectOnHover={selectOnHover}
+          genreSummaryByCountryCode={genreSummaryByCountryCode}
+          genreLoadingByCountryCode={genreLoadingByCountryCode}
+          loadingText={loadingText}
+          onEnsureGenreSample={onEnsureGenreSample}
         />
         {onRightAction ? (
           <Pressable
@@ -69,7 +81,7 @@ export function GlobePanel({
             onHoverOut={() => setIsButtonHovered(false)}
             onPressIn={() => setIsButtonPressed(true)}
             onPressOut={() => setIsButtonPressed(false)}
-            style={styles.actionButtonShell}
+            style={[styles.actionButtonShell, styles.actionButtonShellAbsolute]}
           >
             {showButtonGradient ? (
               <LinearGradient
@@ -112,14 +124,14 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   title: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 24,
     fontWeight: "800",
     transform: [{ translateY: 14 }],
   },
   subtitle: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 15,
     lineHeight: 22,
@@ -134,13 +146,15 @@ const styles = StyleSheet.create({
     padding: 0,
     backgroundColor: "transparent",
   },
-  actionButtonShell: {
+  actionButtonShellAbsolute: {
     position: "absolute",
     top: 14,
     right: 14,
+    zIndex: 2,
+  },
+  actionButtonShell: {
     borderRadius: 14,
     overflow: "hidden",
-    zIndex: 2,
   },
   actionButtonGradient: {
     ...StyleSheet.absoluteFillObject,
@@ -173,6 +187,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   actionButtonTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
 });

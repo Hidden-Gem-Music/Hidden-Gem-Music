@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { ActivityIndicator, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from "react-native";
 import { useEffect, useRef, useState } from "react";
 
 import { Country } from "../types/content";
@@ -18,6 +18,11 @@ type Props = {
   onOpenCountry: (countryId: string) => void;
   autoScrollSignal?: number;
   selectedYear?: number;
+  genreSummaryByCountryCode?: Record<string, string | undefined>;
+  genreLoadingByCountryCode?: Record<string, boolean | undefined>;
+  loadingText?: string;
+  onEnsureGenreSample?: (countryCode: string) => void;
+  onNearListEnd?: () => void;
 };
 
 type ExpandedPanel = "filters" | "list";
@@ -25,8 +30,24 @@ type ExpandedPanel = "filters" | "list";
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
 const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
 
-export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectCountry, onOpenCountry, autoScrollSignal, selectedYear }: Props) {
-  const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("filters");
+export function DiscoverySidebarPanels({
+  countries,
+  selectedCountryId,
+  onSelectCountry,
+  onOpenCountry,
+  autoScrollSignal,
+  selectedYear,
+  genreSummaryByCountryCode,
+  genreLoadingByCountryCode,
+  loadingText = "Loading...",
+  onEnsureGenreSample,
+  onNearListEnd,
+}: Props) {
+  const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === "web";
+  const isNarrowHeader = width < 520;
+  const countriesKey = countries.map((country) => country.id).join("|");
+  const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("list");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
   const positionsRef = useRef<Record<string, number>>({});
@@ -42,8 +63,9 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
   const [listContentHeight, setListContentHeight] = useState(0);
   const [listScrollY, setListScrollY] = useState(0);
   const [isDraggingListScrollbar, setIsDraggingListScrollbar] = useState(false);
+  const nearListEndTriggeredRef = useRef(false);
 
-  const showFilterScrollbar = Platform.OS === "web" && expandedPanel === "filters" && filterViewportHeight > 0;
+  const showFilterScrollbar = isWeb && expandedPanel === "filters" && filterViewportHeight > 0;
   const filterHasOverflow = showFilterScrollbar && filterContentHeight > filterViewportHeight;
   const filterTrackHeight = Math.max(filterViewportHeight - 24, 1);
   const filterThumbHeight = showFilterScrollbar
@@ -56,7 +78,7 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
       ? (filterScrollY / (filterContentHeight - filterViewportHeight)) * (filterViewportHeight - filterThumbHeight)
       : 0;
   const listScrollbarVisible =
-    Platform.OS === "web" && expandedPanel === "list" && listViewportHeight > 0 && listContentHeight > listViewportHeight;
+    isWeb && expandedPanel === "list" && listViewportHeight > 0 && listContentHeight > listViewportHeight;
   const listThumbHeight = listScrollbarVisible ? Math.max((listViewportHeight / listContentHeight) * listViewportHeight, 52) : 0;
   const listThumbTop =
     listScrollbarVisible && listContentHeight > listViewportHeight
@@ -78,7 +100,23 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
   };
 
   const handleListScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setListScrollY(event.nativeEvent.contentOffset.y);
+    const nextScrollY = event.nativeEvent.contentOffset.y;
+    setListScrollY(nextScrollY);
+
+    if (!onNearListEnd || listViewportHeight <= 0 || listContentHeight <= 0) {
+      return;
+    }
+
+    const remaining = listContentHeight - (nextScrollY + listViewportHeight);
+    if (remaining < 220 && !nearListEndTriggeredRef.current) {
+      nearListEndTriggeredRef.current = true;
+      onNearListEnd();
+      return;
+    }
+
+    if (remaining > 360) {
+      nearListEndTriggeredRef.current = false;
+    }
   };
 
   const scrollFilterToTrackLocation = (locationY: number) => {
@@ -124,7 +162,7 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
   };
 
   useEffect(() => {
-    if (Platform.OS !== "web" || !isDraggingFilterScrollbar || typeof document === "undefined") {
+    if (!isWeb || !isDraggingFilterScrollbar || typeof document === "undefined") {
       return;
     }
 
@@ -148,10 +186,10 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
       document.removeEventListener("mousemove", handleMove);
       document.removeEventListener("mouseup", handleUp);
     };
-  }, [isDraggingFilterScrollbar, filterHasOverflow, filterThumbHeight, filterTrackHeight, filterContentHeight, filterViewportHeight]);
+  }, [isDraggingFilterScrollbar, filterHasOverflow, filterThumbHeight, filterTrackHeight, filterContentHeight, filterViewportHeight, isWeb]);
 
   useEffect(() => {
-    if (Platform.OS !== "web" || !isDraggingListScrollbar || typeof document === "undefined") {
+    if (!isWeb || !isDraggingListScrollbar || typeof document === "undefined") {
       return;
     }
 
@@ -175,7 +213,7 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
       document.removeEventListener("mousemove", handleMove);
       document.removeEventListener("mouseup", handleUp);
     };
-  }, [isDraggingListScrollbar, listScrollbarVisible, listThumbHeight, listTrackHeight, listContentHeight, listViewportHeight]);
+  }, [isDraggingListScrollbar, listScrollbarVisible, listThumbHeight, listTrackHeight, listContentHeight, listViewportHeight, isWeb]);
 
   useEffect(() => {
     if (expandedPanel !== "list" || !selectedCountryId || autoScrollSignal == null) {
@@ -188,6 +226,14 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
     }
   }, [autoScrollSignal, expandedPanel]);
 
+  useEffect(() => {
+    nearListEndTriggeredRef.current = false;
+    setListScrollY((current) => (current === 0 ? current : 0));
+    if (isWeb) {
+      listScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [countriesKey, isWeb, selectedYear]);
+
   const renderFilterButton = (label: string) => {
     const isActive = activeFilter === label;
     const isHovered = hoveredFilter === label;
@@ -197,6 +243,8 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
       <Pressable
         key={label}
         onPress={() => setActiveFilter((current) => (current === label ? null : label))}
+        onPressIn={() => setHoveredFilter(label)}
+        onPressOut={() => setHoveredFilter((current) => (current === label ? null : current))}
         onHoverIn={() => setHoveredFilter(label)}
         onHoverOut={() => setHoveredFilter((current) => (current === label ? null : current))}
         style={styles.filterButtonShell}
@@ -226,26 +274,29 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
   };
 
   return (
-    <View style={styles.frame}>
+    <View style={[styles.frame, !isWeb ? styles.frameNative : null]}>
       <Panel style={[styles.section, expandedPanel === "filters" ? styles.sectionExpanded : styles.sectionCollapsed]}>
         <SecondarySurfaceFill />
         <Pressable style={styles.sectionHeader} onPress={() => handleSectionPress("filters")}>
-          <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.sectionTitle}>Pre-Selected Filters</Text>
-            <Text style={styles.sectionHelper}>
+          <View style={[styles.sectionHeaderCopy, isNarrowHeader ? styles.sectionHeaderCopyStacked : null]}>
+            <Text style={[styles.sectionTitle, isNarrowHeader ? styles.sectionTitleStacked : null]}>
+              {isNarrowHeader ? "Pre-Selected\nFilters" : "Pre-Selected Filters"}
+            </Text>
+            <Text style={[styles.sectionHelper, isNarrowHeader ? styles.sectionHelperStacked : null]}>
               Select optional pre-selected filters here and use 'All Filters' button on the globe for more filters.
             </Text>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "filters" ? "−" : "+"}</Text>
         </Pressable>
         {expandedPanel === "filters" ? (
-          <View style={styles.panelArea}>
+          <View style={[styles.panelArea, !isWeb ? styles.scrollAreaNative : null]}>
             <ScrollView
               ref={filterScrollRef}
               nativeID="discovery-sidebar-filters"
-              style={styles.panelScroll}
+              style={[styles.panelScroll, !isWeb ? styles.panelScrollNative : null]}
               contentContainerStyle={styles.filterContent}
               showsVerticalScrollIndicator={false}
+              scrollEnabled={isWeb}
               onLayout={(event) => setFilterViewportHeight(event.nativeEvent.layout.height)}
               onContentSizeChange={(_, height) => setFilterContentHeight(height)}
               onScroll={handleFilterScroll}
@@ -283,28 +334,34 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
       <Panel style={[styles.section, expandedPanel === "list" ? styles.sectionExpanded : styles.sectionCollapsed]}>
         <SecondarySurfaceFill />
         <Pressable style={styles.sectionHeader} onPress={() => handleSectionPress("list")}>
-          <View style={styles.sectionHeaderCopy}>
+          <View style={[styles.sectionHeaderCopy, isNarrowHeader ? styles.sectionHeaderCopyStacked : null]}>
             <Text style={styles.sectionTitle}>List View</Text>
-            <Text style={styles.sectionHelper}>
+            <Text style={[styles.sectionHelper, isNarrowHeader ? styles.sectionHelperStacked : null]}>
               Click a country to view its detail page and hear previews of hidden gem songs.
             </Text>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "list" ? "−" : "+"}</Text>
         </Pressable>
         {expandedPanel === "list" ? (
-          <View style={styles.listArea}>
+          <View style={[styles.listArea, !isWeb ? styles.scrollAreaNative : null]}>
             <ScrollView
               ref={listScrollRef}
               nativeID="discovery-sidebar-list"
-              style={styles.panelScroll}
+              style={[styles.panelScroll, !isWeb ? styles.panelScrollNative : null]}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
+              scrollEnabled={isWeb}
               onLayout={(event) => setListViewportHeight(event.nativeEvent.layout.height)}
               onContentSizeChange={(_, height) => setListContentHeight(height)}
               onScroll={handleListScroll}
               scrollEventThrottle={16}
             >
-              {countries.map((country) => (
+              {countries.length === 0 ? (
+                <View style={styles.listLoadingState}>
+                  <ActivityIndicator size="large" color={colors.textLight} />
+                  <Text style={styles.listLoadingText}>Loading countries...</Text>
+                </View>
+              ) : countries.map((country) => (
                 <View
                   key={country.id}
                   onLayout={(event: LayoutChangeEvent) => {
@@ -315,11 +372,24 @@ export function DiscoverySidebarPanels({ countries, selectedCountryId, onSelectC
                     country={country}
                     selectedYear={selectedYear}
                     selected={country.id === selectedCountryId}
-                    onHover={() => onSelectCountry(country.id)}
-                    onTitlePress={() => onOpenCountry(country.id)}
+                    onHover={() => {
+                      onEnsureGenreSample?.(country.code);
+                      onSelectCountry(country.id);
+                    }}
+                    onTitlePress={() => {
+                      onEnsureGenreSample?.(country.code);
+                      onOpenCountry(country.id);
+                    }}
+                    genreLine={genreSummaryByCountryCode?.[country.code] ?? (genreLoadingByCountryCode?.[country.code] ? loadingText : "Loading...")}
+                    languageLine="Coming Soon"
                     onPress={() => {
+                      onEnsureGenreSample?.(country.code);
                       onSelectCountry(country.id);
                       onOpenCountry(country.id);
+                    }}
+                    onPressIn={() => {
+                      onEnsureGenreSample?.(country.code);
+                      onSelectCountry(country.id);
                     }}
                   />
                 </View>
@@ -359,6 +429,10 @@ const styles = StyleSheet.create({
     maxHeight: 642,
     gap: 16,
   },
+  frameNative: {
+    minHeight: 0,
+    maxHeight: undefined,
+  },
   section: {
     padding: 0,
     overflow: "hidden",
@@ -386,22 +460,35 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 16,
   },
+  sectionHeaderCopyStacked: {
+    flexDirection: "column",
+    justifyContent: "flex-start",
+    gap: 10,
+  },
   sectionTitle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 22,
     lineHeight: 26,
   },
+  sectionTitleStacked: {
+    maxWidth: 148,
+  },
   sectionHelper: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 16,
     textAlign: "right",
     maxWidth: 220,
   },
+  sectionHelperStacked: {
+    textAlign: "left",
+    maxWidth: "100%",
+    width: "100%",
+  },
   sectionToggle: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 28,
     fontWeight: "800",
@@ -466,7 +553,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   filterButtonTextActive: {
-    color: colors.text,
+    color: colors.textLight,
   },
   panelArea: {
     flex: 1,
@@ -475,6 +562,9 @@ const styles = StyleSheet.create({
   listArea: {
     flex: 1,
     position: "relative",
+  },
+  scrollAreaNative: {
+    flexGrow: 0,
   },
   panelScroll: {
     flex: 1,
@@ -485,11 +575,27 @@ const styles = StyleSheet.create({
         } as ViewStyle)
       : null),
   },
+  panelScrollNative: {
+    flexGrow: 0,
+  },
   listContent: {
     paddingHorizontal: 18,
     paddingBottom: 24,
     paddingRight: 28,
     gap: 14,
+  },
+  listLoadingState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 26,
+    gap: 10,
+  },
+  listLoadingText: {
+    color: colors.textLight,
+    fontFamily: typefaces.body,
+    fontSize: 15,
+    lineHeight: 18,
+    textAlign: "center",
   },
   scrollbarTrack: {
     position: "absolute",

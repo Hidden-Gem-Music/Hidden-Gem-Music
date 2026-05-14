@@ -17,6 +17,6 @@ namespace Capstone.API.Infrastructure.Interfaces
         /// <param name="minCountries">Minimum number of other countries a song must chart in to qualify.</param>
         /// <param name="page">1-based page number.</param>
         /// <param name="pageSize">Maximum number of results per page.</param>
-        Task<HiddenGemResponse> GetHiddenGemsAsync(string countryCode, int year, int minCountries, int page, int pageSize);
+        Task<HiddenGemResponse> GetHiddenGemsAsync(string countryCode, int year, int minCountries, int page, int pageSize, CancellationToken cancellationToken = default);
     }
 }

@@ -26,7 +26,7 @@ namespace Capstone.API.Infrastructure.Interfaces.Repositories
         /// <param name="storedProc">The name of the stored procedure to execute.</param>
         /// <returns>A collection of rows returned by the stored procedure.</returns>
         /// <exception cref="NotImplementedException">This method is not yet implemented.</exception>
-        public Task<IEnumerable<IDictionary<string, object?>>> GetDataAsync(string storedProc)
+        public Task<IEnumerable<IDictionary<string, object?>>> GetDataAsync(string storedProc, CancellationToken cancellationToken = default)
         {
             return Task.FromException<IEnumerable<IDictionary<string, object?>>>(new NotImplementedException());
         }
@@ -38,7 +38,7 @@ namespace Capstone.API.Infrastructure.Interfaces.Repositories
         /// <param name="parameters">A dictionary of parameter names and values to pass to the stored procedure.</param>
         /// <returns>A collection of rows returned by the stored procedure.</returns>
         /// <exception cref="NotImplementedException">This method is not yet implemented.</exception>
-        public Task<IEnumerable<IDictionary<string, object?>>> GetDataAsync(string storedProc, IDictionary<string, object?> parameters)
+        public Task<IEnumerable<IDictionary<string, object?>>> GetDataAsync(string storedProc, IDictionary<string, object?> parameters, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -50,7 +50,7 @@ namespace Capstone.API.Infrastructure.Interfaces.Repositories
         /// <param name="parameters">A dictionary of parameter names and values to pass to the stored procedure.</param>
         /// <returns>A list of result sets, where each result set is a collection of rows.</returns>
         /// <exception cref="NotImplementedException">This method is not yet implemented.</exception>
-        public Task<List<List<IDictionary<string, object?>>>> GetDataSetsAsync(string storedProc, IDictionary<string, object?> parameters)
+        public Task<List<List<IDictionary<string, object?>>>> GetDataSetsAsync(string storedProc, IDictionary<string, object?> parameters, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }

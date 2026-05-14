@@ -36,6 +36,81 @@ namespace Capstone.API.Models.HiddenGems
         public string? PreviewUrl { get; set; }
 
         /// <summary>
+        /// Gets or sets the Deezer track ID used to refresh preview URLs and stable song metadata.
+        /// </summary>
+        public long? DeezerTrackId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Deezer album ID for this song.
+        /// </summary>
+        public long? DeezerAlbumId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Deezer artist ID for this song.
+        /// </summary>
+        public long? DeezerArtistId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the primary artist image URL from Deezer.
+        /// </summary>
+        public string? ArtistImageUrl { get; set; }
+
+        /// <summary>
+        /// Gets or sets the album art URL from Deezer.
+        /// </summary>
+        public string? AlbumArtUrl { get; set; }
+
+        /// <summary>
+        /// Gets or sets the full genre list returned by Deezer for the album.
+        /// </summary>
+        public List<string> Genres { get; set; } = new();
+
+        /// <summary>
+        /// Gets or sets whether the song has explicit lyrics according to Deezer.
+        /// </summary>
+        public bool? ExplicitLyrics { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether the album art is marked explicit by Deezer.
+        /// </summary>
+        public bool? ExplicitContentCover { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether the album as a whole is marked explicit by Deezer.
+        /// </summary>
+        public bool? AlbumExplicitLyrics { get; set; }
+
+        /// <summary>
+        /// Gets or sets the album release date returned by Deezer.
+        /// </summary>
+        public string? ReleaseDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Deezer record type such as album, EP, or single.
+        /// </summary>
+        public string? RecordType { get; set; }
+
+        /// <summary>
+        /// Gets or sets the album contributor names returned by Deezer.
+        /// </summary>
+        public List<string> Contributors { get; set; } = new();
+
+        /// <summary>
+        /// Gets or sets the number of albums Deezer reports for the primary artist.
+        /// </summary>
+        public int? ArtistAlbumCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the album track titles returned by Deezer.
+        /// </summary>
+        public List<string> Tracklist { get; set; } = new();
+
+        /// <summary>
+        /// Gets or sets the UTC timestamp when the current preview URL expires.
+        /// </summary>
+        public DateTimeOffset? PreviewExpiresAtUtc { get; set; }
+
+        /// <summary>
         /// Gets or sets the BDA-defined trend score for this hidden gem.
         /// Higher scores indicate stronger trending momentum across other countries.
         /// </summary>

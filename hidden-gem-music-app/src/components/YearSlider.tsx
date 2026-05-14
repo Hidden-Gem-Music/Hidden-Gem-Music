@@ -125,6 +125,9 @@ export function YearSlider({ year, onChangeYear, years, displayLabel }: Props) {
 
   const updateFromLocation = (locationX: number) => {
     const nextYear = getYearFromLocation(locationX);
+    if (nextYear === dragYearRef.current) {
+      return;
+    }
     dragYearRef.current = nextYear;
     setDragYear(nextYear);
   };
@@ -152,14 +155,12 @@ export function YearSlider({ year, onChangeYear, years, displayLabel }: Props) {
           onMoveShouldSetResponderCapture={() => true}
           onStartShouldSetResponder={() => true}
           onMoveShouldSetResponder={() => true}
-          onTouchStart={(event) => {
-            event.preventDefault?.();
-          }}
           onResponderGrant={(event) => {
             setIsDragging(true);
             updateFromLocation(event.nativeEvent.locationX);
           }}
           onResponderMove={(event) => updateFromLocation(event.nativeEvent.locationX)}
+          onResponderTerminationRequest={() => false}
           onResponderRelease={() => {
             setIsDragging(false);
             onChangeYear(dragYearRef.current);
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   label: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 24,
     fontWeight: "800",
@@ -255,19 +256,19 @@ const styles = StyleSheet.create({
     marginLeft: -16,
   },
   arrow: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontSize: 28,
     fontWeight: "800",
   },
   yearText: {
-    color: colors.textStrong,
+    color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 18,
     fontWeight: "700",
     textAlign: "right",
   },
   disclaimer: {
-    color: colors.text,
+    color: colors.textLight,
     fontFamily: typefaces.body,
     fontSize: 14,
     lineHeight: 18,

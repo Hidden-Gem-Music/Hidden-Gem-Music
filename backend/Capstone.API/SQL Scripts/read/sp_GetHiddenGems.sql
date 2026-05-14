@@ -4,6 +4,9 @@
 -- Updated:     04/26/2026 — Star schema rewrite
 -- Changes:     Song → DIM_Song, ArtistSong → Bridge_SongArtist (artist_order=1),
 --              Artist → DIM_Artist, Album join removed (album_name on DIM_Song)
+-- Updated:     05/13/2026 — Added COUNT(1) OVER() AS total_count for pagination support.
+--              Without this, HiddenGemsRepository could not compute hasMore and
+--              pagination was always broken (hasMore always false).
 -- Description: Full paginated hidden gems list for the Hidden Gems screen.
 -- Filterable by minimum country count. Pagination required.
 -- EXEC sp_GetHiddenGems @CountryCode = 'US', @Year = 2021, @MinCountries = 3, @Offset = 0, @PageSize = 20;
@@ -31,7 +34,7 @@ BEGIN
         s.is_explicit,
         hg.countries_charting,
         hg.trend_score,
-        COUNT(1) OVER() AS total_count
+        COUNT(1) OVER()  AS total_count
     FROM HiddenGems hg
     JOIN Country c ON c.country_id = hg.country_id
     JOIN DIM_Song s ON s.song_id = hg.song_id
