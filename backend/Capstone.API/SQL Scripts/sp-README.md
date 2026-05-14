@@ -150,7 +150,7 @@ Pre-computes a normalized trend velocity per song per country using a 4-snapshot
 ### `sp_PopulateDiscoveryGapByDay`
 For each song charting in 2+ countries: calculates the number of days between its first chart appearance anywhere (origin country) and its first appearance in each subsequent country. Pre-buckets results into gap bands at population time so no client-side math is needed at render time.
  
-Gap bands: `0-7d` | `8-14d` | `15-30d` | `31-60d` | `61-90d` | `90d+`
+Gap bands: `1-7d` | `8-14d` | `15-30d` | `31-60d` | `61-90d` | `90d+`
  
 - **Reads:** `ChartEntry`
 - **Writes:** `DiscoveryGapByDay`
