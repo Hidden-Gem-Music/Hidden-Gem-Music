@@ -254,6 +254,7 @@ Two critical bugs found and fixed. Two non-bugs identified and closed. One addit
 |---|-------|--------|----------|
 | 5 | `sp_GetHiddenGems` missing `total_count` — pagination permanently broken | Resolved | SP fix |
 | 6 | `sp_GetDiscoveryGapDistribution` ignoring `@DateStart`/`@DateEnd` — always returned all-years data | Resolved | SP fix + schema change + repopulate |
+| 7 | `sp_GetAverageDiscoveryGap` using imprecise date filter + wrong floor — same class of issue as Bug 6 | Resolved | SP fix |
 | — | `IGlobeRepository` XML doc comment references wrong SP name | Non-bug — documentation only, no runtime impact | No action |
 | — | `genre` column read in `HiddenGemsRepository` — SP doesn't return it | Non-bug — `AsStringAny` returns null gracefully, Deezer enrichment populates it later | No action |
 
@@ -305,6 +306,30 @@ Added a `JOIN SongCountryPresence ON scp.song_id = dgbd.song_id` and filtered by
 - `backend/Capstone.API/SQL Scripts/population/sp_PopulateDiscoveryGapByDay.sql`
 
 **Deploy:** Run `ALTER TABLE` in SSMS, re-run `sp_PopulateDiscoveryGapByDay` to repopulate with `first_chart_date` stored, then re-run the read SP.
+
+---
+
+## Bug 7 — `sp_GetAverageDiscoveryGap` Imprecise Date Filter and Wrong Floor
+
+**Severity:** High — KPI 2 avg/median values were not correctly scoped to the selected date range, and included day-1 global rollout entries  
+**Status:** Resolved
+
+### What was observed
+
+During the same cross-check pass that produced Bug 6, `sp_GetAverageDiscoveryGap` was identified as having the same class of issues as the distribution SP:
+
+1. **Date filtering via `SongCountryPresence` join** — the SP was filtering by `scp.chart_year`, which records when a song was charting, not when its spread event originated. A song spreading in 2018 could appear in SCP rows for 2019 and 2020, making the join imprecise as a date boundary.
+
+2. **Floor at `days_to_spread > 0`** — including day-1 entries (songs released simultaneously across markets on launch day), which are global rollouts rather than organic cross-border discovery events. Inconsistent with the population proc after its `> 1` floor update.
+
+### Resolution
+
+Replaced `SongCountryPresence` date join with `WHERE dgd.first_chart_date BETWEEN @DateStart AND @DateEnd`, matching the pattern applied to `sp_GetDiscoveryGapDistribution` in Bug 6. Floor raised from `> 0` to `> 1` for consistency with the population proc.
+
+Note: `SongCountryPresence` is still used in the `EXISTS` clause for the `@MinCountries` filter — that use is correct and unchanged.
+
+**File:** `backend/Capstone.API/SQL Scripts/read/sp_GetAverageDiscoveryGap.sql`  
+**Deploy:** Re-run SP in SSMS. No repopulation required.
 
 ---
 
