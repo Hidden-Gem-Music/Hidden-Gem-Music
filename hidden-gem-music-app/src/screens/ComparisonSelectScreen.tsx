@@ -856,7 +856,10 @@ export function ComparisonSelectScreen({
     <View style={[styles.leftColumn, isStacked ? styles.columnStacked : null]}>
       <GlobePanel
         countries={visibleCountries}
+        allCountries={countries}
         activeCountryId={selectedCountryIds.find((countryId) => visibleCountries.some((country) => country.id === countryId))}
+        selectedCountryIds={selectedCountryIds}
+        selectedYear={comparisonYear ?? selectedYear}
         onSelectCountry={onToggleCountry}
         title=""
         showHeader={false}

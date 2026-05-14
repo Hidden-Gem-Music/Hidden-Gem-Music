@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-11
 **Status:** Current Frontend Data-Flow Reference
 
 ---
@@ -92,6 +92,7 @@ Main files:
 - `src/components/DiscoverySidebarPanels.tsx`
 - `src/components/globe/GlobePanel.tsx`
 - `src/components/globe/GlobeView.tsx`
+- `src/assets/maps/worldMap50m.ts`
 - `src/data/discoveryApi.ts`
 
 Current flow:
@@ -100,11 +101,15 @@ Current flow:
 2. `App.tsx` loads Discovery countries for the selected year.
 3. Discovery results are cached by year in app state.
 4. `DiscoveryScreen.tsx` filters/sorts the active country set for UI use.
-5. Genre samples are prefetched in smaller batches through `loadCountryGenreSamples`.
+5. The custom map receives:
+   - the active filtered country set
+   - and the broader current Discovery country pool for dimmed-but-visible context
+6. Genre samples are prefetched in smaller batches through `loadCountryGenreSamples`.
 
 Important current rule:
 
 - user-facing country pools should exclude `GLOBAL`-style rows
+- the custom map does not call an external map service at runtime; it renders from the app-owned geometry asset
 
 ## Country screen flow
 
@@ -140,6 +145,26 @@ Current flow:
 Important current rule:
 
 - comparison should use the app-provided available country pool rather than depending on Discovery being the currently visible screen
+
+## Comparison Select map flow
+
+Main files:
+
+- `src/screens/ComparisonSelectScreen.tsx`
+- `src/components/globe/GlobePanel.tsx`
+- `src/components/globe/GlobeView.tsx`
+
+Current flow:
+
+1. Comparison filter state determines the active selectable country subset.
+2. The map receives:
+   - the active filtered comparison set
+   - and the broader comparison country pool for dimmed context
+3. Selected country A and country B are styled distinctly on the map.
+
+Important current rule:
+
+- map interaction should follow Comparison selection rules without changing the screen-owned comparison filter logic
 
 ## Hidden Gems screen flow
 

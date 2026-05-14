@@ -26,6 +26,8 @@ export async function loadDiscoveryCountries(year: number, fallbackCountries: Co
       code: normalizedCode,
       name: mapped.countryName,
       region: mapped.region,
+      lat: typeof mapped.lat === "number" ? mapped.lat : existing?.lat ?? 0,
+      long: typeof mapped.long === "number" ? mapped.long : existing?.long ?? 0,
       hiddenSongs: mapped.hiddenSongs,
       genres: existing?.genres?.length ? existing.genres : ["Unknown"],
       album: mapped.topAlbum,

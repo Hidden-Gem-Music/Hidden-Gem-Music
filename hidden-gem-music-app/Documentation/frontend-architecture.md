@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-11
 **Status:** Current Working Frontend Architecture
 
 ---
@@ -112,6 +112,23 @@ Theme ownership lives in:
 Fonts are loaded in:
 
 - `App.tsx`
+
+## Shared map ownership
+
+The Discovery and Comparison map surface is intentionally kept behind the shared globe/map seam:
+
+- `src/components/globe/GlobePanel.tsx`
+- `src/components/globe/GlobeView.tsx`
+
+Current ownership rule:
+
+- screen files own filter state, selected-country state, and route actions
+- `GlobePanel.tsx` owns the framed map slot and shared map-area action button treatment
+- `GlobeView.tsx` owns the actual custom world-map rendering and map interaction behavior
+- generated geometry lives in `src/assets/maps/worldMap50m.ts`
+- the generation script lives in `tools/generate_world_map_assets.mjs`
+
+This keeps the map implementation swappable without forcing a full screen split.
 
 ## Navigation and deep-link ownership
 

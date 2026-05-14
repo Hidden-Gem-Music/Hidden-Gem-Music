@@ -108,6 +108,7 @@ function findCountryByIdentifier(list: Country[], identifier: string) {
 
 function toInitialStackRoute(route: ScreenRoute): keyof RootStackParamList {
   switch (route) {
+    case "welcome":
     case "discovery":
     case "country":
     case "hiddenGems":
@@ -296,12 +297,12 @@ export default function App() {
       case "discovery":
         return [
           { label: "Welcome", route: "welcome" as ScreenRoute },
-          { label: "Discovery Globe", route: "discovery" as ScreenRoute },
+          { label: "Discovery Map", route: "discovery" as ScreenRoute },
         ];
       case "country":
         return [
           { label: "Welcome", route: "welcome" as ScreenRoute },
-          { label: "Discovery Globe", route: "discovery" as ScreenRoute },
+          { label: "Discovery Map", route: "discovery" as ScreenRoute },
           { label: selectedCountry.name, route: null },
         ];
       case "hiddenGems":
@@ -398,6 +399,21 @@ export default function App() {
         navigationRef.navigate("welcome");
         break;
     }
+  };
+
+  const handleWelcomeRouteSelection = (route: ScreenRoute) => {
+    if (!navigationRef.isReady()) {
+      return;
+    }
+
+    navigationRef.goBack();
+    if (route === "discovery") {
+      return;
+    }
+
+    globalThis.setTimeout(() => {
+      navigateToRoute(route);
+    }, 40);
   };
 
   const openHiddenGems = (selection?: HiddenGemsFocusSelection) => {
@@ -579,16 +595,12 @@ export default function App() {
     const cachedCountries = discoveryCountriesByYear[selectedYear];
     if (cachedCountries && cachedCountries.length > 0) {
       setDiscoveryCountries(cachedCountries);
-      if (currentRoute === "discovery") {
-        setIsDiscoveryLoading(false);
-      }
+      setIsDiscoveryLoading(false);
       return;
     }
 
     const controller = new AbortController();
-    if (currentRoute === "discovery") {
-      setIsDiscoveryLoading(true);
-    }
+    setIsDiscoveryLoading(discoveryCountries.length === 0);
 
     loadDiscoveryCountries(selectedYear, countries, controller.signal)
       .then((apiCountries) => {
@@ -601,24 +613,20 @@ export default function App() {
           ...current,
           [selectedYear]: apiCountries,
         }));
-        if (currentRoute === "discovery") {
-          setIsDiscoveryLoading(false);
-        }
+        setIsDiscoveryLoading(false);
       })
       .catch((error) => {
         if (!controller.signal.aborted) {
           console.warn("Failed to load discovery countries from API.", error);
           setDiscoveryCountries([]);
-          if (currentRoute === "discovery") {
-            setIsDiscoveryLoading(false);
-          }
+          setIsDiscoveryLoading(false);
         }
       });
 
     return () => {
       controller.abort();
     };
-  }, [countries, currentRoute, discoveryCountriesByYear, selectedYear, shouldHydrateApiCountryPool]);
+  }, [countries, discoveryCountries.length, discoveryCountriesByYear, selectedYear, shouldHydrateApiCountryPool]);
 
   useEffect(() => {
     if (!isDiscoveryLoading) {
@@ -800,7 +808,7 @@ export default function App() {
         document.title = "Welcome to Hidden Gems Music App";
         break;
       case "discovery":
-        document.title = "Discovery Globe";
+        document.title = "Discovery Map";
         break;
       case "country":
         document.title = `${selectedCountry.name}'s Detail Page`;
@@ -893,6 +901,22 @@ export default function App() {
         linking={linking}
         onReady={() => {
           setNavigationReady(true);
+          if (initialNavigationSeed.route === "welcome") {
+            navigationRef.dispatch(
+              CommonActions.reset({
+                index: 1,
+                routes: [
+                  {
+                    name: "discovery",
+                    params: getRouteParams("discovery", selectedYear, selectedCountryId),
+                  },
+                  { name: "welcome" },
+                ],
+              })
+            );
+            return;
+          }
+
           syncStateFromNavigation();
         }}
         onStateChange={syncStateFromNavigation}
@@ -918,30 +942,35 @@ export default function App() {
                 contentStyle: { backgroundColor: colors.background },
               }}
             >
-              <Stack.Screen name="welcome" options={{ title: "Welcome" }}>
+              <Stack.Screen
+                name="welcome"
+                options={{
+                  title: "Welcome",
+                  presentation: "transparentModal",
+                  animation: "fade",
+                  contentStyle: { backgroundColor: "transparent" },
+                }}
+              >
                 {() => (
                   <WelcomeScreen
-                    countries={comparisonCountryPool}
-                    availableYears={apiAvailableYears}
-                    onNavigate={navigateToRoute}
-                    onSelectCountry={openCountry}
-                    selectedYear={selectedYear}
-                    onChangeYear={(year) => handleYearChange(year, "Welcome preview")}
+                    onDismiss={() => navigationRef.goBack()}
+                    onSelectRoute={handleWelcomeRouteSelection}
                   />
                 )}
               </Stack.Screen>
 
-              <Stack.Screen name="discovery" options={{ title: "Discovery Globe" }}>
+              <Stack.Screen name="discovery" options={{ title: "Discovery Map" }}>
                 {() => (
                   <DiscoveryScreen
                     isActive={currentRoute === "discovery"}
+                    isLoading={isDiscoveryLoading}
                     countries={discoveryCountries}
                     allYearsCountries={allYearsDiscoveryCountries}
                     selectedCountryId={selectedCountryId}
                     onSelectCountry={(countryId) => setSelectedCountryId(countryId)}
                     onOpenCountry={openCountryFromDiscovery}
                     selectedYear={selectedYear}
-                    onChangeYear={(year) => handleYearChange(year, "Discovery Globe")}
+                    onChangeYear={(year) => handleYearChange(year, "Discovery Map")}
                     availableYears={apiAvailableYears}
                   />
                 )}
@@ -1089,5 +1118,6 @@ const styles = StyleSheet.create({
   screenArea: {
     flex: 1,
     position: "relative",
+    overflow: "hidden",
   },
 });

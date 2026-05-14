@@ -15,6 +15,7 @@ type Props = {
   onPressIn?: () => void;
   onTitlePress?: () => void;
   onHover?: () => void;
+  onHoverOut?: () => void;
   genreLine?: string;
   languageLine?: string;
 };
@@ -27,6 +28,7 @@ export function CountryCard({
   onPressIn,
   onTitlePress,
   onHover,
+  onHoverOut,
   genreLine,
   languageLine,
 }: Props) {
@@ -44,7 +46,10 @@ export function CountryCard({
         setHovered(true);
         onHover?.();
       }}
-      onHoverOut={() => setHovered(false)}
+      onHoverOut={() => {
+        setHovered(false);
+        onHoverOut?.();
+      }}
     >
       <Panel style={[styles.card, selected ? styles.selected : undefined, hovered ? styles.hovered : undefined]}>
         <LinearGradient

@@ -3,6 +3,8 @@ export type Country = {
   code: string;
   name: string;
   region: string;
+  lat: number;
+  long: number;
   hiddenSongs: number;
   genres: string[];
   album: string;
