@@ -73,3 +73,59 @@ Token now flows end to end: browser cancels → ASP.NET cancels token → contro
 ### Why it matters
 
 Without this, every cancelled request still held a live SQL connection open until the query finished. On fast queries this is invisible. On slow scans — like the genre sampling that caused the AR 2023 error — the server kept doing work and holding resources for a client that was already gone. With the fix, the database command is interrupted immediately when the client disconnects, freeing the connection and thread right away.
+
+---
+
+## 2026-05-13 — Model Nullability Audit
+
+**Scope:** All 20 model files across Dashboard, Comparison, Country, Globe, HiddenGems, and Shared folders
+
+### What I noticed
+
+Audited all models against their source stored procedures to check whether non-nullable value-type properties could actually receive NULL from the database.
+
+### What was wrong
+
+| Model | Property | Was | Should Be | Reason |
+|---|---|---|---|---|
+| `GlobalTrendPoint` | `OverlapPct` | `decimal` | `decimal?` | Gap rows in `sp_GetGlobalOverlapTrend` return NULL for all metric columns — Recharts uses `IsGap` to skip rendering these points |
+| `GlobalTrendPoint` | `AvgCountries` | `decimal` | `decimal?` | Same — gap row |
+| `GlobalTrendPoint` | `TotalUniqueSongs` | `int` | `int?` | Same — gap row |
+| `GlobalTrendPoint` | `SongsIn2Plus` | `int` | `int?` | Same — gap row |
+| `PeakReachKpi` | `PeakDate` | `DateOnly` | `DateOnly?` | `AsDateOnly` returned `DateOnly.MinValue` for NULL, masking missing dates instead of surfacing them |
+
+### What was fixed
+
+- Made 4 metric properties on `GlobalTrendPoint` nullable (`decimal?` / `int?`)
+- Made `PeakDate` on `PeakReachKpi` nullable (`DateOnly?`)
+- Updated `DashboardRepository` mapping for `GlobalTrendPoint` to call `AsNullableDecimal` and `AsNullableInt`
+- Updated `DashboardRepository` mapping for `PeakReachKpi` to call `AsNullableDateOnly`
+- Added `AsNullableDecimal` and `AsNullableDateOnly` private helper methods to `DashboardRepository`
+- Removed the old non-nullable `AsDateOnly` helper (no longer used)
+
+### All other models — no issues found
+
+All remaining non-nullable value-type properties (`int` counts, `decimal` percentages, `double` lat/long, chart ranks) are backed by columns that are structurally guaranteed non-null by their SPs or are aggregates that always produce a value.
+
+---
+
+## How to Test (Branch: `67-cross-check-interfaces-controllers-against-sps`)
+
+### Error handling
+
+1. Start the API and make a valid request to any endpoint (e.g. `GET /api/dashboard/overlap-rate?start=2017-01-01&end=2021-12-31`)
+2. Navigate away immediately / cancel the request — the server log should produce **no error entry** (silent `EmptyResult`, not a stack trace)
+3. To verify 503: temporarily take the DB offline and hit any endpoint — should return `503` with the user-facing message, not a 500 or unhandled exception page
+4. Sanity check: every controller action is wrapped in try-catch — no unprotected endpoints
+
+### CancellationToken propagation
+
+1. Open SQL Server Activity Monitor or query `sys.dm_exec_requests` before and after a cancelled request
+2. Hit a slow endpoint (Hidden Gems with a large dataset, or genre sampling on a country not yet cached) and navigate away immediately
+3. The in-flight SQL session should disappear from `dm_exec_requests` promptly — previously it would run to completion regardless of client disconnect
+
+### Model nullability
+
+1. Call `GET /api/dashboard/overlap-trend?start=2017-01-01&end=2024-12-31` — the response should include rows where `overlapPct`, `avgCountries`, `totalUniqueSongs`, and `songsIn2Plus` are `null` (not `0`) when `isGap` is `true`
+2. Verify the dashboard gap region renders as a dashed line, not a flat zero line through the data gap
+3. Call `GET /api/dashboard/peak-reach?start=2017-01-01&end=2024-12-31` — `peakDate` should be `null` if the SP returns NULL, not `"0001-01-01"`

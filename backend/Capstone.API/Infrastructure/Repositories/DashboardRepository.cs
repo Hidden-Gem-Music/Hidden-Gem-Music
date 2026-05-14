@@ -109,7 +109,7 @@ namespace Capstone.API.Infrastructure.Repositories
                 PeakCountryCount = AsInt(row, "peak_country_count"),
                 SongTitle = AsString(row, "song_title"),
                 ArtistName = AsString(row, "artist_name"),
-                PeakDate = AsDateOnly(row, "peak_date")
+                PeakDate = AsNullableDateOnly(row, "peak_date")
             };
         }
 
@@ -123,10 +123,10 @@ namespace Capstone.API.Infrastructure.Repositories
                 PeriodLabel = AsString(row, "period_label"),
                 PeriodYear = AsInt(row, "period_year"),
                 PeriodMonth = AsNullableInt(row, "period_month"),
-                OverlapPct = AsDecimal(row, "overlap_pct"),
-                AvgCountries = AsDecimal(row, "avg_countries"),
-                TotalUniqueSongs = AsInt(row, "total_unique_songs"),
-                SongsIn2Plus = AsInt(row, "songs_in_2plus"),
+                OverlapPct = AsNullableDecimal(row, "overlap_pct"),
+                AvgCountries = AsNullableDecimal(row, "avg_countries"),
+                TotalUniqueSongs = AsNullableInt(row, "total_unique_songs"),
+                SongsIn2Plus = AsNullableInt(row, "songs_in_2plus"),
                 IsGap = AsBool(row, "is_gap")
             });
         }
@@ -153,10 +153,13 @@ namespace Capstone.API.Infrastructure.Repositories
         private static decimal AsDecimal(IDictionary<string, object?> row, string key)
             => row.TryGetValue(key, out var v) && v != null ? Convert.ToDecimal(v) : 0m;
 
+        private static decimal? AsNullableDecimal(IDictionary<string, object?> row, string key)
+            => row.TryGetValue(key, out var v) && v != null ? Convert.ToDecimal(v) : null;
+
         private static bool AsBool(IDictionary<string, object?> row, string key)
             => row.TryGetValue(key, out var v) && v != null && Convert.ToBoolean(v);
 
-        private static DateOnly AsDateOnly(IDictionary<string, object?> row, string key)
-            => row.TryGetValue(key, out var v) && v is DateTime dt ? DateOnly.FromDateTime(dt) : DateOnly.MinValue;
+        private static DateOnly? AsNullableDateOnly(IDictionary<string, object?> row, string key)
+            => row.TryGetValue(key, out var v) && v is DateTime dt ? DateOnly.FromDateTime(dt) : null;
     }
 }
