@@ -1,6 +1,140 @@
 mp3li implementation timeline document
 
-Updated: May 10, 2026
+Updated: May 11, 2026
+
+Flat Map Usability Correction Pass for Discovery and Comparison (May 11, 2026)
+- Replaced the short-lived orthographic globe attempt after real runtime review showed that the result was not usable:
+  - country borders were not readable enough,
+  - marker density overwhelmed the surface,
+  - scroll and gesture zoom behavior conflicted with practical browser usage,
+  - and tooltip/corner behavior was damaging the surrounding panel layout.
+- Reworked the renderer back into a normal flat map presentation while keeping the same shared `GlobeView` seam already wired into Discovery and Comparison.
+- Removed wheel zoom and pinch zoom so browser scroll no longer hijacks the page and mobile two-finger gestures are no longer required for map use.
+- Added explicit `+` and `-` zoom controls directly on the map so zoom behavior is deliberate and consistent across environments.
+- Tightened map colors back toward the existing app palette instead of the earlier generic blue-heavy treatment.
+- Reduced marker size substantially and changed marker visibility so the map does not flood with gems at the default zoom level.
+- Added a zoom-threshold rule so broad marker sets only appear once the user zooms in far enough for them to be useful.
+- Reduced card size and tightened the card field layout so card previews no longer dominate the whole map area.
+- Re-anchored card connectors so the cards visually attach to marker corners rather than reading like disconnected floating panels.
+- Restored panel overflow clipping after the earlier free-overflow experiment caused rounded-corner damage to the surrounding UI shell.
+- Reduced the overall globe-panel minimum height so the timeline and surrounding page content are not pushed down as aggressively by the map section.
+- Re-ran source type-checking and both Expo bundle exports after the flat-map correction pass to make sure the new interaction model still compiles for web and iOS JavaScript output.
+
+Current practical SSMS connection note for the Parallels Windows 11 workflow (May 11, 2026)
+- Confirmed the current working SSMS server name for the Windows 11 Parallels VM is `10.211.55.2,1433` when connecting to the SQL Server Docker container running on macOS.
+- Confirmed the backend local config on macOS should remain separate from that SSMS host detail because the backend can continue using its local-only `localhost,1433` path.
+- Removed the previously tracked full connection string from this timeline so the practical server-name reminder remains available without exposing the local SQL password in repo-tracked notes.
+
+Custom Circular World Map Replacement for Discovery and Comparison (May 11, 2026)
+- Objective:
+  - Replace the placeholder globe rendering in Discovery and Comparison with a real app-owned interactive world map that keeps browser and Expo Go support.
+  - Keep the surrounding screen structures stable instead of rewriting the full screens around a different navigation or layout model.
+  - Deliver the implementation together with the companion issue draft, feature documentation, timeline record, and PR draft so the work can be traced cleanly from planning through implementation.
+- Why this direction was chosen:
+  - Added investigation into native Mapbox/MapLibre paths first, but those paths introduced either WebView risk, dev-build-only native testing, paid/provider confusion, or reduced confidence around Expo Go support.
+  - Added a decision pivot toward an app-owned map surface after confirming that the actual user need was not live map-provider infrastructure, but rather:
+    - real country lines,
+    - country interaction cards,
+    - filtering visibility,
+    - drag/pan and zoom,
+    - and a visually controlled map experience across web and mobile.
+  - Added a flat circular world-map direction so the app can keep a globe-like visual identity without taking on a real 3D globe/provider dependency.
+
+Added world-geometry asset pipeline:
+- Added `react-native-svg` to support app-owned SVG map rendering inside the Expo app.
+- Added `d3-geo`, `world-atlas`, `world-countries`, and `topojson-client` to support a conversion pipeline from real world-country geometry into checked-in frontend assets.
+- Added `tools/generate_world_map_assets.mjs` so the world geometry is not hidden in manual local notes or one-off commands.
+- Added a generated frontend asset at `hidden-gem-music-app/src/assets/maps/worldMap50m.ts`.
+- Added projection metadata, country path data, and continent-outline path data into that generated asset so the runtime does not need an external map provider.
+- Added the geometry pipeline in a way that uses real 50m country boundary data while still keeping the final frontend runtime app-owned.
+- Chose the generated-asset route rather than keeping the frontend dependent on runtime package internals because:
+  - the asset can be tracked directly in the app,
+  - the rendering stays provider-free,
+  - and future visual tuning can happen without rethinking the whole data source question.
+
+Added coordinate ownership into the frontend country model:
+- Added explicit `lat` and `long` fields to the shared frontend `Country` type.
+- Added real coordinate values to the current mock-country seed data so the new map can still work with fallback/current app scaffolding.
+- Added live Discovery API mapping of backend `lat` and `long` values into the frontend country objects.
+- Kept the older placeholder `markerTop` and `markerLeft` values in place only as compatibility leftovers during the replacement pass.
+- Shifted the actual live map implementation away from those placeholder percentage markers and onto real geographic coordinates.
+
+Replaced the placeholder globe renderer with a custom world-map renderer:
+- Replaced the old placeholder continent-shape globe drawing in `GlobeView.tsx`.
+- Added a real country-boundary map rendered from the app-owned geometry asset.
+- Added thicker continent-outline rendering on top of the country layer.
+- Added a circular masked frame so the map still reads as globe-like even though the projection remains flat.
+- Added an atmospheric dark map base that fits the current app palette rather than looking like a generic navigation map.
+- Added dim-but-visible inactive country behavior so filtering does not collapse the world into an empty-looking surface.
+- Added real country hover/tap targeting through the new country-shape path layer.
+- Added map pan and zoom behavior inside the circular frame.
+- Added browser wheel zoom behavior and mobile pinch handling so the same overall feature remains usable across both environments.
+- Added a reset-view control so the user can easily return to the full-world framed view after panning/zooming.
+
+Added new marker and card behavior for the custom map:
+- Kept gem markers as the branded interaction point rather than switching to generic pins.
+- Added marker placement based on projected `lat` and `long` rather than fake percentage coordinates.
+- Added card behavior that keeps the gem visually on top while the card emerges from whichever corner best fits the available space.
+- Added country-card connection lines from the active gem to the card.
+- Added glass-panel card styling that preserves the app's current card language.
+- Added no-permanent-label behavior so the map stays dramatic and does not become cluttered with always-on country text.
+- Added hover-preview behavior on web and tap-first card behavior on mobile.
+- Kept card content aligned to the current globe-card field set:
+  - country
+  - region
+  - hidden gems
+  - genres
+  - languages
+  - album information
+
+Integrated the new map into Discovery without rewriting the screen:
+- Kept `DiscoveryScreen.tsx` as the state owner for Discovery filtering, sorting, selected year, and selected country behavior.
+- Added the broader Discovery country pool into the map props so nonmatching countries can remain dim but visible while the active filtered set stays emphasized.
+- Replaced only the map/globe section inside the existing shared globe panel seam rather than splitting the whole screen.
+- Preserved Discovery genre-sample prefetching and card-enrichment behavior through the new map interaction flow.
+- Kept the existing Discovery side-list and year/filter ownership intact while changing the map presentation under that seam.
+
+Integrated the new map into Comparison without rewriting the screen:
+- Kept `ComparisonSelectScreen.tsx` as the owner of comparison filters and selection state.
+- Added the broader comparison country pool into the map props so the screen can still show dimmed context outside the currently filtered result set.
+- Added ordered selected-country styling so country A and country B are visually distinct on the map.
+- Preserved the current comparison filtering and selection rules while replacing only the map area rendering.
+- Kept the map behavior aligned with comparison selection instead of turning it into a disconnected decorative element.
+
+Added companion documentation and project-writing artifacts:
+- Added a new issue draft in `my txts/Issue_Implement_Interactive_Map_Across_Web_and_Mobile.md`.
+- Wrote that issue draft around end results rather than locking implementation details or specific providers/libraries.
+- Added a new frontend feature document at `hidden-gem-music-app/Documentation/custom-interactive-world-map.md`.
+- Updated the frontend documentation index so the new map feature has an explicit source-of-truth entry.
+- Updated frontend architecture documentation to record the new shared map ownership seam.
+- Updated screen-data-flow documentation to record how Discovery and Comparison now feed the map.
+- Planned the final PR draft as part of the same deliverable set rather than leaving the handoff for later reconstruction.
+
+Tested and verified during implementation:
+- Added a TypeScript verification pass with `npx tsc --noEmit`.
+- Added a web bundle verification pass with `npx expo export --platform web`.
+- Added an iOS JavaScript bundle verification pass with `npx expo export --platform ios`.
+- Used those checks to confirm:
+  - the new geometry asset resolves,
+  - the custom map component compiles,
+  - the web bundle accepts the new renderer,
+  - and the iOS/Expo-side JavaScript bundle accepts the same feature path.
+- Kept the final verification wording separate from any claim of full hands-on Expo Go interaction testing, because this implementation environment validated bundling/compile behavior rather than live touch testing on a phone screen.
+
+Important implementation decisions made during this pass:
+- Chose Natural Earth 50m derived geometry as the default balance between visible country detail and manageable app asset size.
+- Chose app-owned generated geometry instead of a live provider/tiles path.
+- Chose a circular masked map direction first, then upgraded the runtime renderer into a real draggable globe projection while staying provider-free.
+- Chose one shared map seam in the existing globe component area instead of splitting the whole screens.
+- Chose dimmed full-world context instead of hiding nonmatching countries completely.
+- Chose gem markers and attached glass cards so the app retains its own visual identity.
+
+Renderer upgrade follow-up during the same map pass:
+- Added a renderer upgrade after the first completion pass so the final map becomes a true draggable globe rather than staying a flat circular map.
+- Replaced the flat projected runtime behavior with an orthographic globe projection.
+- Changed interaction from drag-to-pan into drag-to-rotate while preserving zoom.
+- Kept the same Discovery and Comparison integration seam, card behavior, marker behavior, and filtered-country rules so the product behavior remains consistent while the projection becomes globe-based.
+- Re-ran TypeScript and bundle verification after the globe-renderer change to make sure the new projection path still compiles for web and iOS JavaScript output.
 
 Mobile / Web Regression Elimination Pass After Additional-Data Stabilization (May 10, 2026)
 - Objective:
@@ -2534,8 +2668,10 @@ Backend Database Connection + Endpoint Validation + Mapper Alignment (April 29, 
   - Local main was updated from origin
   - `testing-endpoints` was merged forward with latest main
   - Local uncommitted backend changes were preserved through stash/restore flow
-- Connection string in backend development settings was updated to active working SQL host credentials:
-  - `Server=192.168.111.9,1433;Database=HiddenGemMusic;User Id=sa;Password=Capstone123!;TrustServerCertificate=True;`
+- Backend local SQL configuration was aligned to the active working Docker-hosted `HiddenGemMusic` database using local-only SQL authentication settings stored outside tracked docs.
+- SSMS connection context for the Windows 11 Parallels workflow was recorded as a separate practical note:
+  - backend on macOS continues using local-only backend config
+  - SSMS in Parallels must use the Mac-reachable SQL host address rather than assuming the same localhost meaning
 - Endpoint validation exposed a schema-alias mismatch between stored procedure outputs and backend mapping keys:
   - Stored procedures currently return fields such as `iso_code`, `full_name`, and `song_title`
   - Existing mapper expected `country_code`, `country_name`, and `song_name`

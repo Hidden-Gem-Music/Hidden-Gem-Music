@@ -31,7 +31,7 @@ Current rules:
 
 - welcome preview content should not be interactable while the welcome modal is active
 - welcome preview content should stay guarded during the close transition and short cooldown
-- clicking outside the welcome modal should behave like the `Discovery Globe` action, not like a dangerous bare click-through
+- clicking outside the welcome modal should behave like the `Discovery Map` action, not like a dangerous bare click-through
 - welcome modal route buttons should close through the guarded route-transition path rather than bypassing the modal state
 
 ## Loading overlay rule
@@ -100,12 +100,14 @@ Main files:
 
 - `src/screens/DiscoveryScreen.tsx`
 - `src/components/DiscoverySidebarPanels.tsx`
+- `src/components/globe/GlobeView.tsx`
 
 Current rules:
 
 - popup-blocking wrappers must still allow the real Discovery scroll container to fill height correctly
 - sidebar list-end prefetch should not keep firing repeatedly without leaving/re-entering the threshold
 - empty Discovery lists should show an intentional loading state instead of a blank panel
+- the top glassy blurb on the Discovery Map is the app-owned map info panel and should stay visually separate from page-level overlays
 
 ## Route-leave request rule
 

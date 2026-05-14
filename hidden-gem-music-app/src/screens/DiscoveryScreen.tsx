@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from "react-native";
 
 import { Country } from "../types/content";
@@ -18,6 +18,7 @@ import { typefaces } from "../theme/typography";
 
 export type Props = {
   isActive?: boolean;
+  isLoading?: boolean;
   countries: Country[];
   allYearsCountries?: Country[];
   selectedCountryId: string;
@@ -167,6 +168,7 @@ function DiscoveryYearDropdown({
 
 export function DiscoveryScreen({
   isActive = true,
+  isLoading = false,
   countries,
   allYearsCountries,
   selectedCountryId,
@@ -176,8 +178,8 @@ export function DiscoveryScreen({
   onChangeYear,
   availableYears,
 }: Props) {
-  // Issue #6 shell: this screen owns the core Discovery Globe layout,
-  // including globe rendering, country selection, panel structure, and dummy-data wiring.
+  // Issue #6 shell: this screen owns the core Discovery Map layout,
+  // including map rendering, country selection, panel structure, and dummy-data wiring.
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
   const [allFiltersOpen, setAllFiltersOpen] = useState(false);
@@ -379,8 +381,14 @@ export function DiscoveryScreen({
   }, [ensureCountryGenreSamples, filteredCountries, genrePrefetchCount, isActive, visibleSelectedCountryId]);
 
   const handleGlobeFocus = (countryId: string) => {
-    onSelectCountry(countryId);
-    setListAutoScrollSignal((current) => current + 1);
+    if (countryId === visibleSelectedCountryId) {
+      return;
+    }
+
+    startTransition(() => {
+      onSelectCountry(countryId);
+      setListAutoScrollSignal((current) => current + 1);
+    });
   };
 
   const listColumn = (
@@ -406,11 +414,13 @@ export function DiscoveryScreen({
       <View style={styles.globePanelWrap}>
         <GlobePanel
           countries={filteredCountries}
+          allCountries={filteredCountries}
+          isLoading={isLoading}
           activeCountryId={visibleSelectedCountryId}
           selectedYear={selectedYear}
           onSelectCountry={handleGlobeFocus}
           onOpenCountry={onOpenCountry}
-          title="Globe View"
+          title="Discovery Map"
           onRightAction={() => setAllFiltersOpen(true)}
           showHeader={false}
           genreSummaryByCountryCode={genreSummaryByCountryCode}
@@ -834,6 +844,7 @@ const styles = StyleSheet.create({
   },
   layout: {
     flexDirection: "row",
+    alignItems: "stretch",
     gap: 16,
     flexWrap: "wrap",
   },
@@ -844,11 +855,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 340,
     gap: 16,
+    alignSelf: "stretch",
   },
   rightColumn: {
     flex: 1,
     minWidth: 340,
     gap: 16,
+    alignSelf: "stretch",
   },
   globePanelWrap: {
     position: "relative",

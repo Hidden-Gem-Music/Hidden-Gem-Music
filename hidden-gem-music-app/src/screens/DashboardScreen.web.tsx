@@ -855,8 +855,8 @@ function DashboardScreenContent() {
     ? `Find ${countryLabel}'s hidden gems →`
     : "Find hidden gems →";
   const globeLabel = countryLabel
-    ? `See ${countryLabel} on the globe →`
-    : "Explore these gaps on the globe →";
+    ? `See ${countryLabel} on the map →`
+    : "Explore these gaps on the map →";
   const missingLabel = countryLabel
     ? `Find what ${countryLabel} is missing →`
     : "Find what your country is missing →";
@@ -1065,7 +1065,7 @@ function DashboardScreenContent() {
                           crossed is what this app is built to help you find.
                         </Text>
                         <Pressable onPress={() => navigateTo("/discovery")}>
-                          <Text style={styles.kpiCta}>Explore globe →</Text>
+                          <Text style={styles.kpiCta}>Explore map →</Text>
                         </Pressable>
                       </View>
                     }
@@ -1154,7 +1154,7 @@ function DashboardScreenContent() {
                           song reaches 3.
                         </Text>
                         <Pressable onPress={() => navigateTo("/discovery")}>
-                          <Text style={styles.kpiCta}>Explore globe →</Text>
+                          <Text style={styles.kpiCta}>Explore map →</Text>
                         </Pressable>
                       </View>
                     }
@@ -1190,8 +1190,8 @@ function DashboardScreenContent() {
                     <CtaButton
                       label={
                         countryLabel
-                          ? `See ${countryLabel} on the globe →`
-                          : "See this on the globe →"
+                          ? `See ${countryLabel} on the map →`
+                          : "See this on the map →"
                       }
                       primary
                       onPress={() => navigateTo(`/discovery${countryParam}`)}
@@ -1316,7 +1316,7 @@ function DashboardScreenContent() {
                           onPress={() => navigateTo(`/hidden-gems${countryParam}`)}
                         />
                         <CtaButton
-                          label="Explore on the globe →"
+                          label="Explore on the map →"
                           onPress={() => navigateTo("/discovery")}
                         />
                       </CtaRow>
@@ -1362,7 +1362,7 @@ function DashboardScreenContent() {
                       onPress={() => navigateTo(`/hidden-gems${countryParam}`)}
                     />
                     <CtaButton
-                      label="Explore on the globe →"
+                      label="Explore on the map →"
                       onPress={() => navigateTo("/discovery")}
                     />
                   </View>

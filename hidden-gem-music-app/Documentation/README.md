@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-11
 **Status:** Active
 
 ---
@@ -19,6 +19,8 @@ The files in this folder are separated by responsibility:
   - route names, params, app-owned state, and navigation handoff
 - `screen-data-flow.md`
   - which screens call which frontend data helpers and how live data is reused
+- `custom-interactive-world-map.md`
+  - custom map ownership, asset source, and interaction rules
 - `interaction-loading-and-overlay-rules.md`
   - shared interaction, popup, loading, and overlay behavior rules
 - `local-development-environment.md`
@@ -51,6 +53,11 @@ The goal is to avoid repeating the same content across multiple files. If a topi
   - per-screen fetch flow
   - cache/reuse behavior
   - additional-data integration points
+
+- `custom-interactive-world-map.md`
+  - geometry asset source and generation path
+  - Discovery/Comparison map behavior
+  - current map interaction and styling rules
 
 - `interaction-loading-and-overlay-rules.md`
   - popup/overlay behavior

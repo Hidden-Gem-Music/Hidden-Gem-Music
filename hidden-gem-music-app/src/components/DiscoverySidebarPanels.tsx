@@ -283,7 +283,7 @@ export function DiscoverySidebarPanels({
               {isNarrowHeader ? "Pre-Selected\nFilters" : "Pre-Selected Filters"}
             </Text>
             <Text style={[styles.sectionHelper, isNarrowHeader ? styles.sectionHelperStacked : null]}>
-              Select optional pre-selected filters here and use 'All Filters' button on the globe for more filters.
+              Select optional pre-selected filters here and use the All Filters button on the map for more filters.
             </Text>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "filters" ? "−" : "+"}</Text>
@@ -425,9 +425,10 @@ export function DiscoverySidebarPanels({
 
 const styles = StyleSheet.create({
   frame: {
-    minHeight: 642,
-    maxHeight: 642,
+    minHeight: 824,
+    maxHeight: 824,
     gap: 16,
+    alignSelf: "stretch",
   },
   frameNative: {
     minHeight: 0,

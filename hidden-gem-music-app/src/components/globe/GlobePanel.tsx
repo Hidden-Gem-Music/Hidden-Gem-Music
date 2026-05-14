@@ -1,17 +1,16 @@
-import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
-import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { ActivityIndicator, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { Country } from "../../types/content";
 import { colors } from "../../theme/colors";
 import { typefaces } from "../../theme/typography";
-import { GemIcon } from "../GemIcon";
 import { Panel } from "../Panel";
-import { SecondarySurfaceFill } from "../SecondarySurfaceFill";
 import { GlobeView } from "./GlobeView";
 
 type Props = {
   countries: Country[];
+  allCountries?: Country[];
+  isLoading?: boolean;
   activeCountryId?: string;
+  selectedCountryIds?: string[];
   selectedYear?: number;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry?: (countryId: string) => void;
@@ -30,7 +29,10 @@ type Props = {
 
 export function GlobePanel({
   countries,
+  allCountries,
+  isLoading = false,
   activeCountryId,
+  selectedCountryIds,
   selectedYear,
   onSelectCountry,
   onOpenCountry,
@@ -47,9 +49,6 @@ export function GlobePanel({
   onEnsureGenreSample,
 }: Props) {
   const activeCountry = countries.find((country) => country.id === activeCountryId);
-  const [isButtonHovered, setIsButtonHovered] = useState(false);
-  const [isButtonPressed, setIsButtonPressed] = useState(false);
-  const showButtonGradient = isButtonHovered || isButtonPressed;
 
   return (
     <View style={styles.wrapper}>
@@ -61,51 +60,27 @@ export function GlobePanel({
       ) : null}
 
       <Panel style={[styles.frame, frameStyle]}>
-        <SecondarySurfaceFill />
-        <GlobeView
-          countries={countries}
-          activeCountry={activeCountry}
-          selectedYear={selectedYear}
-          onSelectCountry={onSelectCountry}
-          onOpenCountry={onOpenCountry}
-          selectOnHover={selectOnHover}
-          genreSummaryByCountryCode={genreSummaryByCountryCode}
-          genreLoadingByCountryCode={genreLoadingByCountryCode}
-          loadingText={loadingText}
-          onEnsureGenreSample={onEnsureGenreSample}
-        />
-        {onRightAction ? (
-          <Pressable
-            onPress={onRightAction}
-            onHoverIn={() => setIsButtonHovered(true)}
-            onHoverOut={() => setIsButtonHovered(false)}
-            onPressIn={() => setIsButtonPressed(true)}
-            onPressOut={() => setIsButtonPressed(false)}
-            style={[styles.actionButtonShell, styles.actionButtonShellAbsolute]}
-          >
-            {showButtonGradient ? (
-              <LinearGradient
-                colors={
-                  isButtonPressed
-                    ? [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised]
-                    : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]
-                }
-                locations={[0, 0.34, 1]}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.actionButtonGradient}
-              />
-            ) : null}
-            <View style={[styles.actionButton, showButtonGradient ? styles.actionButtonActive : null]}>
-              <View style={styles.actionButtonContent}>
-                <GemIcon size={22} />
-                <Text style={[styles.actionButtonText, showButtonGradient ? styles.actionButtonTextActive : null]}>
-                  {rightActionLabel}
-                </Text>
-              </View>
-            </View>
-          </Pressable>
-        ) : null}
+        {isLoading ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        ) : (
+          <GlobeView
+            countries={countries}
+            allCountries={allCountries}
+            activeCountry={activeCountry}
+            selectedCountryIds={selectedCountryIds}
+            selectedYear={selectedYear}
+            onSelectCountry={onSelectCountry}
+            onOpenCountry={onOpenCountry}
+            onFiltersPress={onRightAction}
+            selectOnHover={selectOnHover}
+            genreSummaryByCountryCode={genreSummaryByCountryCode}
+            genreLoadingByCountryCode={genreLoadingByCountryCode}
+            loadingText={loadingText}
+            onEnsureGenreSample={onEnsureGenreSample}
+          />
+        )}
       </Panel>
     </View>
   );
@@ -141,52 +116,15 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 14 }],
   },
   frame: {
-    minHeight: 540,
+    minHeight: 520,
     overflow: "hidden",
     padding: 0,
-    backgroundColor: "transparent",
+    backgroundColor: colors.background,
   },
-  actionButtonShellAbsolute: {
-    position: "absolute",
-    top: 14,
-    right: 14,
-    zIndex: 2,
-  },
-  actionButtonShell: {
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  actionButtonGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  actionButton: {
-    minHeight: 58,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.button,
-    justifyContent: "center",
-  },
-  actionButtonActive: {
-    backgroundColor: "transparent",
-  },
-  actionButtonContent: {
-    flexDirection: "row",
+  loadingState: {
+    flex: 1,
+    minHeight: 520,
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-  },
-  actionButtonText: {
-    color: colors.border,
-    fontFamily: typefaces.condensed,
-    fontSize: 19,
-    fontWeight: "600",
-    lineHeight: 24,
-    textAlign: "center",
-  },
-  actionButtonTextActive: {
-    color: colors.textLight,
   },
 });
