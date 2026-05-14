@@ -31,23 +31,27 @@ namespace Capstone.API.Controllers
         /// GET /api/discovery/countries?year={year}
         /// </summary>
         [HttpGet("countries")]
-        public async Task<IActionResult> GetDiscoveryCountries([FromQuery] int year = 2021)
+        public async Task<IActionResult> GetDiscoveryCountries([FromQuery] int year = 2021, CancellationToken cancellationToken = default)
         {
             try
             {
-                var availableYears = (await _metadataRepo.GetAvailableYearsAsync()).ToHashSet();
+                var availableYears = (await _metadataRepo.GetAvailableYearsAsync(cancellationToken)).ToHashSet();
                 if (!availableYears.Contains(year))
                 {
                     return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
                 }
 
-                var result = await _repo.GetGlobeSummaryAsync(year);
+                var result = await _repo.GetGlobeSummaryAsync(year, cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
             {
                 _logger.LogError(ex, "SQL error getting discovery countries for year {Year}", year);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving discovery countries data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {

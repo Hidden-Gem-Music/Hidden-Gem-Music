@@ -29,17 +29,21 @@ namespace Capstone.API.Controllers
         /// </summary>
         /// <param name="year">The chart year to display. Defaults to 2021 (last year of Dataset 1).</param>
         [HttpGet]
-        public async Task<IActionResult> GetGlobeSummary([FromQuery] int year = 2021)
+        public async Task<IActionResult> GetGlobeSummary([FromQuery] int year = 2021, CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _repo.GetGlobeSummaryAsync(year);
+                var result = await _repo.GetGlobeSummaryAsync(year, cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
             {
                 _logger.LogError(ex, "SQL error getting globe summary for year {Year}", year);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving globe data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {

@@ -31,11 +31,12 @@ namespace Capstone.API.Controllers
         [HttpGet("overlap-rate")]
         public async Task<IActionResult> GetOverlapRate(
             [FromQuery] DateOnly start,
-            [FromQuery] DateOnly end)
+            [FromQuery] DateOnly end,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _repo.GetOverlapRateAsync(start, end);
+                var result = await _repo.GetOverlapRateAsync(start, end, cancellationToken);
                 if (result == null)
                     return NotFound();
 
@@ -45,6 +46,10 @@ namespace Capstone.API.Controllers
             {
                 _logger.LogError(ex, "SQL error getting overlap rate for {Start} to {End}", start, end);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving global overlap rate data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {
@@ -62,11 +67,12 @@ namespace Capstone.API.Controllers
         public async Task<IActionResult> GetDiscoveryGap(
             [FromQuery] DateOnly start,
             [FromQuery] DateOnly end,
-            [FromQuery] int minCountries = 2)
+            [FromQuery] int minCountries = 2,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _repo.GetDiscoveryGapAsync(start, end, minCountries);
+                var result = await _repo.GetDiscoveryGapAsync(start, end, minCountries, cancellationToken);
                 if (result == null)
                     return NotFound();
 
@@ -76,6 +82,10 @@ namespace Capstone.API.Controllers
             {
                 _logger.LogError(ex, "SQL error getting discovery gap for {Start} to {End}", start, end);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving discovery gap data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {
@@ -92,17 +102,22 @@ namespace Capstone.API.Controllers
         [HttpGet("gap-distribution")]
         public async Task<IActionResult> GetGapDistribution(
             [FromQuery] DateOnly start,
-            [FromQuery] DateOnly end)
+            [FromQuery] DateOnly end,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _repo.GetGapDistributionAsync(start, end);
+                var result = await _repo.GetGapDistributionAsync(start, end, cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
             {
                 _logger.LogError(ex, "SQL error getting gap distribution for {Start} to {End}", start, end);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving discovery gap distribution data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {
@@ -118,11 +133,12 @@ namespace Capstone.API.Controllers
         [HttpGet("isolation-leader")]
         public async Task<IActionResult> GetIsolationLeader(
             [FromQuery] DateOnly start,
-            [FromQuery] DateOnly end)
+            [FromQuery] DateOnly end,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _repo.GetIsolationLeaderAsync(start, end);
+                var result = await _repo.GetIsolationLeaderAsync(start, end, cancellationToken);
                 if (result == null)
                     return NotFound();
 
@@ -132,6 +148,10 @@ namespace Capstone.API.Controllers
             {
                 _logger.LogError(ex, "SQL error getting isolation leader for {Start} to {End}", start, end);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving isolation leader data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {
@@ -148,17 +168,22 @@ namespace Capstone.API.Controllers
         [HttpGet("isolation-ranking")]
         public async Task<IActionResult> GetIsolationRanking(
             [FromQuery] DateOnly start,
-            [FromQuery] DateOnly end)
+            [FromQuery] DateOnly end,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _repo.GetIsolationRankingAsync(start, end);
+                var result = await _repo.GetIsolationRankingAsync(start, end, cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
             {
                 _logger.LogError(ex, "SQL error getting isolation ranking for {Start} to {End}", start, end);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving isolation ranking data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {
@@ -175,11 +200,12 @@ namespace Capstone.API.Controllers
         [HttpGet("peak-reach")]
         public async Task<IActionResult> GetPeakReach(
             [FromQuery] DateOnly start,
-            [FromQuery] DateOnly end)
+            [FromQuery] DateOnly end,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _repo.GetPeakReachAsync(start, end);
+                var result = await _repo.GetPeakReachAsync(start, end, cancellationToken);
                 if (result == null)
                     return NotFound();
 
@@ -189,6 +215,10 @@ namespace Capstone.API.Controllers
             {
                 _logger.LogError(ex, "SQL error getting peak reach for {Start} to {End}", start, end);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving peak reach data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {
@@ -205,17 +235,22 @@ namespace Capstone.API.Controllers
         [HttpGet("overlap-trend")]
         public async Task<IActionResult> GetOverlapTrend(
             [FromQuery] DateOnly start,
-            [FromQuery] DateOnly end)
+            [FromQuery] DateOnly end,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var result = await _repo.GetOverlapTrendAsync(start, end);
+                var result = await _repo.GetOverlapTrendAsync(start, end, cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
             {
                 _logger.LogError(ex, "SQL error getting overlap trend for {Start} to {End}", start, end);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving global overlap trend data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {

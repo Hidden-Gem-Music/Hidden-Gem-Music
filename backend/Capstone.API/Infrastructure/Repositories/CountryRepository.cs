@@ -36,7 +36,7 @@ namespace Capstone.API.Infrastructure.Repositories
             {
                 { "@CountryCode", countryCode },
                 { "@Year", year }
-            });
+            }, cancellationToken);
 
             if (sets.Count == 0 || sets[0].Count == 0)
                 return null;
@@ -76,7 +76,7 @@ namespace Capstone.API.Infrastructure.Repositories
                 { "@CountryCode", countryCode },
                 { "@Year", year },
                 { "@Limit", rawLimit }
-            });
+            }, cancellationToken);
 
             var results = new List<CountryHiddenGemPreviewItem>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -132,7 +132,7 @@ namespace Capstone.API.Infrastructure.Repositories
                     { "@ListType", listType },
                     { "@Offset", scanOffset },
                     { "@PageSize", RawSongBatchSize }
-                })).ToList();
+                }, cancellationToken)).ToList();
 
                 if (scanRows.Count == 0)
                 {
@@ -326,7 +326,7 @@ namespace Capstone.API.Infrastructure.Repositories
                         { "@ListType", listType },
                         { "@Offset", scanOffset },
                         { "@PageSize", RawSongBatchSize }
-                    })).ToList();
+                    }, cancellationToken)).ToList();
 
                     if (rows.Count == 0)
                     {
@@ -387,7 +387,7 @@ namespace Capstone.API.Infrastructure.Repositories
                         { "@ListType", listType },
                         { "@Offset", scanOffset },
                         { "@PageSize", RawSongBatchSize }
-                    })).ToList();
+                    }, cancellationToken)).ToList();
 
                     if (rows.Count == 0)
                     {

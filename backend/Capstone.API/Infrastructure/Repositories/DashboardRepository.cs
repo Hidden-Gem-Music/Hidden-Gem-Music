@@ -20,9 +20,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<GlobalOverlapRateKpi?> GetOverlapRateAsync(DateOnly start, DateOnly end)
+        public async Task<GlobalOverlapRateKpi?> GetOverlapRateAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetGlobalOverlapRate", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetGlobalOverlapRate", DateRange(start, end), cancellationToken);
             var row = rows.FirstOrDefault();
             if (row == null) return null;
 
@@ -35,14 +35,14 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<DiscoveryGapKpi?> GetDiscoveryGapAsync(DateOnly start, DateOnly end, int minCountries = 2)
+        public async Task<DiscoveryGapKpi?> GetDiscoveryGapAsync(DateOnly start, DateOnly end, int minCountries = 2, CancellationToken cancellationToken = default)
         {
             var rows = await _db.GetDataAsync("sp_GetAverageDiscoveryGap", new Dictionary<string, object?>
             {
                 { "@DateStart", start.ToDateTime(TimeOnly.MinValue) },
                 { "@DateEnd", end.ToDateTime(TimeOnly.MinValue) },
                 { "@MinCountries", minCountries }
-            });
+            }, cancellationToken);
 
             var row = rows.FirstOrDefault();
             if (row == null) return null;
@@ -56,9 +56,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<DiscoveryGapBucket>> GetGapDistributionAsync(DateOnly start, DateOnly end)
+        public async Task<IEnumerable<DiscoveryGapBucket>> GetGapDistributionAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetDiscoveryGapDistribution", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetDiscoveryGapDistribution", DateRange(start, end), cancellationToken);
 
             return rows.Select(row => new DiscoveryGapBucket
             {
@@ -69,9 +69,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IsolationLeaderKpi?> GetIsolationLeaderAsync(DateOnly start, DateOnly end)
+        public async Task<IsolationLeaderKpi?> GetIsolationLeaderAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetIsolationLeader", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetIsolationLeader", DateRange(start, end), cancellationToken);
             var row = rows.FirstOrDefault();
             if (row == null) return null;
 
@@ -84,9 +84,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<IsolationRankingEntry>> GetIsolationRankingAsync(DateOnly start, DateOnly end)
+        public async Task<IEnumerable<IsolationRankingEntry>> GetIsolationRankingAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetIsolationRanking", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetIsolationRanking", DateRange(start, end), cancellationToken);
 
             return rows.Select(row => new IsolationRankingEntry
             {
@@ -98,9 +98,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<PeakReachKpi?> GetPeakReachAsync(DateOnly start, DateOnly end)
+        public async Task<PeakReachKpi?> GetPeakReachAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetPeakCrossRegionalReach", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetPeakCrossRegionalReach", DateRange(start, end), cancellationToken);
             var row = rows.FirstOrDefault();
             if (row == null) return null;
 
@@ -114,9 +114,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<GlobalTrendPoint>> GetOverlapTrendAsync(DateOnly start, DateOnly end)
+        public async Task<IEnumerable<GlobalTrendPoint>> GetOverlapTrendAsync(DateOnly start, DateOnly end, CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetGlobalOverlapTrend", DateRange(start, end));
+            var rows = await _db.GetDataAsync("sp_GetGlobalOverlapTrend", DateRange(start, end), cancellationToken);
 
             return rows.Select(row => new GlobalTrendPoint
             {

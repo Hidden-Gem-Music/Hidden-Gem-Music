@@ -12,6 +12,6 @@ namespace Capstone.API.Infrastructure.Interfaces
         /// Calls sp_GetGlobeSummary.
         /// </summary>
         /// <param name="year">The chart year to filter by.</param>
-        Task<IEnumerable<CountryGlobeSummary>> GetGlobeSummaryAsync(int year);
+        Task<IEnumerable<CountryGlobeSummary>> GetGlobeSummaryAsync(int year, CancellationToken cancellationToken = default);
     }
 }

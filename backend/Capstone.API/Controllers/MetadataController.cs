@@ -28,17 +28,21 @@ namespace Capstone.API.Controllers
         /// GET /api/metadata/years
         /// </summary>
         [HttpGet("years")]
-        public async Task<IActionResult> GetAvailableYears()
+        public async Task<IActionResult> GetAvailableYears(CancellationToken cancellationToken = default)
         {
             try
             {
-                var years = await _repo.GetAvailableYearsAsync();
+                var years = await _repo.GetAvailableYearsAsync(cancellationToken);
                 return Ok(years);
             }
             catch (SqlException ex)
             {
                 _logger.LogError(ex, "SQL error getting available years");
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving available years." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {

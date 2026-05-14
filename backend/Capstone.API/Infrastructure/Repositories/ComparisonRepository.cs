@@ -23,14 +23,14 @@ namespace Capstone.API.Infrastructure.Repositories
 
         /// <inheritdoc/>
         public async Task<ComparisonResult?> GetCountryComparisonAsync(
-            string countryCodeA, string countryCodeB, int year)
+            string countryCodeA, string countryCodeB, int year, CancellationToken cancellationToken = default)
         {
             var sets = await _db.GetDataSetsAsync("sp_GetCountryComparison", new Dictionary<string, object?>
             {
                 { "@CountryCodeA", countryCodeA },
                 { "@CountryCodeB", countryCodeB },
                 { "@Year", year }
-            });
+            }, cancellationToken);
 
             if (sets.Count < 2 || sets[0].Count == 0 || sets[1].Count == 0)
                 return null;
@@ -55,14 +55,14 @@ namespace Capstone.API.Infrastructure.Repositories
 
         /// <inheritdoc/>
         public async Task<IEnumerable<ComparisonHiddenGem>> GetComparisonHiddenGemsAsync(
-            string countryCodeA, string countryCodeB, int year)
+            string countryCodeA, string countryCodeB, int year, CancellationToken cancellationToken = default)
         {
             var rows = await _db.GetDataAsync("sp_GetComparisonHiddenGems", new Dictionary<string, object?>
             {
                 { "@CountryCodeA", countryCodeA },
                 { "@CountryCodeB", countryCodeB },
                 { "@Year", year }
-            });
+            }, cancellationToken);
 
             return rows.Select(MapComparisonHiddenGem);
         }
