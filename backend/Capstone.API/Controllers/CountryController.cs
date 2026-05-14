@@ -70,6 +70,10 @@ namespace Capstone.API.Controllers
                 _logger.LogError(ex, "SQL error getting country profile for {CountryCode} year {Year}", code, year);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving country profile data." });
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting country profile for {CountryCode} year {Year}", code, year);
@@ -102,6 +106,10 @@ namespace Capstone.API.Controllers
             {
                 _logger.LogError(ex, "SQL error getting hidden gems preview for {CountryCode} year {Year}", code, year);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving hidden gems preview data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {
@@ -155,6 +163,10 @@ namespace Capstone.API.Controllers
             {
                 _logger.LogError(ex, "SQL error getting country songs for {CountryCode} year {Year} listType {ListType}", code, year, listType);
                 return StatusCode(503, new { message = "Database temporarily unavailable while retrieving country songs data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
             }
             catch (Exception ex)
             {

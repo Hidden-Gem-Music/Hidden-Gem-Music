@@ -1,5 +1,6 @@
 using Capstone.API.Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 
 namespace Capstone.API.Controllers
 {
@@ -11,13 +12,15 @@ namespace Capstone.API.Controllers
     public class HiddenGemsController : ControllerBase
     {
         private readonly IHiddenGemsRepository _repo;
+        private readonly ILogger<HiddenGemsController> _logger;
 
         /// <summary>
         /// Initializes a new instance of HiddenGemsController.
         /// </summary>
-        public HiddenGemsController(IHiddenGemsRepository repo)
+        public HiddenGemsController(IHiddenGemsRepository repo, ILogger<HiddenGemsController> logger)
         {
             _repo = repo;
+            _logger = logger;
         }
 
         /// <summary>
@@ -42,8 +45,25 @@ namespace Capstone.API.Controllers
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 25;
 
-            var result = await _repo.GetHiddenGemsAsync(code.ToUpper(), year, minCountries, page, pageSize, cancellationToken);
-            return Ok(result);
+            try
+            {
+                var result = await _repo.GetHiddenGemsAsync(code.ToUpper(), year, minCountries, page, pageSize, cancellationToken);
+                return Ok(result);
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "SQL error getting hidden gems for {CountryCode} year {Year}", code, year);
+                return StatusCode(503, new { message = "Database temporarily unavailable while retrieving hidden gems data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting hidden gems for {CountryCode} year {Year}", code, year);
+                return StatusCode(500, new { message = "An unexpected error occurred while retrieving hidden gems data." });
+            }
         }
     }
 }
