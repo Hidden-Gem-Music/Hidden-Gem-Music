@@ -17,6 +17,7 @@ type Props = {
   countries: Country[];
   allCountries?: Country[];
   activeCountry?: Country;
+  externalHoveredCountryId?: string | null;
   selectedCountryIds?: string[];
   selectedYear?: number;
   availableYears?: number[];
@@ -74,6 +75,16 @@ function clampOffset(offset: ViewportOffset, zoom: number) {
     x: clamp(offset.x, -horizontal, horizontal),
     y: clamp(offset.y, -vertical, vertical),
   };
+}
+
+function getCenteredOffset(targetX: number, targetY: number, zoom: number) {
+  return clampOffset(
+    {
+      x: (BASE_CENTER_X - targetX) * zoom,
+      y: (BASE_CENTER_Y - targetY) * zoom,
+    },
+    zoom
+  );
 }
 
 function getSelectionColor(countryId: string, selectedCountryIds?: string[]) {
@@ -145,6 +156,7 @@ export function GlobeView({
   countries,
   allCountries,
   activeCountry,
+  externalHoveredCountryId,
   selectedCountryIds,
   selectedYear,
   availableYears,
@@ -196,7 +208,17 @@ export function GlobeView({
       })),
     []
   );
-  const hoveredOrFocusedCountryId = hoveredCountryId ?? focusedCountryId;
+  const shapeMetadataByCode = useMemo(
+    () =>
+      new Map(
+        countryShapeMetadata
+          .filter(({ shape }) => Boolean(shape.code))
+          .map((entry) => [entry.shape.code!.trim().toUpperCase(), entry] as const)
+      ),
+    [countryShapeMetadata]
+  );
+  const effectiveHoveredCountryId = externalHoveredCountryId ?? hoveredCountryId;
+  const hoveredOrFocusedCountryId = effectiveHoveredCountryId ?? focusedCountryId;
   const cardCountry = mapCountries.find((country) => country.id === hoveredOrFocusedCountryId) ?? null;
   const hasHiddenGems = (cardCountry?.hiddenSongs ?? 0) > 0;
   const selectedYearLabel = selectedYear ?? "this year";
@@ -214,6 +236,16 @@ export function GlobeView({
       : {};
   const getControlGradient = (control: "zoomIn" | "zoomOut" | "filters" | "year" | "panUp" | "panLeft" | "panRight" | "panDown") => {
     if (control === "filters" || control === "year") {
+      if (pressedControl === control) {
+        return ["rgba(78,51,74,0.9)", "rgba(69,80,106,0.72)", "rgba(27,28,47,0.86)"] as const;
+      }
+      if (hoveredControl === control) {
+        return ["rgba(101,69,92,0.82)", "rgba(92,103,130,0.56)", "rgba(34,36,59,0.72)"] as const;
+      }
+      return ["rgba(117,82,107,0.68)", "rgba(108,119,142,0.44)", "rgba(44,46,75,0.58)"] as const;
+    }
+
+    if (Platform.OS === "web" && (control === "zoomIn" || control === "zoomOut")) {
       if (pressedControl === control) {
         return ["rgba(78,51,74,0.9)", "rgba(69,80,106,0.72)", "rgba(27,28,47,0.86)"] as const;
       }
@@ -250,6 +282,26 @@ export function GlobeView({
   useEffect(() => {
     setIsYearMenuOpen(false);
   }, [selectedYear]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || !externalHoveredCountryId) {
+      return;
+    }
+
+    const hoveredCountry = mapCountries.find((country) => country.id === externalHoveredCountryId);
+    if (!hoveredCountry) {
+      return;
+    }
+
+    const shapeMetadata = shapeMetadataByCode.get(hoveredCountry.code.trim().toUpperCase());
+    if (!shapeMetadata) {
+      return;
+    }
+
+    const targetX = (shapeMetadata.bounds.minX + shapeMetadata.bounds.maxX) / 2;
+    const targetY = (shapeMetadata.bounds.minY + shapeMetadata.bounds.maxY) / 2;
+    setOffset(getCenteredOffset(targetX, targetY, zoomRef.current));
+  }, [externalHoveredCountryId, mapCountries, shapeMetadataByCode]);
 
   useEffect(() => {
     return () => {
@@ -656,7 +708,7 @@ export function GlobeView({
                 </Defs>
                 {countryShapeMetadata.map(({ shape, shapeIndex, shapeKey }) => {
                   const linkedCountry = shape.code ? countryByCode.get(shape.code) : undefined;
-                  const isHovered = Boolean(linkedCountry && hoveredCountryId === linkedCountry.id);
+                  const isHovered = Boolean(linkedCountry && effectiveHoveredCountryId === linkedCountry.id);
                   const isFocusedCountry = Boolean(linkedCountry && focusedCountryId === linkedCountry.id);
                   const comparisonColor = linkedCountry ? getSelectionColor(linkedCountry.id, selectedCountryIds) : null;
                   const hasMapData = Boolean(linkedCountry);
@@ -850,7 +902,11 @@ export function GlobeView({
                   onHoverOut={() => setHoveredControl((current) => (current === "zoomIn" ? null : current))}
                   onPressIn={() => setPressedControl("zoomIn")}
                   onPressOut={() => setPressedControl((current) => (current === "zoomIn" ? null : current))}
-                  style={[styles.zoomButton, isNativeMobile ? styles.mobileControlButton : null, !canZoomIn ? styles.zoomButtonDisabled : null]}
+                  style={[
+                    isNativeMobile ? styles.zoomButton : styles.zoomButtonShell,
+                    isNativeMobile ? styles.mobileControlButton : null,
+                    !canZoomIn ? styles.zoomButtonDisabled : null,
+                  ]}
                   disabled={!canZoomIn}
                   {...webPressableProps}
                 >
@@ -860,10 +916,31 @@ export function GlobeView({
                       locations={[0, 0.34, 1]}
                       start={{ x: 0, y: 0.5 }}
                       end={{ x: 1, y: 0.5 }}
-                      style={styles.controlFill}
+                      style={isNativeMobile ? styles.controlFill : styles.zoomButtonGradient}
                     />
                   ) : null}
-                  <Text style={[styles.zoomButtonText, getControlGradient("zoomIn") ? styles.zoomButtonTextActive : null]}>+</Text>
+                  <View style={isNativeMobile ? null : [styles.zoomButtonInner, getControlGradient("zoomIn") ? styles.zoomButtonInnerActive : null]}>
+                    <Text
+                      style={[
+                        styles.zoomButtonText,
+                        styles.zoomButtonTextPlus,
+                        getControlGradient("zoomIn") ? styles.zoomButtonTextActive : null,
+                      ]}
+                    >
+                      +
+                    </Text>
+                  </View>
+                  {isNativeMobile ? (
+                    <Text
+                      style={[
+                        styles.zoomButtonText,
+                        styles.zoomButtonTextPlus,
+                        getControlGradient("zoomIn") ? styles.zoomButtonTextActive : null,
+                      ]}
+                    >
+                      +
+                    </Text>
+                  ) : null}
                 </Pressable>
                 <Pressable
                   onPress={() => applyZoom(clamp(zoom - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM))}
@@ -871,7 +948,11 @@ export function GlobeView({
                   onHoverOut={() => setHoveredControl((current) => (current === "zoomOut" ? null : current))}
                   onPressIn={() => setPressedControl("zoomOut")}
                   onPressOut={() => setPressedControl((current) => (current === "zoomOut" ? null : current))}
-                  style={[styles.zoomButton, isNativeMobile ? styles.mobileControlButton : null, !canZoomOut ? styles.zoomButtonDisabled : null]}
+                  style={[
+                    isNativeMobile ? styles.zoomButton : styles.zoomButtonShell,
+                    isNativeMobile ? styles.mobileControlButton : null,
+                    !canZoomOut ? styles.zoomButtonDisabled : null,
+                  ]}
                   disabled={!canZoomOut}
                   {...webPressableProps}
                 >
@@ -881,10 +962,31 @@ export function GlobeView({
                       locations={[0, 0.34, 1]}
                       start={{ x: 0, y: 0.5 }}
                       end={{ x: 1, y: 0.5 }}
-                      style={styles.controlFill}
+                      style={isNativeMobile ? styles.controlFill : styles.zoomButtonGradient}
                     />
                   ) : null}
-                  <Text style={[styles.zoomButtonText, getControlGradient("zoomOut") ? styles.zoomButtonTextActive : null]}>-</Text>
+                  <View style={isNativeMobile ? null : [styles.zoomButtonInner, getControlGradient("zoomOut") ? styles.zoomButtonInnerActive : null]}>
+                    <Text
+                      style={[
+                        styles.zoomButtonText,
+                        styles.zoomButtonTextMinus,
+                        getControlGradient("zoomOut") ? styles.zoomButtonTextActive : null,
+                      ]}
+                    >
+                      −
+                    </Text>
+                  </View>
+                  {isNativeMobile ? (
+                    <Text
+                      style={[
+                        styles.zoomButtonText,
+                        styles.zoomButtonTextMinus,
+                        getControlGradient("zoomOut") ? styles.zoomButtonTextActive : null,
+                      ]}
+                    >
+                      −
+                    </Text>
+                  ) : null}
                 </Pressable>
               </View>
               {isNativeMobile && yearOptions.length > 0 && onChangeYear ? (
@@ -1198,6 +1300,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 10,
   },
+  zoomButtonGradient: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 9,
+  },
   infoPanelButtonText: {
     color: colors.textLight,
     fontFamily: typefaces.condensed,
@@ -1288,6 +1394,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 4,
   },
+  zoomButtonShell: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    position: "relative",
+    overflow: "hidden",
+    ...(Platform.OS === "web"
+      ? ({
+          userSelect: "none",
+        } as any)
+      : null),
+  },
   zoomButton: {
     width: 28,
     height: 28,
@@ -1308,6 +1426,23 @@ const styles = StyleSheet.create({
         } as any)
       : null),
   },
+  zoomButtonInner: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+  },
+  zoomButtonInnerActive: {
+    backgroundColor: "transparent",
+  },
   mobileControlButton: {
     width: 42,
     height: 38,
@@ -1322,13 +1457,21 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 24,
     fontWeight: "700",
-    transform: [{ translateY: -1 }],
+    textAlign: "center",
     zIndex: 1,
     ...(Platform.OS === "web"
       ? ({
           userSelect: "none",
         } as any)
       : null),
+  },
+  zoomButtonTextPlus: {
+    transform: [{ translateY: 1 }],
+  },
+  zoomButtonTextMinus: {
+    transform: [{ translateY: 1 }],
+    fontSize: 25,
+    lineHeight: 25,
   },
   zoomButtonTextActive: {
     color: colors.textLight,

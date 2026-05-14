@@ -184,6 +184,7 @@ export function DiscoveryScreen({
   const isStacked = width < 980;
   const [allFiltersOpen, setAllFiltersOpen] = useState(false);
   const [listAutoScrollSignal, setListAutoScrollSignal] = useState(0);
+  const [hoveredListCountryId, setHoveredListCountryId] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption | null>(null);
   const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
   const [onlyWithHiddenGems, setOnlyWithHiddenGems] = useState(true);
@@ -399,6 +400,7 @@ export function DiscoveryScreen({
         selectedCountryId={visibleSelectedCountryId}
         onSelectCountry={onSelectCountry}
         onOpenCountry={onOpenCountry}
+        onHoverCountryChange={Platform.OS === "web" ? setHoveredListCountryId : undefined}
         autoScrollSignal={listAutoScrollSignal}
         genreSummaryByCountryCode={genreSummaryByCountryCode}
         genreLoadingByCountryCode={genreLoadingByCountryCode}
@@ -417,6 +419,7 @@ export function DiscoveryScreen({
           allCountries={filteredCountries}
           isLoading={isLoading}
           activeCountryId={visibleSelectedCountryId}
+          hoveredCountryId={Platform.OS === "web" ? hoveredListCountryId : null}
           selectedYear={selectedYear}
           availableYears={timelineYears}
           onSelectCountry={handleGlobeFocus}

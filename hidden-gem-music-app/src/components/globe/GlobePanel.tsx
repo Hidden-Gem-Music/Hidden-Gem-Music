@@ -10,6 +10,7 @@ type Props = {
   allCountries?: Country[];
   isLoading?: boolean;
   activeCountryId?: string;
+  hoveredCountryId?: string | null;
   selectedCountryIds?: string[];
   selectedYear?: number;
   availableYears?: number[];
@@ -34,6 +35,7 @@ export function GlobePanel({
   allCountries,
   isLoading = false,
   activeCountryId,
+  hoveredCountryId,
   selectedCountryIds,
   selectedYear,
   availableYears,
@@ -73,6 +75,7 @@ export function GlobePanel({
             countries={countries}
             allCountries={allCountries}
             activeCountry={activeCountry}
+            externalHoveredCountryId={hoveredCountryId}
             selectedCountryIds={selectedCountryIds}
             selectedYear={selectedYear}
             availableYears={availableYears}

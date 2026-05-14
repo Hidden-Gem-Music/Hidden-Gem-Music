@@ -16,6 +16,7 @@ type Props = {
   selectedCountryId?: string;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry: (countryId: string) => void;
+  onHoverCountryChange?: (countryId: string | null) => void;
   autoScrollSignal?: number;
   selectedYear?: number;
   genreSummaryByCountryCode?: Record<string, string | undefined>;
@@ -35,6 +36,7 @@ export function DiscoverySidebarPanels({
   selectedCountryId,
   onSelectCountry,
   onOpenCountry,
+  onHoverCountryChange,
   autoScrollSignal,
   selectedYear,
   genreSummaryByCountryCode,
@@ -375,7 +377,9 @@ export function DiscoverySidebarPanels({
                     onHover={() => {
                       onEnsureGenreSample?.(country.code);
                       onSelectCountry(country.id);
+                      onHoverCountryChange?.(country.id);
                     }}
+                    onHoverOut={() => onHoverCountryChange?.(null)}
                     onTitlePress={() => {
                       onEnsureGenreSample?.(country.code);
                       onOpenCountry(country.id);
