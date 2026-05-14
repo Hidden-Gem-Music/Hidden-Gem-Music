@@ -36,6 +36,7 @@ from genius_client import (
     fetch_genius_row,
     validate_genius_lyrics_url,
 )
+from language_getter import prompt_language_mode, run_language_getter
 from state_store import (
     add_or_update_skipped,
     load_rows_by_key,
@@ -93,7 +94,7 @@ def check_secrets(source: str) -> Tuple[bool, List[str]]:
             messages.append("Missing required secret: GENIUS_ACCESS_TOKEN")
             return False, messages
         messages.append("Genius token is present.")
-    elif source == "genius_web":
+    elif source in {"genius_web", "genius_web_language"}:
         messages.append("Genius web scraping mode selected. No Genius API token required.")
     else:
         messages.append("Deezer mode selected. Optional Deezer credentials will be used if present.")
@@ -165,6 +166,9 @@ def resolve_runtime_paths(source: str) -> Tuple[Path, Path, Path, Path, Path]:
     elif source == "genius_api":
         output_dir = BASE_DIR / "output_genius_api"
         state_dir = BASE_DIR / "state_genius_api"
+    elif source == "genius_web_language":
+        output_dir = BASE_DIR / "output_genius_web"
+        state_dir = BASE_DIR / "state_genius_web_language"
     else:
         output_dir = BASE_DIR / "output_genius_web"
         state_dir = BASE_DIR / "state_genius_web"
@@ -180,11 +184,13 @@ def prompt_source() -> str:
     print("1) Deezer")
     print("2) Genius API")
     print("3) Genius Web Scraping")
-    choice = input("Enter choice (1/2/3): ").strip()
+    print("4) Language Getter from Genius Lyric URLs")
+    choice = input("Enter choice (1/2/3/4): ").strip()
     return {
         "1": "deezer",
         "2": "genius_api",
         "3": "genius_web",
+        "4": "genius_web_language",
     }.get(choice, "deezer")
 
 
@@ -645,10 +651,14 @@ def main() -> int:
         default="auto",
         help="Input is locked to tools/song_data_enrichment/no_dupes_input_songs.csv.",
     )
-    parser.add_argument("--source", choices=["deezer", "genius_api", "genius_web"], help="Optional source override")
+    parser.add_argument(
+        "--source",
+        choices=["deezer", "genius_api", "genius_web", "genius_web_language"],
+        help="Optional source override",
+    )
     parser.add_argument(
         "--mode",
-        choices=["begin", "resume", "fill_missing", "retry_skipped", "smart_catch_up"],
+        choices=["begin", "resume", "fill_missing", "retry_skipped", "retry_failed", "smart_catch_up"],
         help="Optional mode override",
     )
     parser.add_argument("--limit", type=int, default=0, help="Optional processing limit for test runs")
@@ -662,7 +672,12 @@ def main() -> int:
     print()
 
     source = args.source or prompt_source()
-    mode = args.mode or prompt_mode()
+    mode = args.mode or (prompt_language_mode() if source == "genius_web_language" else prompt_mode())
+    if source == "genius_web_language":
+        if mode not in {"begin", "resume", "retry_failed"}:
+            print("Language Getter from Genius Lyric URLs only supports begin, resume, or retry_failed.")
+            return 1
+        return run_language_getter(mode, args.limit)
     if mode == "smart_catch_up" and source != "genius_web":
         print("Smart Catch-Up is only available for Genius Web Scraping.")
         return 1
