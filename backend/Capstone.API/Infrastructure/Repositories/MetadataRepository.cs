@@ -18,9 +18,9 @@ namespace Capstone.API.Infrastructure.Repositories
         }
 
         /// <inheritdoc/>
-        public async Task<IEnumerable<int>> GetAvailableYearsAsync()
+        public async Task<IEnumerable<int>> GetAvailableYearsAsync(CancellationToken cancellationToken = default)
         {
-            var rows = await _db.GetDataAsync("sp_GetAvailableYears");
+            var rows = await _db.GetDataAsync("sp_GetAvailableYears", cancellationToken);
 
             return rows
                 .Select((row) => RowValueReader.AsIntAny(row, "chart_year"))

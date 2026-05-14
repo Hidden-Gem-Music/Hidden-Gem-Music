@@ -147,105 +147,190 @@ Any 2023 year filter across the entire application returns a Q4-only, seasonally
 
 ---
 
-## Issue 4 — Viral 50 / Top 200 Chart Type Conflation (May 6, 2026)
+## Issue 4 — Viral 50 / Top 200 Chart Type Conflation
 
 **Severity:** Medium — affects interpretation of multiple dashboard metrics  
-**Status:** Known limitation, documented. Flagged for future iteration.  
-**Session:** May 6, 2026 — identified during dashboard design review
+**Status:** Resolved — SP fix applied 05/08/2026  
+**Identified:** May 6, 2026 — dashboard design review  
+**Resolved:** May 8, 2026  
 
 ### What was observed
 
-During dashboard narrative design review, it was identified that the Top 200 and Viral 50 chart types in Dataset 1 measure fundamentally different phenomena but are treated as equivalent charting events in all current stored procedures.
+During dashboard narrative design review, it was identified that the Top 200 and Viral 50 
+chart types in Dataset 1 measure fundamentally different phenomena but were being treated 
+as equivalent charting events in all population stored procedures.
 
 - **Top 200:** sustained listener demand — streams-based, reflects adoption
-- **Viral 50:** rate-of-spread — a song can enter with minimal total streams by spreading simultaneously across markets
+- **Viral 50:** rate-of-spread — a song can enter with minimal total streams by spreading 
+  simultaneously across markets
 
-### Metrics affected
+### Metrics affected (pre-fix values)
 
-| Metric | How it's affected |
-|--------|------------------|
-| Discovery Gap mean (38d) / median (4d) | 0–7d bucket driven in part by Viral 50 simultaneous-spread events, compressing measured crossover speed |
+| Metric | How it was affected |
+|--------|-------------------|
+| Discovery Gap median (4d) / mean (38d) | 0–7d bucket heavily driven by Viral 50 simultaneous-spread events, compressing measured crossover speed |
 | Global Overlap Rate (26%) | Inflated by Viral 50 entries that technically cross borders but reflect sharing behavior, not adoption |
-| Peak Cross-Regional Reach (70 countries — abcdefu) | Almost certainly a Viral 50 result; represents viral spread, not sustained Top 200 charting across 70 markets |
+| Peak Cross-Regional Reach (70 countries — abcdefu) | Viral 50 result — represented viral spread, not sustained Top 200 charting across 70 markets |
 | Global Reach Over Time avg countries (2.9–3.2) | Pulled upward by Viral 50 entries throughout DS1 years |
 
-### Why no SP changes were made
+### Fix applied — 05/08/2026
 
-All SPs are functioning correctly given the data they receive. This is a measurement design concern, not a logic bug. Fixing it requires either a `@ChartTypeFilter` parameter addition to the gap SPs (low risk, WHERE clause only) or a full chart-type breakdown output (higher effort). Neither is being pursued at this time given project timeline.
+`AND ce.chart_type_id != 2` added to the `WHERE` clause of the `FACT_ChartEntry` query 
+in three population procedures:
 
-### Resolution
+- `sp_PopulateSongCountryPresence` — main WHERE clause
+- `sp_PopulateDiscoveryGapByDay` — FirstAppearance CTE
+- `sp_PopulatePeakReachBySong` — DailyReach CTE
 
-- No SP changes
-- ADR updated with full analysis and recommended future fixes (`adr-discovery-gap-data-quality.md` Issue 4)
-- `dashboard-about-this-data-copy.md` updated with a prominent ⚠ known limitation entry
-- This QA log updated
+During repopulation, day-zero rows (left-censored artifacts) were also confirmed to still 
+be present. The `gap_days > 0` filter in `sp_PopulateDiscoveryGapByDay` was verified and 
+corrected — it had reverted to `>= 0` during the SP rewrite. Repopulated with `> 0` 
+restored.
+
+All six summary tables repopulated in dependency order:
+1. `sp_PopulateSongCountryPresence`
+2. `sp_PopulateDiscoveryGapByDay`
+3. `sp_PopulatePeakReachBySong`
+4. `sp_PopulateGlobalOverlapByYear`
+5. `sp_PopulateCountryYearStats`
+6. `sp_PopulateIsolationScoreByCountry`
+
+### Post-fix values
+
+| Metric | Pre-fix | Post-fix |
+|--------|---------|----------|
+| Global Overlap Rate | 26% | 25% |
+| Discovery Gap median | 4d | 12d |
+| Discovery Gap mean | 38d | 108d |
+| Peak Cross-Regional Reach | 70 countries (abcdefu) | 69 countries (STAY — The Kid LAROI) |
+
+The mean/median divergence (12d vs 108d) is expected and analytically meaningful — 
+most crossovers happen fast, but a long tail of slow-movers pulls the mean up sharply. 
+This is documented in the dashboard UI via the KPI card flip side ("Why two numbers?") 
+and is accurate behavior, not an artifact.
+
+### Dashboard and documentation updates
+
+- `dashboard-about-this-data-copy.md` — ⚠ known limitation paragraph replaced with 
+  chart type scope clarification note
+- Chart legend in section 3 updated from "2017–2021 (Top 200 + Viral 50)" to 
+  "2017–2021 (Top 200 only)"
+- SP headers updated with 05/08/2026 update lines in all three modified procedures
 
 ### Connection to prior findings
 
-The Viral 50 contribution to the 0–7d bucket was first noted during the April 29 QA session (Issue 1, Root Cause C decision) and accepted as a data characteristic. May 6 review elevated this from "data characteristic" to "measurement design limitation" given its impact on multiple metrics and user interpretation.
+The Viral 50 contribution to the 0–7d bucket was first noted during the April 29 QA 
+session (Issue 1, Root Cause C decision) and accepted as a data characteristic. May 6 
+review elevated this to a measurement design limitation. May 8 fix resolved it at the 
+data layer.
 
 ---
 
-## Queries Used During Investigation
+## Open Items After April 29 Session
 
-All diagnostic queries used during this session are preserved here for reference.
-
-```sql
--- Bucket distribution check
-SELECT bucket_label, COUNT(DISTINCT song_id) AS song_count
-FROM DiscoveryGapByDay
-GROUP BY bucket_label, bucket_order
-ORDER BY bucket_order;
-
--- Day-level breakdown within 0-7d
-SELECT days_to_spread, COUNT(DISTINCT song_id) AS song_count
-FROM DiscoveryGapByDay
-WHERE days_to_spread BETWEEN 0 AND 7
-GROUP BY days_to_spread
-ORDER BY days_to_spread;
-
--- Boundary week contamination check (spread side)
-SELECT COUNT(DISTINCT dgd.song_id) AS song_count
-FROM DiscoveryGapByDay dgd
-JOIN ChartEntry ce_spread
-    ON ce_spread.song_id    = dgd.song_id
-   AND ce_spread.country_id = dgd.spread_country_id
-WHERE dgd.days_to_spread BETWEEN 1 AND 7
-  AND ce_spread.snapshot_date BETWEEN '2023-10-17' AND '2023-10-23';
--- Result: 9 — not the source of contamination
-
--- Spread year distribution for fast crossings
-SELECT YEAR(dgd_spread.spread_first) AS spread_year, COUNT(DISTINCT dgd.song_id) AS song_count
-FROM DiscoveryGapByDay dgd
-JOIN (
-    SELECT song_id, country_id, MIN(snapshot_date) AS spread_first
-    FROM ChartEntry WHERE country_id IS NOT NULL
-    GROUP BY song_id, country_id
-) dgd_spread ON dgd_spread.song_id = dgd.song_id AND dgd_spread.country_id = dgd.spread_country_id
-WHERE dgd.days_to_spread BETWEEN 1 AND 6
-GROUP BY YEAR(dgd_spread.spread_first)
-ORDER BY YEAR(dgd_spread.spread_first);
-
--- SongCountryPresence sanity check
-SELECT chart_year, COUNT(*) AS total_song_year_rows,
-    AVG(CAST(country_count AS DECIMAL(10,4))) AS avg_countries,
-    MIN(country_count) AS min_countries, MAX(country_count) AS max_countries
-FROM SongCountryPresence
-GROUP BY chart_year ORDER BY chart_year;
-
--- DiscoveryGapByDay table structure check
-SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME = 'DiscoveryGapByDay' ORDER BY ORDINAL_POSITION;
-```
+- [ ] Apply "2023 (Oct–Dec)" year selector label across all screens — Hidden Gems, 
+      Country Profile, Country Comparison, Globe filter panel
+- [x] Confirm `sp_GetDiscoveryGapDistribution` date range filter is correctly wired 
+      from the frontend date params — resolved May 13 (see Bug 6 below)
+- [ ] Issue 2 (Global Reach) frontend changes need to be verified on mobile layout 
+      as well as web
 
 ---
 
-## Open Items After This Session
+---
 
-- [ ] Apply "2023 (Oct–Dec)" year selector label across all screens — Hidden Gems, Country Profile, Country Comparison, Globe filter panel
-- [ ] Confirm `sp_GetDiscoveryGapDistribution` date range filter is correctly wired from the frontend date params
-- [ ] Issue 2 (Global Reach) frontend changes need to be verified on mobile layout as well as web
-- [ ] **Issue 4 — Future iteration:** Add `@ChartTypeFilter` parameter to `sp_GetAverageDiscoveryGap` and `sp_GetDiscoveryGapDistribution` to enable Top 200-only calculation. See ADR Issue 4 for recommended SQL pattern.
-- [ ] **Issue 4 — Future iteration:** Consider chart type toggle on Discovery Gap Distribution chart in UI (All charts / Top 200 only / Viral 50 only) to make the Viral 50 vs adoption distinction visible and explorable.
+# SP / Interface / Controller Cross-Check — May 13, 2026
 
-*HiddenGemMusic Capstone | QA Session April 29, 2026*
+**Branch:** `67-cross-check-interfaces-controllers-against-sps`  
+**Scope:** Full audit of all stored procedures against C# interfaces, repositories, and controllers.  
+
+---
+
+## Summary
+
+Two critical bugs found and fixed. Two non-bugs identified and closed. One additional data quality improvement made during fix validation.
+
+| # | Issue | Status | Fix Type |
+|---|-------|--------|----------|
+| 5 | `sp_GetHiddenGems` missing `total_count` — pagination permanently broken | Resolved | SP fix |
+| 6 | `sp_GetDiscoveryGapDistribution` ignoring `@DateStart`/`@DateEnd` — always returned all-years data | Resolved | SP fix + schema change + repopulate |
+| 7 | `sp_GetAverageDiscoveryGap` using imprecise date filter + wrong floor — same class of issue as Bug 6 | Resolved | SP fix |
+| — | `IGlobeRepository` XML doc comment references wrong SP name | Non-bug — documentation only, no runtime impact | No action |
+| — | `genre` column read in `HiddenGemsRepository` — SP doesn't return it | Non-bug — `AsStringAny` returns null gracefully, Deezer enrichment populates it later | No action |
+
+---
+
+## Bug 5 — `sp_GetHiddenGems` Missing `total_count` Column
+
+**Severity:** Critical — Hidden Gems pagination was permanently broken  
+**Status:** Resolved
+
+### What was observed
+
+`HiddenGemsRepository` reads `total_count` from the first result row to compute the `hasMore` flag used for infinite scroll pagination. The SP never returned this column, so `totalRawCount` always defaulted to 0 and `hasMore` was always `false`. Pagination was broken on every load regardless of filter parameters.
+
+### Resolution
+
+Added `COUNT(1) OVER() AS total_count` to the SELECT in `sp_GetHiddenGems`, matching the pattern already used in `sp_GetCountrySongsPaged`. No repopulation required — the fix is in the read proc only.
+
+**File:** `backend/Capstone.API/SQL Scripts/read/sp_GetHiddenGems.sql`  
+**Deploy:** Re-run SP in SSMS.
+
+---
+
+## Bug 6 — `sp_GetDiscoveryGapDistribution` Date Range Parameters Unused
+
+**Severity:** Critical — histogram always showed all-years aggregate regardless of selected date range  
+**Status:** Resolved
+
+### What was observed
+
+`@DateStart` and `@DateEnd` were declared in the SP signature and passed through from `DashboardController` → `IDashboardRepository` → the SP, but the SP body never referenced them. Every call returned the complete all-years dataset regardless of what date range the caller passed.
+
+### Initial fix (superseded)
+
+Added a `JOIN SongCountryPresence ON scp.song_id = dgbd.song_id` and filtered by `scp.chart_year BETWEEN YEAR(@DateStart) AND YEAR(@DateEnd)`. This wired the parameters but was identified as semantically imprecise: `SongCountryPresence.chart_year` records when a song was charting, not when the spread event originated. A song could spread in 2018 but still appear in `SongCountryPresence` for 2019 and 2020, making the join a noisy proxy for filtering by spread timing.
+
+### Proper fix
+
+1. **Schema change:** `ALTER TABLE DiscoveryGapByDay ADD first_chart_date DATE NULL` — stores the origin date of the spread event directly on the pre-computed table.
+
+2. **`sp_PopulateDiscoveryGapByDay` updated:** Added `first_chart_date` to the INSERT column list, populated from `origin_date AS first_chart_date` in the `Spread` CTE. `origin_date` was already computed (`MIN(first_date)` from `Origin` CTE) — it just wasn't being stored.
+
+3. **Additional data quality improvement:** Floor raised from `gap_days > 0` to `gap_days > 1`. Day-1 entries represent songs released simultaneously across multiple markets on launch day — these are global rollouts, not organic cross-border discovery events. Excluding them tightens the semantic accuracy of what the histogram represents.
+
+4. **`sp_GetDiscoveryGapDistribution` updated:** `SongCountryPresence` join removed entirely. Filter is now `WHERE dgbd.first_chart_date BETWEEN @DateStart AND @DateEnd` — directly scoped to when the spread event originated.
+
+**Files:**
+- `backend/Capstone.API/SQL Scripts/read/sp_GetDiscoveryGapDistribution.sql`
+- `backend/Capstone.API/SQL Scripts/population/sp_PopulateDiscoveryGapByDay.sql`
+
+**Deploy:** Run `ALTER TABLE` in SSMS, re-run `sp_PopulateDiscoveryGapByDay` to repopulate with `first_chart_date` stored, then re-run the read SP.
+
+---
+
+## Bug 7 — `sp_GetAverageDiscoveryGap` Imprecise Date Filter and Wrong Floor
+
+**Severity:** High — KPI 2 avg/median values were not correctly scoped to the selected date range, and included day-1 global rollout entries  
+**Status:** Resolved
+
+### What was observed
+
+During the same cross-check pass that produced Bug 6, `sp_GetAverageDiscoveryGap` was identified as having the same class of issues as the distribution SP:
+
+1. **Date filtering via `SongCountryPresence` join** — the SP was filtering by `scp.chart_year`, which records when a song was charting, not when its spread event originated. A song spreading in 2018 could appear in SCP rows for 2019 and 2020, making the join imprecise as a date boundary.
+
+2. **Floor at `days_to_spread > 0`** — including day-1 entries (songs released simultaneously across markets on launch day), which are global rollouts rather than organic cross-border discovery events. Inconsistent with the population proc after its `> 1` floor update.
+
+### Resolution
+
+Replaced `SongCountryPresence` date join with `WHERE dgd.first_chart_date BETWEEN @DateStart AND @DateEnd`, matching the pattern applied to `sp_GetDiscoveryGapDistribution` in Bug 6. Floor raised from `> 0` to `> 1` for consistency with the population proc.
+
+Note: `SongCountryPresence` is still used in the `EXISTS` clause for the `@MinCountries` filter — that use is correct and unchanged.
+
+**File:** `backend/Capstone.API/SQL Scripts/read/sp_GetAverageDiscoveryGap.sql`  
+**Deploy:** Re-run SP in SSMS. No repopulation required.
+
+---
+
+*HiddenGemMusic Capstone | QA Session April 29, 2026 + Cross-Check May 13, 2026*

@@ -1,5 +1,6 @@
 using Capstone.API.Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 
 namespace Capstone.API.Controllers
 {
@@ -11,13 +12,15 @@ namespace Capstone.API.Controllers
     public class GlobeController : ControllerBase
     {
         private readonly IGlobeRepository _repo;
+        private readonly ILogger<GlobeController> _logger;
 
         /// <summary>
         /// Initializes a new instance of GlobeController.
         /// </summary>
-        public GlobeController(IGlobeRepository repo)
+        public GlobeController(IGlobeRepository repo, ILogger<GlobeController> logger)
         {
             _repo = repo;
+            _logger = logger;
         }
 
         /// <summary>
@@ -26,10 +29,27 @@ namespace Capstone.API.Controllers
         /// </summary>
         /// <param name="year">The chart year to display. Defaults to 2021 (last year of Dataset 1).</param>
         [HttpGet]
-        public async Task<IActionResult> GetGlobeSummary([FromQuery] int year = 2021)
+        public async Task<IActionResult> GetGlobeSummary([FromQuery] int year = 2021, CancellationToken cancellationToken = default)
         {
-            var result = await _repo.GetGlobeSummaryAsync(year);
-            return Ok(result);
+            try
+            {
+                var result = await _repo.GetGlobeSummaryAsync(year, cancellationToken);
+                return Ok(result);
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "SQL error getting globe summary for year {Year}", year);
+                return StatusCode(503, new { message = "Database temporarily unavailable while retrieving globe data." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting globe summary for year {Year}", year);
+                return StatusCode(500, new { message = "An unexpected error occurred while retrieving globe data." });
+            }
         }
     }
 }

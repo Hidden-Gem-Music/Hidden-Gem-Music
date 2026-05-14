@@ -25,23 +25,27 @@ namespace Capstone.API.Models.Dashboard
 
         /// <summary>
         /// Gets or sets the percentage of charting songs that appeared in 2 or more countries for this period.
+        /// Null for gap rows — Recharts uses IsGap to skip rendering these points.
         /// </summary>
-        public decimal OverlapPct { get; set; }
+        public decimal? OverlapPct { get; set; }
 
         /// <summary>
         /// Gets or sets the average number of countries per charting song for this period.
+        /// Null for gap rows.
         /// </summary>
-        public decimal AvgCountries { get; set; }
+        public decimal? AvgCountries { get; set; }
 
         /// <summary>
         /// Gets or sets the total number of unique songs that charted in this period.
+        /// Null for gap rows.
         /// </summary>
-        public int TotalUniqueSongs { get; set; }
+        public int? TotalUniqueSongs { get; set; }
 
         /// <summary>
         /// Gets or sets the number of songs that charted in 2 or more countries in this period.
+        /// Null for gap rows.
         /// </summary>
-        public int SongsIn2Plus { get; set; }
+        public int? SongsIn2Plus { get; set; }
 
         /// <summary>
         /// Gets or sets a flag indicating whether this point falls inside the 22-month data gap (Dec 2021 – Oct 2023).

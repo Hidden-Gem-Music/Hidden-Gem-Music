@@ -25,6 +25,7 @@ import {
 
 import {
   loadDiscoveryGap,
+  loadGapDistribution,
   loadIsolationLeader,
   loadIsolationRanking,
   loadOverlapRate,
@@ -33,6 +34,7 @@ import {
 } from "../data/dashboardApi";
 import type {
   ApiDiscoveryGap,
+  ApiGapBucket,
   ApiIsolationEntry,
   ApiIsolationLeader,
   ApiOverlapRate,
@@ -215,14 +217,22 @@ function PullStat({
   number,
   unit,
   context,
+  stackedSign,
 }: {
   number: string;
   unit?: string;
   context: string;
+  stackedSign?: boolean;
 }) {
   return (
     <View style={styles.pullStat}>
       <View style={styles.pullStatDisplay}>
+        {stackedSign ? (
+          <View style={styles.pullStatSignStack}>
+            <Text style={styles.pullStatSign}>+</Text>
+            <Text style={styles.pullStatSign}>−</Text>
+          </View>
+        ) : null}
         <Text style={styles.pullStatNumber}>{number}</Text>
         {unit ? <Text style={styles.pullStatUnit}>{unit}</Text> : null}
       </View>
@@ -468,7 +478,7 @@ function OverlapTrendChart({ data }: { data: ApiTrendPoint[] }) {
       <View style={styles.chartLegendRow}>
         <View style={styles.chartLegendItem}>
           <View style={[styles.chartLegendSwatch, { backgroundColor: colors.accent, opacity: 0.65 }]} />
-          <Text style={styles.chartLegendText}>2017–2021 (Top 200 + Viral 50)</Text>
+          <Text style={styles.chartLegendText}>2017–2021 (Top 200 only)</Text>
         </View>
         <View style={styles.chartLegendItem}>
           <View
@@ -685,6 +695,45 @@ function GlobalReachChart({ data }: { data: ApiTrendPoint[] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Chart: Chapter 1 — Discovery Gap Distribution Histogram
+// ---------------------------------------------------------------------------
+
+function DiscoveryGapHistogram({ data }: { data: ApiGapBucket[] }) {
+  const sorted = [...data].sort((a, b) => a.bucketOrder - b.bucketOrder);
+  return (
+    <View style={styles.chartShell}>
+      <View style={styles.chartContainer}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={sorted} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(117,130,160,0.15)" vertical={false} />
+            <XAxis
+              dataKey="bucketLabel"
+              tick={{ fill: "rgba(169,176,209,0.7)", fontSize: 11, fontFamily: typefaces.body }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tickFormatter={(v) => `${Math.round(v / 1000)}k`}
+              tick={tickStyle}
+              axisLine={false}
+              tickLine={false}
+              width={36}
+            />
+            <Tooltip
+              formatter={(value: any) => [Number(value).toLocaleString(), "Songs"]}
+              contentStyle={tooltipStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={tooltipItemStyle}
+            />
+            <Bar dataKey="songCount" fill="#818cf8" fillOpacity={0.7} radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </View>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // About This Data (collapsible)
 // ---------------------------------------------------------------------------
 
@@ -702,22 +751,22 @@ const ABOUT_ENTRIES = [
     body: "Heavily Q4-weighted. Affects Hidden Gems, Country Profile, and any chart scoped to 2023.",
   },
   {
-    icon: "!",
-    iconType: "orange" as const,
-    title: "Known limitation — Viral 50 and Top 200 treated as equivalent",
-    body: "Discovery gap times and overlap rates include Viral 50 entries, which spread simultaneously by design rather than through organic discovery. A chart-type-separated view is planned for a future iteration.",
+    icon: "i",
+    iconType: "blue" as const,
+    title: "2017–2021 and 2023–2025 use different chart depths",
+    body: "2017–2021 data draws from the Top 200 chart — 200 songs per country per day. 2023–2025 data draws from the Top 50 chart — 50 songs per country per day. Both are streams-based demand charts, but 2017–2021 has significantly deeper per-country coverage. Cross-period comparisons reflect this difference.",
   },
   {
     icon: "i",
     iconType: "blue" as const,
     title: "Chart scope differs between time periods",
-    body: "2017–2021 data draws from Top 200 + Viral 50. 2023–2025 data draws from Top 50 only. Values are not directly comparable across the gap.",
+    body: "2017–2021 data draws from Top 200 only. 2023–2025 data draws from Top 50 only. Viral 50 entries are excluded from all calculations. Values are not directly comparable across the gap.",
   },
   {
     icon: "i",
     iconType: "blue" as const,
-    title: "Discovery gap reflects first crossings only",
-    body: "Mean (38d) and median (4d) diverge because crossover is bimodal. Songs that never crossed any border are excluded.",
+    title: "How isolation score is calculated",
+    body: "Isolation score = the percentage of a country's charting songs that appeared in no other country's charts during the same year. A score of 92% means 92 out of every 100 songs charting in that market stayed completely local.",
   },
 ];
 
@@ -726,8 +775,21 @@ const ICON_COLORS: Record<string, string> = {
   blue: "#63b3ed",
 };
 
-function AboutThisData() {
+function AboutThisData({ discoveryGap }: { discoveryGap: ApiDiscoveryGap | null }) {
   const [open, setOpen] = useState(false);
+
+  const dynamicEntries = [
+    ...ABOUT_ENTRIES,
+    {
+      icon: "i",
+      iconType: "blue" as const,
+      title: "Discovery gap reflects first crossings only",
+      body: discoveryGap
+        ? `Mean (${discoveryGap.avgGapDays}d) and median (${discoveryGap.medianGapDays}d) diverge because crossover is bimodal. Most songs that cross any border do so within two weeks. A long tail of songs that took months — or barely reached a second market — pulls the mean up sharply. Songs that never crossed any border are excluded. Sample size: ${discoveryGap.sampleSize.toLocaleString()} songs.`
+        : "Mean and median diverge because crossover is bimodal. Most songs that cross any border do so within two weeks. A long tail pulls the mean up sharply. Songs that never crossed any border are excluded.",
+    },
+  ];
+
   return (
     <View style={styles.aboutSection}>
       <Pressable style={styles.aboutToggleRow} onPress={() => setOpen((v) => !v)}>
@@ -738,7 +800,7 @@ function AboutThisData() {
       </Pressable>
       {open ? (
         <View style={styles.aboutEntries}>
-          {ABOUT_ENTRIES.map((entry, i) => (
+          {dynamicEntries.map((entry, i) => (
             <View key={i} style={styles.aboutEntry}>
               <View
                 style={[
@@ -773,6 +835,7 @@ function DashboardScreenContent() {
   const [peakReach, setPeakReach] = useState<ApiPeakReach | null>(null);
   const [trendData, setTrendData] = useState<ApiTrendPoint[]>([]);
   const [isolationRanking, setIsolationRanking] = useState<ApiIsolationEntry[]>([]);
+  const [gapDistribution, setGapDistribution] = useState<ApiGapBucket[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<ApiIsolationEntry | null>(null);
@@ -787,14 +850,16 @@ function DashboardScreenContent() {
       loadPeakReach(start, end),
       loadOverlapTrend(start, end),
       loadIsolationRanking(start, end),
+      loadGapDistribution(start, end),
     ])
-      .then(([rate, gap, leader, reach, trend, ranking]) => {
+      .then(([rate, gap, leader, reach, trend, ranking, gapDist]) => {
         setOverlapRate(rate);
         setDiscoveryGap(gap);
         setIsolationLeader(leader);
         setPeakReach(reach);
         setTrendData(trend);
         setIsolationRanking(ranking);
+        setGapDistribution(gapDist);
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -820,7 +885,12 @@ function DashboardScreenContent() {
     const pt2017 = nonGap.find((p) => p.periodYear === 2017);
     const pt2021 = nonGap.find((p) => p.periodYear === 2021);
     if (!pt2017 || !pt2021) return null;
-    return Math.round(pt2021.overlapPct - pt2017.overlapPct);
+    return {
+      delta: Math.round(Math.abs(pt2021.overlapPct - pt2017.overlapPct)),
+      pct2017: Math.round(pt2017.overlapPct),
+      pct2021: Math.round(pt2021.overlapPct),
+      direction: pt2021.overlapPct >= pt2017.overlapPct ? "rose" : "fell",
+    };
   }, [trendData]);
 
   // Card 3 personalization
@@ -1044,6 +1114,20 @@ function DashboardScreenContent() {
                 </View>
               </View>
 
+              {/* Discovery Gap Distribution histogram */}
+              {gapDistribution.length > 0 ? (
+                <>
+                  <ChapterCard label="DISCOVERY GAP DISTRIBUTION">
+                    <DiscoveryGapHistogram data={gapDistribution} />
+                  </ChapterCard>
+                  <Text style={styles.pullQuote}>
+                    Most songs that cross any border do so within two weeks. The long tail —
+                    songs that took months or never arrived at all — is what the discovery gap
+                    is made of.
+                  </Text>
+                </>
+              ) : null}
+
               {/* KPI flip cards — full-width 4-column grid */}
               <View style={styles.kpiGrid}>
                 {overlapRate ? (
@@ -1177,6 +1261,10 @@ function DashboardScreenContent() {
                       context="difference between the most and least isolated market in this dataset."
                     />
                   ) : null}
+                  <Text style={styles.isolationExplainer}>
+                    Isolation score = % of a country's charting songs that appeared nowhere else
+                    in the world.
+                  </Text>
                 </View>
                 <View style={styles.chapterRight}>
                   <ArgumentText>
@@ -1222,9 +1310,10 @@ function DashboardScreenContent() {
                 <View style={styles.chapterLeft}>
                   {overlapChange !== null ? (
                     <PullStat
-                      number={`+${overlapChange}`}
+                      number={String(overlapChange.delta)}
                       unit="pts"
-                      context="increase in global overlap from 2017 to 2021 — then a 22-month silence."
+                      context={`overlap ${overlapChange.direction} from ${overlapChange.pct2017}% to ${overlapChange.pct2021}% between 2017 and 2021 — then a 22-month silence.`}
+                      stackedSign
                     />
                   ) : null}
                 </View>
@@ -1409,7 +1498,7 @@ function DashboardScreenContent() {
 
           {/* ── About This Data ── */}
           <View style={styles.contentInner}>
-            <AboutThisData />
+            <AboutThisData discoveryGap={discoveryGap} />
           </View>
         </ScrollView>
 
@@ -1543,7 +1632,7 @@ const styles = StyleSheet.create({
   heroBody: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 24,
     opacity: 0.65,
     maxWidth: 500,
@@ -1684,10 +1773,10 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   chapterCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: "rgba(117,82,107,0.6)",
     backgroundColor: "rgba(117,82,107,0.08)",
     alignItems: "center",
@@ -1696,14 +1785,14 @@ const styles = StyleSheet.create({
   chapterNumber: {
     color: colors.accent,
     fontFamily: typefaces.body,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
   },
   chapterTitle: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 12,
-    letterSpacing: 1.4,
+    fontSize: 13,
+    letterSpacing: 2,
     textTransform: "uppercase" as any,
     fontWeight: "500",
     opacity: 0.75,
@@ -1737,6 +1826,21 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
     flexWrap: "wrap",
   },
+  pullStatSignStack: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginRight: 2,
+    marginBottom: 6,
+  },
+  pullStatSign: {
+    color: colors.accent,
+    fontFamily: typefaces.display,
+    fontSize: 48,
+    fontWeight: "700",
+    lineHeight: 52,
+    letterSpacing: -2,
+  },
   pullStatNumber: {
     color: colors.accent,
     fontFamily: typefaces.display,
@@ -1763,13 +1867,23 @@ const styles = StyleSheet.create({
     opacity: 0.45,
     marginTop: 4,
   },
+  isolationExplainer: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 13,
+    lineHeight: 19,
+    maxWidth: 220,
+    opacity: 0.5,
+    marginTop: 12,
+    fontStyle: "italic",
+  },
 
   // —— Argument text ——
   argument: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 15,
-    lineHeight: 26,
+    fontSize: 16,
+    lineHeight: 28,
   },
   argBold: {
     color: colors.textStrong,
@@ -1885,7 +1999,7 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: "rgba(255,255,255,0.08)",
     borderRadius: 10,
-    minHeight: 80,
+    minHeight: 100,
     overflow: "hidden",
     cursor: "pointer" as any,
   },
@@ -1910,15 +2024,15 @@ const styles = StyleSheet.create({
   kpiLabel: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 11,
+    fontSize: 12,
     opacity: 0.6,
   },
   kpiNumber: {
     color: colors.textStrong,
     fontFamily: typefaces.display,
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700",
-    lineHeight: 32,
+    lineHeight: 36,
   },
   kpiSublabel: {
     color: colors.text,
@@ -1929,7 +2043,7 @@ const styles = StyleSheet.create({
   kpiSecondary: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 10,
+    fontSize: 11,
     opacity: 0.5,
   },
   kpiFlipHint: {
@@ -1949,8 +2063,8 @@ const styles = StyleSheet.create({
   kpiBackBody: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 13,
+    lineHeight: 18,
     opacity: 0.75,
   },
   kpiCta: {
