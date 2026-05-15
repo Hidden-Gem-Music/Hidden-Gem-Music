@@ -3,6 +3,61 @@
 
 ---
 
+## 2026-05-15 — Project Stabilization Follow-Up
+
+**Tester:** mp3li / Codex-assisted verification
+**Fix owner:** mp3li / Codex-assisted implementation
+**Scope:** Generated enrichment outputs, comparison year validation, shared native button timing, local config template, and stabilization verification coverage
+
+### What I noticed
+
+The whole-project review found several risks that could cause future regressions even though the project built successfully:
+
+- Full generated enrichment outputs were tracked under `tools/song_data_enrichment/output/`.
+- Comparison backend year validation still used stale hard-coded `1975..2021` rules while the app year flow now supports metadata-backed years, including 2025 when present.
+- Shared native `ActionButton` behavior fired actions from `onPressIn` with a timer instead of normal `Pressable onPress`.
+- Local backend config was ignored correctly, but there was no committed local example file.
+- Frontend package scripts did not include a dedicated typecheck command.
+
+### What was fixed
+
+- Untracked full generated enrichment outputs while leaving local files on disk.
+- Ignored `tools/song_data_enrichment/output/` and documented that full enrichment output/state is local runtime data.
+- Updated Comparison backend validation to use available years from metadata instead of stale fixed year constants.
+- Kept Comparison invalid-year behavior as `400` while making support follow the dataset year source of truth.
+- Restored shared native `ActionButton` actions to normal `onPress` behavior while preserving pressed styling.
+- Added a committed backend local settings example with placeholder values only.
+- Added a frontend `typecheck` script.
+- Updated backend API documentation so Comparison year validation matches the current metadata-backed behavior.
+
+### How to test
+
+1. Confirm `git ls-files tools/song_data_enrichment/output` returns no tracked output files.
+2. Confirm `tools/song_data_enrichment/output/` files still exist locally if they existed before the cleanup.
+3. Start the backend and call `GET /api/metadata/years`; confirm the expected dataset years are returned.
+4. Call `GET /api/comparison?countryA=US&countryB=CA&year=2025`; it should not be rejected because of the old 2021 maximum when 2025 is in metadata.
+5. Call `GET /api/comparison?countryA=US&countryB=CA&year=2022`; it should return `400` when 2022 is not in metadata.
+6. On mobile, tap shared welcome/comparison buttons and confirm pressed styling still appears and navigation/action only happens on a completed press.
+7. Re-run the Discovery Map checks from the Discovery Map stabilization entry below.
+
+### Verification
+
+- `git diff --check`
+- `npm run typecheck`
+- `dotnet build`
+
+### User runtime confirmation
+
+After the stabilization changes, mp3li tested locally and confirmed:
+
+- Discovery Map still opens normally and keeps 2025 behavior.
+- Welcome and Comparison buttons still show pressed styling and navigate.
+- Comparison year dropdown includes 2025 when metadata returns it.
+- Comparison with 2025 does not fail because of the old 2021 limit.
+- Generated enrichment output files still exist locally while git no longer tracks `tools/song_data_enrichment/output/`.
+
+---
+
 ## 2026-05-14 — Discovery Map Web/Mobile Stabilization
 
 **Tester:** mp3li

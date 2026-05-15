@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 **Status:** Current Local Runbook
 
 ---
@@ -33,6 +33,7 @@ Important local-only frontend file:
 Backend local configuration that frontend work commonly depends on:
 
 - `backend/Capstone.API/appsettings.Local.json`
+- `backend/Capstone.API/appsettings.Local.example.json` is the committed template; copy its shape into the local-only file and replace placeholders on your own machine
 
 Do not commit:
 

@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 **Status:** Current UX Behavior Rules
 
 ---
@@ -37,6 +37,7 @@ Current rules:
 - welcome dismissal must check whether navigation can go back before calling `goBack`
 - if there is no route to pop, welcome dismissal should navigate to Discovery instead of dispatching an unhandled back action
 - repeated mobile taps during welcome dismissal should be ignored while the close transition is already in progress
+- shared welcome/comparison `ActionButton` actions should fire from normal `Pressable onPress`; pressed styling can start on press-in, but navigation/action execution should not be driven by a press-in timer
 
 ## Loading overlay rule
 

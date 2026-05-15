@@ -1,6 +1,66 @@
 mp3li implementation timeline document
 
-Updated: May 14, 2026
+Updated: May 15, 2026
+
+Interactive Discovery Map Completion, Code Review Stabilization, and PR-Readiness Pass (May 15, 2026)
+- Objective:
+  - Bring the broader interactive Discovery Map / map-or-globe issue into a PR-ready state after the web and mobile Discovery Map behavior was tested repeatedly on the user's devices.
+  - Treat the remaining work as edge-case testing rather than known blocking implementation gaps.
+  - Fold the code-review stabilization findings into the same branch so the PR includes both the feature completion work and the immediate risk mitigation work.
+  - Keep the approved UI intact: no visual redesign, no control removal, and no Discovery Map layout changes beyond already-approved stabilization fixes.
+
+- Runtime testing confirmed by the user before documentation/PR finalization:
+  - Discovery Map still opens normally.
+  - Discovery Map keeps the 2025 default-year behavior.
+  - Welcome and Comparison shared buttons still show pressed styling and navigate.
+  - Comparison year dropdown includes 2025 when metadata returns it.
+  - Comparison with 2025 no longer fails because of the old stale 2021 backend cap.
+  - The user confirmed repeated hands-on testing on their own devices until the known Discovery Map issues were no longer reproducing.
+
+- Code review risks addressed in this pass:
+  - Removed full generated enrichment outputs from git tracking while keeping the local files on disk.
+  - Added `tools/song_data_enrichment/output/` to `.gitignore`.
+  - Updated tool documentation to make clear that full generated output/state files are local runtime artifacts, not source-of-truth project code.
+  - Replaced stale hard-coded Comparison backend year validation (`1975..2021`) with metadata-backed available-year validation through `IMetadataRepository`.
+  - Kept invalid Comparison years returning `400`, but now based the decision on the dataset years returned by metadata instead of a fixed old range.
+  - Updated backend API documentation so Comparison year validation matches the current metadata-backed behavior.
+  - Restored shared native `ActionButton` behavior so actions fire from normal `Pressable onPress` instead of a timer started on `onPressIn`.
+  - Preserved the same button visuals, labels, gradients, pressed styling, and layout while making cancelled/dragged-away native presses safer.
+  - Added `npm run typecheck` so the frontend has a named verification script instead of relying only on the raw TypeScript command.
+  - Added `backend/Capstone.API/appsettings.Local.example.json` with placeholder values only, so local backend setup has a committed template without exposing private machine credentials.
+
+- Documentation updated in this pass:
+  - Updated the personal timeline with the Discovery Map completion and stabilization work.
+  - Updated `Documentation/QA-log.md` with the stabilization follow-up and user runtime confirmation.
+  - Updated frontend documentation dates and clarified current shared button interaction rules.
+  - Updated frontend architecture / interaction docs to reflect the completed shared Discovery/Comparison map path and current edge-testing status.
+  - Updated backend current API documentation for metadata-backed Comparison year validation.
+  - Updated backend local run/testing docs for the local config example.
+  - Updated tool docs for ignored generated enrichment output.
+  - Replaced the broader interactive-map PR markdown so it now represents the full issue as functionally completed with edge-case testing next.
+
+- Main implementation files touched by the code-review stabilization portion:
+  - `.gitignore`
+  - `backend/Capstone.API/Controllers/ComparisonController.cs`
+  - `backend/Capstone.API/appsettings.Local.example.json`
+  - `hidden-gem-music-app/src/components/ActionButton.tsx`
+  - `hidden-gem-music-app/package.json`
+  - `tools/README.md`
+  - `tools/song_data_enrichment/README.md`
+
+- Verification completed after stabilization edits:
+  - Ran `git diff --check`.
+  - Ran `npm run typecheck`.
+  - Ran `dotnet build`.
+  - Verified `git ls-files tools/song_data_enrichment/output` returns no tracked output files.
+  - Verified the local generated output files still exist on disk in `tools/song_data_enrichment/output/`.
+  - Attempted endpoint curl verification from the sandbox; the sandbox backend run did not open port `5140`, so endpoint curl verification was completed through the user's local runtime testing instead.
+
+- Final status:
+  - The interactive map/globe issue can be represented as functionally implemented for the current app scope.
+  - Discovery Map behavior is accepted on the user's tested devices.
+  - Comparison map/year flow is aligned with metadata years, including 2025.
+  - Remaining recommendation is edge-case testing, not another known implementation pass.
 
 Discovery Map Default-Year, Web Polish, and Mobile Interaction Stabilization Pass (May 14, 2026)
 - Objective:

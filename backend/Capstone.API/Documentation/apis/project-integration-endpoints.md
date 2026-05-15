@@ -1,7 +1,7 @@
 # Project Integration Endpoints
 
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 
 ## Purpose of this file
 
@@ -89,6 +89,18 @@ These are the app endpoints the frontend calls.
   - `loadAvailableYears`
 - Current role:
   - shared selected-year options for screen flows that depend on year-specific enrichment
+  - source of truth for Discovery and Comparison year availability, including 2025 when present in the dataset
+
+### 7. Comparison
+
+- Endpoint:
+  - `GET /api/comparison?countryA={countryCode}&countryB={countryCode}&year={year}`
+  - `GET /api/comparison/hidden-gems?countryA={countryCode}&countryB={countryCode}&year={year}`
+- Frontend role:
+  - supports the comparison feature path where backend comparison summaries or hidden-gem suggestions are needed
+- Current behavior:
+  - country codes must be two different 2-letter ISO codes
+  - year validation follows the metadata-years source of truth instead of the older hard-coded 2021 maximum
 
 ## External provider endpoints used by the current live backend path
 

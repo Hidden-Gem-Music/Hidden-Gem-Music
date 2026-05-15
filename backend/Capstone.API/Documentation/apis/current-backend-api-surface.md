@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 **Status:** Current Live API Contract Supplement
 
 ---
@@ -229,8 +229,7 @@ Validation and normalization behavior:
 
 - `countryA` and `countryB` must each be exactly 2 letters
 - `countryA` and `countryB` must be different countries
-- `year` must be in `1975..2021`
-- years `2007..2010` are rejected as unavailable
+- `year` is validated against the available-years metadata set
 - both country codes are normalized to uppercase
 
 Repository and stored procedure bindings:

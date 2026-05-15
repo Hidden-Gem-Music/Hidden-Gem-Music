@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 **Status:** Active
 
 ---
@@ -58,3 +58,4 @@ Important practical rule:
 
 - keep generated output/state local unless a specific file is intentionally meant to become a tracked project asset
 - runtime state/output folders are useful during enrichment work but should not be treated as frontend/backend source-of-truth code
+- full enrichment outputs should stay ignored; if a tracked sample is needed, add a small fixture outside the runtime output folder and document why it is versioned

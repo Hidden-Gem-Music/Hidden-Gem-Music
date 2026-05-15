@@ -13,20 +13,21 @@ namespace Capstone.API.Controllers
     public class ComparisonController : ControllerBase
     {
         private static readonly Regex CountryCodeRegex = new("^[A-Za-z]{2}$", RegexOptions.Compiled);
-        private const int MinSupportedYear = 1975;
-        private const int MaxSupportedYear = 2021;
-        private const int UnavailableGapStartYear = 2007;
-        private const int UnavailableGapEndYear = 2010;
 
         private readonly IComparisonRepository _repo;
+        private readonly IMetadataRepository _metadataRepo;
         private readonly ILogger<ComparisonController> _logger;
 
         /// <summary>
         /// Initializes a new instance of ComparisonController.
         /// </summary>
-        public ComparisonController(IComparisonRepository repo, ILogger<ComparisonController> logger)
+        public ComparisonController(
+            IComparisonRepository repo,
+            IMetadataRepository metadataRepo,
+            ILogger<ComparisonController> logger)
         {
             _repo = repo;
+            _metadataRepo = metadataRepo;
             _logger = logger;
         }
 
@@ -44,11 +45,14 @@ namespace Capstone.API.Controllers
             [FromQuery] int year = 2021,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateInputs(countryA, countryB, year, out var validationError))
+            if (!TryValidateCountries(countryA, countryB, out var validationError))
                 return BadRequest(new { message = validationError });
 
             try
             {
+                if (!await IsAvailableYearAsync(year, cancellationToken))
+                    return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
+
                 var result = await _repo.GetCountryComparisonAsync(
                     countryA.ToUpperInvariant(),
                     countryB.ToUpperInvariant(),
@@ -100,11 +104,14 @@ namespace Capstone.API.Controllers
             [FromQuery] int year = 2021,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateInputs(countryA, countryB, year, out var validationError))
+            if (!TryValidateCountries(countryA, countryB, out var validationError))
                 return BadRequest(new { message = validationError });
 
             try
             {
+                if (!await IsAvailableYearAsync(year, cancellationToken))
+                    return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
+
                 var result = await _repo.GetComparisonHiddenGemsAsync(
                     countryA.ToUpperInvariant(),
                     countryB.ToUpperInvariant(),
@@ -138,7 +145,13 @@ namespace Capstone.API.Controllers
             }
         }
 
-        private static bool TryValidateInputs(string countryA, string countryB, int year, out string validationError)
+        private async Task<bool> IsAvailableYearAsync(int year, CancellationToken cancellationToken)
+        {
+            var availableYears = await _metadataRepo.GetAvailableYearsAsync(cancellationToken);
+            return availableYears.Contains(year);
+        }
+
+        private static bool TryValidateCountries(string countryA, string countryB, out string validationError)
         {
             if (string.IsNullOrWhiteSpace(countryA) || !CountryCodeRegex.IsMatch(countryA))
             {
@@ -155,18 +168,6 @@ namespace Capstone.API.Controllers
             if (countryA.Equals(countryB, StringComparison.OrdinalIgnoreCase))
             {
                 validationError = "countryA and countryB must be different countries.";
-                return false;
-            }
-
-            if (year < MinSupportedYear || year > MaxSupportedYear)
-            {
-                validationError = $"Year must be between {MinSupportedYear} and {MaxSupportedYear}.";
-                return false;
-            }
-
-            if (year >= UnavailableGapStartYear && year <= UnavailableGapEndYear)
-            {
-                validationError = $"Year {year} is unavailable in this dataset window.";
                 return false;
             }
 

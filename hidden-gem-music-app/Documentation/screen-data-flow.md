@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 **Status:** Current Frontend Data-Flow Reference
 
 ---
@@ -166,9 +166,10 @@ Current flow:
    - and the broader comparison country pool for dimmed context
 3. Selected country A and country B are styled distinctly on the map.
 
-Important current rule:
+Important current rules:
 
 - map interaction should follow Comparison selection rules without changing the screen-owned comparison filter logic
+- comparison year choices should follow the app-provided metadata years so 2025 remains available when the backend reports it
 
 ## Hidden Gems screen flow
 

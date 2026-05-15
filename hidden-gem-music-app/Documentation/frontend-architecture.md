@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 **Status:** Current Working Frontend Architecture
 
 ---
@@ -129,6 +129,12 @@ Current ownership rule:
 - the generation script lives in `tools/generate_world_map_assets.mjs`
 
 This keeps the map implementation swappable without forcing a full screen split.
+
+Current PR-readiness note:
+
+- the app-owned map path is functionally implemented for the current Discovery and Comparison screen flows
+- Discovery Map behavior has been hands-on tested on web/mobile by mp3li after the stabilization pass
+- remaining work is edge-case testing rather than known missing map implementation
 
 The live frontend does not call an external map provider. Country geometry comes from the checked-in generated asset:
 

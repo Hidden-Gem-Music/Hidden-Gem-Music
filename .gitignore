@@ -514,6 +514,9 @@ $RECYCLE.BIN/
 # Local Setup Files
 appsettings.Local.json
 
+# Generated enrichment output
+tools/song_data_enrichment/output/
+
 # Claude Code
 .claude/
 

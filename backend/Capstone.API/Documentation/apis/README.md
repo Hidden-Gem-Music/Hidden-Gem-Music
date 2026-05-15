@@ -1,7 +1,7 @@
 # Additional Data API Documentation
 
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 
 This folder documents the external API endpoints currently relevant to additional song metadata for Hidden Gem Music.
 

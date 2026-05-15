@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 **Status:** Active
 
 ---
@@ -82,6 +82,7 @@ These are development terms, not necessarily user-facing labels.
 - Discovery sidebar panels: Discovery controls/content areas used alongside map/list content. Code: `src/components/DiscoverySidebarPanels.tsx`.
 - Map view: Discovery visualization mode using the app-owned map instead of list rows. Code still lives under the historical `src/components/globe/` folder.
 - Map info blurb: glassy blurb inside the Discovery Map that shows helper copy by default and country detail text after map interaction.
+- Shared action button: app-styled route/action button used by welcome and comparison flows. It keeps mobile pressed styling but should fire actions through normal `Pressable onPress`.
 - List view panel: scrollable Discovery country list structure.
 - Year slider: Discovery year timeline control. Code: `src/components/YearSlider.tsx`.
 - Stat squares: square metric panels used in country/comparison summaries.

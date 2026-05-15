@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 **Status:** Active
 
 ---
@@ -137,6 +137,7 @@ Rules:
 - mobile should not depend on hover-only affordances
 - controls that trigger heavier mobile work should show visible pressed styling quickly so the user knows the tap was accepted
 - map arrow, zoom, reset, and welcome route buttons should keep mobile press feedback even when the actual map/navigation work may take a moment
+- mobile pressed styling should not require firing the actual action from `onPressIn`; route/action buttons should keep normal completed-press semantics
 - explicit-content badges on mobile should remain non-hover and non-click styled
 - overlays/popups should block unintended underlying interactions unless navigation is intentionally exempted
 

@@ -17,15 +17,11 @@ const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(
 export function ActionButton({ label, onPress, size = "default" }: Props) {
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
-  const nativePressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nativeReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showGradient = isHovered || isPressed;
 
   useEffect(() => {
     return () => {
-      if (nativePressTimerRef.current) {
-        clearTimeout(nativePressTimerRef.current);
-      }
       if (nativeReleaseTimerRef.current) {
         clearTimeout(nativeReleaseTimerRef.current);
       }
@@ -34,22 +30,16 @@ export function ActionButton({ label, onPress, size = "default" }: Props) {
 
   return (
     <Pressable
-      onPress={Platform.OS === "web" ? onPress : undefined}
+      onPress={onPress}
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
       onPressIn={() => {
         setIsPressed(true);
         if (Platform.OS !== "web") {
-          if (nativePressTimerRef.current) {
-            clearTimeout(nativePressTimerRef.current);
-          }
           if (nativeReleaseTimerRef.current) {
             clearTimeout(nativeReleaseTimerRef.current);
+            nativeReleaseTimerRef.current = null;
           }
-          nativePressTimerRef.current = globalThis.setTimeout(() => {
-            nativePressTimerRef.current = null;
-            onPress();
-          }, 120);
         }
       }}
       onPressOut={() => {

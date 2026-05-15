@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 **Status:** Current Backend Local Runbook
 
 ---
@@ -25,6 +25,12 @@ Backend local configuration depends on local-only files and values.
 Important local-only backend file:
 
 - `backend/Capstone.API/appsettings.Local.json`
+
+Committed template:
+
+- `backend/Capstone.API/appsettings.Local.example.json`
+
+Use the template shape for local setup, but keep real server names, usernames, and passwords only in `appsettings.Local.json`.
 
 Do not commit:
 

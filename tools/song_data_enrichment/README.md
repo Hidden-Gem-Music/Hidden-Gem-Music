@@ -88,6 +88,8 @@ Outputs are written to:
 
 `tools/song_data_enrichment/output/`
 
+That folder is generated runtime output and is ignored by git. Keep full CSV/JSON/TXT outputs local. If a future test or demo needs committed data, use a small fixture outside this runtime output folder and document why it is intentionally versioned.
+
 ## Data rules implemented
 
 - Deezer throttle safety policy: **50 requests per 4 seconds**.
