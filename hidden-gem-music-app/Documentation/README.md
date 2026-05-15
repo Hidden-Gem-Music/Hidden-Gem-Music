@@ -47,6 +47,7 @@ The goal is to avoid repeating the same content across multiple files. If a topi
   - per-screen fetch flow
   - cache/reuse behavior
   - additional-data integration points
+  - country display filtering and fetch timeout/retry behavior
 
 - `interaction-loading-and-overlay-rules.md`
   - popup/overlay behavior
@@ -92,6 +93,9 @@ These are development terms, not necessarily user-facing labels.
 - Hidden song list panel: paged Hidden Gems song-row list.
 - Playing side panel: main selected-song detail panel in Hidden Gems.
 - Nav intro: introductory Hidden Gems prompt/state shown before a country/year selection is confirmed.
+- Section loading veil: glassy/dimmed `Loading...` layer used over loading sections without changing the section layout.
+- Country display helper: shared frontend helper for separating general app-data country filtering from Hidden-Gems-specific availability filtering.
+- Fetch timeout helper: shared frontend fetch wrapper that applies request timeout/retry behavior without retrying aborts or timeouts.
 - Explicit indicator: `E` badge for explicit lyrics or cover content. Code: `src/components/ExplicitIndicator.tsx`.
 - App header: top navigation/header on web layouts. Code: `src/components/AppHeader.tsx`.
 - Mobile bottom nav: bottom navigation on mobile layouts. Code: `src/components/MobileBottomNav.tsx`.

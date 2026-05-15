@@ -2,6 +2,68 @@ mp3li implementation timeline document
 
 Updated: May 15, 2026
 
+Hidden Gems Direct Navigation, Code Review Fixes, and Documentation Follow-Up (May 15, 2026)
+- Objective:
+  - Complete the Issue 125 follow-up after hands-on review confirmed the Hidden Gems country/year selection prompt now behaves correctly on reload and direct navigation.
+  - Address the code-review findings immediately instead of leaving them as future cleanup.
+  - Preserve the approved Hidden Gems visual direction while removing confusing loading/header/breadcrumb states.
+  - Update the personal timeline and professional documentation so the final branch behavior is traceable.
+
+- Hidden Gems direct-navigation behavior:
+  - Direct `/hidden-gems` navigation now opens the Hidden Gems intro prompt when the route does not have a confirmed country/year context.
+  - In-app navigation from Country pages or hidden-gem previews still opens the intended country/year Hidden Gems page instead of forcing the prompt.
+  - Added a session handoff marker so app-driven Hidden Gems navigation can be distinguished from a fresh direct/reload path.
+  - Kept the prompt country list scoped to countries with real hidden-gem availability.
+
+- Header, breadcrumb, and route-label cleanup:
+  - Fixed the issue where Hidden Gems year changes could make the header and breadcrumb say `Loading country...` even after the page data had loaded.
+  - Fixed the follow-on issue where returning from Hidden Gems to Country could leave the Country header/breadcrumb stuck on `Loading country...`.
+  - Added stable country-name fallback behavior so route/header labels use known country metadata while the selected year's API country pool reloads.
+  - Added ISO/world-map fallback for API ids such as `iso-ar`, so the UI keeps showing `Argentina` instead of briefly flashing `AR`.
+  - Preserved full country names for Country, Hidden Gems, Comparison, document titles, and breadcrumb labels.
+
+- Hidden Gems loading and overlay polish:
+  - Added the same glassy/dimmed `Loading...` veil treatment to the Hidden Gems song list, now-playing panel, and favorite-artists section while they load.
+  - Replaced the app-wide `Loading hidden gems...` message with neutral `Loading...` wording to stay consistent with the rest of the app.
+  - Kept the existing Hidden Gems layout, controls, labels, and section structure intact.
+
+- Code review and optimization fixes:
+  - Split the country filtering helper into general app-data filtering and Hidden-Gems-specific filtering.
+  - General Discovery/Country/Comparison country pools no longer depend on `hiddenSongs > 0`.
+  - Hidden Gems dropdown/prompt choices still require hidden-gem availability.
+  - Tightened `fetchWithTimeoutAndRetry` so aborts and timeouts are not retried as duplicate long-running requests.
+  - Kept retry behavior limited to likely transient network fetch failures.
+
+- Welcome navigation fix:
+  - Fixed the bad behavior where clicking `Welcome` from another page could show the Welcome modal over the current Country page.
+  - Welcome navigation now resets back to the normal Welcome-over-Discovery state instead of stacking over whichever page was active.
+
+- Files updated in this follow-up:
+  - `hidden-gem-music-app/App.tsx`
+  - `hidden-gem-music-app/src/data/countryDisplay.ts`
+  - `hidden-gem-music-app/src/data/fetchWithTimeout.ts`
+  - `hidden-gem-music-app/src/screens/HiddenGemsScreen.tsx`
+  - `Documents/mp3li implementation timeline document.txt`
+  - `Documentation/QA-log.md`
+  - `hidden-gem-music-app/Documentation/routing-state-and-navigation.md`
+  - `hidden-gem-music-app/Documentation/screen-data-flow.md`
+  - `hidden-gem-music-app/Documentation/interaction-loading-and-overlay-rules.md`
+  - `hidden-gem-music-app/Documentation/frontend-architecture.md`
+
+- Verification completed:
+  - Ran `npm run typecheck -- --noEmit` after implementation fixes.
+  - User verified direct Hidden Gems prompt behavior.
+  - User verified in-app Hidden Gems navigation behavior.
+  - User verified Hidden Gems reload/handoff behavior.
+  - User verified the neutral loading behavior and basic backend data loading.
+  - User verified the glassy Hidden Gems section loading treatment looked correct.
+  - User verified the country-name fallback no longer shows `Loading country...` or flashes country codes.
+  - User verified Welcome navigation no longer appears over the wrong page.
+
+- Commit/push status:
+  - Committed implementation fixes as `7998de5 Implemented code review and optimization changes`.
+  - Pushed to branch `125-bug-bug-hidden-gems-countryyear-selection-prompt-does-not-appear-on-reload-or-direct-navigation`.
+
 Interactive Discovery Map Completion, Code Review Stabilization, and PR-Readiness Pass (May 15, 2026)
 - Objective:
   - Bring the broader interactive Discovery Map / map-or-globe issue into a PR-ready state after the web and mobile Discovery Map behavior was tested repeatedly on the user's devices.

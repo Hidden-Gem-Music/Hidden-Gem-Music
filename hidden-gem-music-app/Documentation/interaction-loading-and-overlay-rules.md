@@ -33,6 +33,7 @@ Current rules:
 - welcome preview content should stay guarded during the close transition and short cooldown
 - clicking outside the welcome modal should behave like the `Discovery Map` action, not like a dangerous bare click-through
 - welcome modal route buttons should close through the guarded route-transition path rather than bypassing the modal state
+- navigating to Welcome from the header or breadcrumbs should reset to the normal Welcome-over-Discovery stack, not layer the Welcome modal over the current active page
 - welcome route buttons should show visible pressed styling on mobile before route work begins
 - welcome dismissal must check whether navigation can go back before calling `goBack`
 - if there is no route to pop, welcome dismissal should navigate to Discovery instead of dispatching an unhandled back action
@@ -75,6 +76,9 @@ Current rules:
 - when the Hidden Gems nav intro is active, the underlying page frame should not stay interactable
 - focus-selection handoff from other screens should resolve only when the target country actually matches the active Hidden Gems context
 - page fallback should not override a stronger exact match when a stronger match is available
+- direct Hidden Gems reload/direct navigation without confirmed country/year params should show the country/year intro prompt
+- app-driven Hidden Gems navigation from Country or preview flows should open the intended country/year page without showing the intro prompt
+- Hidden Gems list, now-playing, and favorite-artists sections should use the shared glassy/dimmed `Loading...` veil while their data is loading
 
 ## Explicit badge rules
 
@@ -98,6 +102,8 @@ Current rules:
 
 - loading text should remain visually stable enough that sections do not jump excessively
 - shared loading text helpers should be reused instead of rebuilding one-off animated loading strings in many screens
+- shared/app-level loading copy should stay neutral as `Loading...` unless a feature-specific message is intentionally required
+- Hidden Gems should not use a separate app-wide `Loading hidden gems...` message when the screen already has section-level loading treatment
 
 ## Discovery scroll and sidebar rules
 
