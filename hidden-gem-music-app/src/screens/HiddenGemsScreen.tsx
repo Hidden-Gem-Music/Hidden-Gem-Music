@@ -26,6 +26,7 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { getCachedHiddenGemsPage, loadCountryProfile, loadHiddenGemsPage } from "../data/countryApi";
+import { isCountryWithAppData } from "../data/countryDisplay";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiHiddenGemPage } from "../data/apiMappers";
 import { useLoadingText } from "../hooks/useLoadingText";
 import { ApiHiddenGemResponse } from "../types/api";
@@ -1021,9 +1022,7 @@ export function HiddenGemsScreen({
     [availableYears, selectedYear]
   );
   const countryOptions = useMemo(() => {
-    const filtered = countries.filter((item) => item.hiddenSongs > 0);
-    const source = filtered.length ? filtered : countries;
-    return source.slice().sort((left, right) => left.name.localeCompare(right.name));
+    return countries.filter(isCountryWithAppData).slice().sort((left, right) => left.name.localeCompare(right.name));
   }, [countries]);
   const showCountryDropdownGradient = isCountryDropdownHovered || isCountryDropdownPressed || isCountryDropdownOpen;
   const showYearDropdownGradient = isYearDropdownHovered || isYearDropdownPressed || isYearDropdownOpen;
@@ -1178,6 +1177,7 @@ export function HiddenGemsScreen({
 
     const controller = new AbortController();
     setApiSongs(createLoadingHiddenGemSongs(country.code, selectedYear));
+    setTotalHiddenGemsCount(null);
     setIsSongsLoading(true);
     onSetLoading?.(true);
     loadHiddenGemsPage(country.code, selectedYear, 2, page, hiddenGemsPageSize, controller.signal)
@@ -1813,7 +1813,9 @@ export function HiddenGemsScreen({
                   end={{ x: 0.5, y: 1 }}
                   style={styles.blurbStatCardFill}
                 />
-                <Text style={styles.blurbStatValue}>{displayHiddenGemCount}</Text>
+                <Text style={[styles.blurbStatValue, isScreenLoading ? styles.blurbStatValueLoading : null]}>
+                  {displayHiddenGemCount}
+                </Text>
                 <Text style={styles.blurbStatLabel}>Hidden Gems</Text>
               </View>
             </View>
@@ -2364,7 +2366,8 @@ const styles = StyleSheet.create({
   },
   blurbCopyWebReserved: {
     minWidth: 360,
-    maxWidth: 520,
+    maxWidth: 620,
+    marginLeft: 28,
     flexGrow: 1,
     flexShrink: 1,
   },
@@ -2469,6 +2472,11 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     textAlign: "center",
     marginTop: 3,
+  },
+  blurbStatValueLoading: {
+    fontSize: 17,
+    lineHeight: 20,
+    marginTop: 8,
   },
   blurbYearDropdownWrap: {
     width: 156,

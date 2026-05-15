@@ -485,6 +485,25 @@ function CountryPageSection({
   );
 }
 
+function SectionLoadingVeil({ visible }: { visible: boolean }) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <View style={styles.sectionLoadingVeil} pointerEvents="none">
+      <LinearGradient
+        colors={["rgba(15,16,21,0.72)", "rgba(66,72,101,0.64)", "rgba(15,16,21,0.78)"]}
+        locations={[0, 0.48, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.sectionLoadingVeilFill}
+      />
+      <Text style={styles.sectionLoadingVeilText}>Loading...</Text>
+    </View>
+  );
+}
+
 function StatSquare({
   label,
   value,
@@ -627,7 +646,6 @@ function MainComparisonArea({
           style={styles.mainComparisonScroll}
           contentContainerStyle={styles.mainComparisonListContent}
           showsVerticalScrollIndicator={false}
-          scrollEnabled={Platform.OS !== "web"}
           onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
           onContentSizeChange={(_, height) => setContentHeight(height)}
           onScroll={handleScroll}
@@ -757,6 +775,7 @@ function MainComparisonArea({
             </View>
           ) : null}
         </ScrollView>
+        <SectionLoadingVeil visible={isInitialLoading} />
         {scrollbarVisible ? (
           <View
             ref={trackRef}
@@ -1336,6 +1355,7 @@ function HiddenSongsCarouselSection({
           )}
         </View>
       )}
+      <SectionLoadingVeil visible={isLoading} />
     </CountryPageSection>
   );
 }
@@ -1494,6 +1514,7 @@ function FavoriteArtistsSection({
           ) : null}
         </View>
       )}
+      <SectionLoadingVeil visible={isLoading} />
     </CountryPageSection>
   );
 }
@@ -2097,6 +2118,7 @@ export function CountryScreen({
               <Text style={[styles.countrySummarySectionDetailText, styles.countrySummarySectionTextDark]}>{genreLanguageMixText}</Text>
             </View>
           </View>
+          <SectionLoadingVeil visible={initialLoadingProfile} />
         </CountryPageSection>
 
         <FavoriteArtistsSection
@@ -2147,6 +2169,7 @@ export function CountryScreen({
                 useLoadingStyle={isCoreLoading}
                 style={splitStatsAndInsights && !statsTwoByTwo ? styles.statSquareWide : statsTwoByTwo ? styles.statSquareHalf : null}
               />
+              <SectionLoadingVeil visible={isCoreLoading} />
             </View>
           </View>
           <View
@@ -2164,6 +2187,7 @@ export function CountryScreen({
               title={`${country.name}'s Language(s) in Music`}
               bodyText="Language information coming soon."
             />
+            <SectionLoadingVeil visible={isCoreLoading} />
           </View>
         </View>
 
@@ -2428,8 +2452,29 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   secondaryPanelContent: {
+    position: "relative",
     padding: 18,
     gap: 16,
+  },
+  sectionLoadingVeil: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 14,
+    overflow: "hidden",
+    zIndex: 50,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionLoadingVeilFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sectionLoadingVeilText: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 20,
+    lineHeight: 24,
+    textShadowColor: "rgba(15,16,21,0.42)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   customFill: {
     ...StyleSheet.absoluteFillObject,
@@ -2498,6 +2543,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   statSquaresGrid: {
+    position: "relative",
     width: "100%",
     flexDirection: "row",
     gap: 16,
@@ -2526,6 +2572,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   genreAndLanguageSections: {
+    position: "relative",
     width: "100%",
     minWidth: 320,
     flexDirection: "row",

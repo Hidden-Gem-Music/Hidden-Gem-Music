@@ -2,12 +2,14 @@ import type { Country } from "../types/content";
 import { mapApiCountryGlobeSummary } from "./apiMappers";
 import type { ApiCountryGlobeSummary } from "../types/api";
 import { getApiBaseUrl } from "./apiBaseUrl";
+import { normalizeCountryDisplayName } from "./countryDisplay";
+import { fetchWithTimeoutAndRetry } from "./fetchWithTimeout";
 
 export async function loadDiscoveryCountries(year: number, fallbackCountries: Country[], signal?: AbortSignal): Promise<Country[]> {
   const existingByCode = new Map(fallbackCountries.map((country) => [country.code.toUpperCase(), country]));
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/discovery/countries?year=${year}`;
-  const response = await fetch(endpoint, { signal });
+  const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
 
   if (!response.ok) {
     throw new Error(`Discovery country request failed with status ${response.status}.`);
@@ -24,7 +26,7 @@ export async function loadDiscoveryCountries(year: number, fallbackCountries: Co
     return {
       id: `iso-${normalizedCode.toLowerCase() || index}`,
       code: normalizedCode,
-      name: mapped.countryName,
+      name: normalizeCountryDisplayName(mapped.countryName),
       region: mapped.region,
       lat: typeof mapped.lat === "number" ? mapped.lat : existing?.lat ?? 0,
       long: typeof mapped.long === "number" ? mapped.long : existing?.long ?? 0,

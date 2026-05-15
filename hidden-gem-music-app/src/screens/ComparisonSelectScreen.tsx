@@ -19,7 +19,7 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { GlobePanel } from "../components/globe/GlobePanel";
-import { getSongsForCountryYear } from "../data/mockData";
+import { isCountryWithAppData } from "../data/countryDisplay";
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -772,8 +772,8 @@ export function ComparisonSelectScreen({
   );
   const filteredCountries = useMemo(() => {
       const filtered = countries.filter((country) => {
-        // Include only countries that have songs in app data for this year.
-        if (getSongsForCountryYear(country.id, comparisonYear ?? selectedYear).length <= 0) {
+        // Include only countries that have live app data for this year.
+        if (!isCountryWithAppData(country)) {
           return false;
         }
 

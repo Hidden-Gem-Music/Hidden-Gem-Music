@@ -24,7 +24,7 @@ import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { getCachedCountryGenreSamples, loadAvailableYears, loadCountryHiddenGemsPreview, loadCountryProfile, loadCountrySongsPage } from "../data/countryApi";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiSong } from "../data/apiMappers";
 import { useLoadingText, useStableLoadingText } from "../hooks/useLoadingText";
-import { getSongsForCountryYear } from "../data/mockData";
+import { isCountryWithAppData } from "../data/countryDisplay";
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -491,6 +491,25 @@ function CountryPageSection({
   );
 }
 
+function SectionLoadingVeil({ visible }: { visible: boolean }) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <View style={styles.sectionLoadingVeil} pointerEvents="none">
+      <LinearGradient
+        colors={["rgba(15,16,21,0.72)", "rgba(66,72,101,0.64)", "rgba(15,16,21,0.78)"]}
+        locations={[0, 0.48, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.sectionLoadingVeilFill}
+      />
+      <Text style={styles.sectionLoadingVeilText}>Loading...</Text>
+    </View>
+  );
+}
+
 function StatSquare({
   label,
   value,
@@ -839,7 +858,6 @@ function MainComparisonArea({
           style={styles.mainComparisonScroll}
           contentContainerStyle={styles.mainComparisonListContent}
           showsVerticalScrollIndicator={false}
-          scrollEnabled={Platform.OS !== "web"}
           onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
           onContentSizeChange={(_, height) => setContentHeight(height)}
           onScroll={handleScroll}
@@ -976,6 +994,7 @@ function MainComparisonArea({
             </View>
           ) : null}
         </ScrollView>
+        <SectionLoadingVeil visible={isInitialLoading} />
         {scrollbarVisible ? (
           <View
             ref={trackRef}
@@ -1240,6 +1259,7 @@ function HiddenSongsCarouselSection({
         />
         </View>
       )}
+      <SectionLoadingVeil visible={isLoading} />
     </CountryPageSection>
   );
 }
@@ -1305,6 +1325,7 @@ function FavoriteArtistsSection({
           ))}
         </ScrollView>
       )}
+      <SectionLoadingVeil visible={isLoading} />
     </CountryPageSection>
   );
 }
@@ -1358,7 +1379,7 @@ function ComparisonCountryPane({
   const countryOptions = useMemo(
     () =>
       availableCountries.filter((countryOption) => {
-        if (getSongsForCountryYear(countryOption.id, selectedYear).length <= 0) {
+        if (!isCountryWithAppData(countryOption)) {
           return false;
         }
         return unavailableCountryId ? countryOption.id === country.id || countryOption.id !== unavailableCountryId : true;
@@ -1787,6 +1808,7 @@ function ComparisonCountryPane({
               <Text style={[styles.countrySummarySectionDetailText, styles.countrySummarySectionTextDark]}>{genreLanguageMixText}</Text>
             </View>
           </View>
+          <SectionLoadingVeil visible={initialLoadingProfile} />
         </CountryPageSection>
 
         <FavoriteArtistsSection
@@ -1821,11 +1843,13 @@ function ComparisonCountryPane({
             note="% of this view"
             style={styles.statStripItem}
           />
+          <SectionLoadingVeil visible={isCoreLoading} />
         </View>
 
         <View style={styles.genreAndLanguageSections}>
           <GenreSection title={`${country.name}'s Loved Genres`} bodyText={lovedGenresSectionText} />
           <LanguageSection title={`${country.name}'s Language(s) in Music`} bodyText="Language information coming soon." />
+          <SectionLoadingVeil visible={isCoreLoading} />
         </View>
 
         <HiddenSongsCarouselSection
@@ -2155,8 +2179,29 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   secondaryPanelContent: {
+    position: "relative",
     padding: 18,
     gap: 16,
+  },
+  sectionLoadingVeil: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 14,
+    overflow: "hidden",
+    zIndex: 50,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionLoadingVeilFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sectionLoadingVeilText: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 20,
+    lineHeight: 24,
+    textShadowColor: "rgba(15,16,21,0.42)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   customFill: {
     ...StyleSheet.absoluteFillObject,
@@ -2212,6 +2257,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   statStripRow: {
+    position: "relative",
     width: "100%",
     flexDirection: "row",
     gap: 8,
@@ -2260,6 +2306,7 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
   genreAndLanguageSections: {
+    position: "relative",
     width: "100%",
     flexDirection: "column",
     gap: 12,
