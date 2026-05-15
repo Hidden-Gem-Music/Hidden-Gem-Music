@@ -26,7 +26,7 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { getCachedHiddenGemsPage, loadCountryProfile, loadHiddenGemsPage } from "../data/countryApi";
-import { isCountryWithAppData } from "../data/countryDisplay";
+import { isCountryWithHiddenGems } from "../data/countryDisplay";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiHiddenGemPage } from "../data/apiMappers";
 import { useLoadingText } from "../hooks/useLoadingText";
 import { ApiHiddenGemResponse } from "../types/api";
@@ -443,6 +443,25 @@ function PlayerControlButton({
   );
 }
 
+function SectionLoadingVeil({ visible }: { visible: boolean }) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <View style={styles.sectionLoadingVeil} pointerEvents="none">
+      <LinearGradient
+        colors={["rgba(15,16,21,0.72)", "rgba(66,72,101,0.64)", "rgba(15,16,21,0.78)"]}
+        locations={[0, 0.48, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.sectionLoadingVeilFill}
+      />
+      <Text style={styles.sectionLoadingVeilText}>Loading...</Text>
+    </View>
+  );
+}
+
 function HiddenSongListPanel({
   songs,
   selectedSongId,
@@ -597,6 +616,7 @@ function HiddenSongListPanel({
           </View>
         ) : null}
       </View>
+      <SectionLoadingVeil visible={isLoading} />
     </Panel>
   );
 }
@@ -606,11 +626,13 @@ function FeaturedArtistsSection({
   selectedYear,
   artists,
   useLoadingLabels = false,
+  isLoading = false,
 }: {
   country: Country;
   selectedYear: number;
   artists: FavoriteArtistPreview[];
   useLoadingLabels?: boolean;
+  isLoading?: boolean;
 }) {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
@@ -760,6 +782,7 @@ function FeaturedArtistsSection({
           </View>
         ) : null}
       </View>
+      <SectionLoadingVeil visible={isLoading} />
     </Panel>
   );
 }
@@ -955,6 +978,7 @@ function PlayingSidePanel({
           </View>
         ) : null}
       </View>
+      <SectionLoadingVeil visible={isLoading} />
     </Panel>
   );
 }
@@ -1022,7 +1046,7 @@ export function HiddenGemsScreen({
     [availableYears, selectedYear]
   );
   const countryOptions = useMemo(() => {
-    return countries.filter(isCountryWithAppData).slice().sort((left, right) => left.name.localeCompare(right.name));
+    return countries.filter(isCountryWithHiddenGems).slice().sort((left, right) => left.name.localeCompare(right.name));
   }, [countries]);
   const showCountryDropdownGradient = isCountryDropdownHovered || isCountryDropdownPressed || isCountryDropdownOpen;
   const showYearDropdownGradient = isYearDropdownHovered || isYearDropdownPressed || isYearDropdownOpen;
@@ -1900,6 +1924,7 @@ export function HiddenGemsScreen({
             selectedYear={selectedYear}
             artists={favoriteArtists}
             useLoadingLabels={shouldShowNavIntro}
+            isLoading={isScreenLoading}
           />
         </View>
       </View>
@@ -2673,6 +2698,7 @@ const styles = StyleSheet.create({
     flex: 1.06,
   },
   secondaryPanel: {
+    position: "relative",
     minHeight: Platform.OS === "web" ? 760 : 618,
     maxHeight: Platform.OS === "web" ? 760 : 618,
     padding: 0,
@@ -2691,6 +2717,26 @@ const styles = StyleSheet.create({
           scrollbarWidth: "none",
         } as ViewStyle)
       : null),
+  },
+  sectionLoadingVeil: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 14,
+    overflow: "hidden",
+    zIndex: 50,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionLoadingVeilFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sectionLoadingVeilText: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 20,
+    lineHeight: 24,
+    textShadowColor: "rgba(15,16,21,0.42)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   songListContent: {
     paddingLeft: 14,
@@ -3145,6 +3191,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(117,82,107,0.58)",
   },
   snapshotPanel: {
+    position: "relative",
     minWidth: 0,
     overflow: "hidden",
   },

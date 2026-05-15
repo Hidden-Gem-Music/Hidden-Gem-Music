@@ -16,6 +16,7 @@ import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { DiscoveryScreen } from "./src/screens/DiscoveryScreen";
 import { HiddenGemsScreen } from "./src/screens/HiddenGemsScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
+import { worldMapCountries } from "./src/assets/maps/worldMap50m";
 import { loadDiscoveryCountries } from "./src/data/discoveryApi";
 import { loadAvailableYears } from "./src/data/countryApi";
 import { isCountryWithAppData } from "./src/data/countryDisplay";
@@ -65,6 +66,11 @@ type HiddenGemsFocusSelection = {
 const APP_STATE_STORAGE_KEY = "hidden-gem-app-state-v1";
 const HIDDEN_GEMS_HANDOFF_STORAGE_KEY = "hidden-gems-direct-handoff-v1";
 const DEFAULT_DISCOVERY_YEAR = 2025;
+const worldMapCountryNameByCode = new Map(
+  worldMapCountries
+    .filter((country) => typeof country.code === "string" && country.code.trim().length > 0)
+    .map((country) => [country.code!.trim().toUpperCase(), country.name])
+);
 
 function readPersistedAppState(): PersistedAppState {
   if (typeof window === "undefined") {
@@ -155,6 +161,21 @@ function findCountryByIdentifier(list: Country[], identifier: string) {
     (country) =>
       normalizeCountryKey(country.id) === normalized || normalizeCountryKey(country.code) === normalized
   );
+}
+
+function getCountryCodeFromIdentifier(identifier: string, fallbackCode: string) {
+  const trimmedIdentifier = identifier.trim();
+  const isoMatch = trimmedIdentifier.match(/^iso[-_ ]?([a-z]{2,3})$/i);
+  if (isoMatch) {
+    return isoMatch[1].toUpperCase();
+  }
+
+  return trimmedIdentifier.length > 0 && trimmedIdentifier.length <= 3 ? trimmedIdentifier.toUpperCase() : fallbackCode;
+}
+
+function getCountryDisplayNameFromIdentifier(identifier: string, fallbackCode: string) {
+  const countryCode = getCountryCodeFromIdentifier(identifier, fallbackCode);
+  return worldMapCountryNameByCode.get(countryCode) ?? countryCode;
 }
 
 function toInitialStackRoute(route: ScreenRoute): keyof RootStackParamList {
@@ -311,28 +332,36 @@ export default function App() {
         return fromDiscovery;
       }
 
+      const fromKnownCountry = findCountryByIdentifier(allYearsDiscoveryCountries, selectedCountryId) ?? findCountryByIdentifier(countries, selectedCountryId);
+      if (fromKnownCountry) {
+        return {
+          ...fromKnownCountry,
+          hiddenSongs: currentRoute === "country" || currentRoute === "hiddenGems" ? Math.max(fromKnownCountry.hiddenSongs, 1) : fromKnownCountry.hiddenSongs,
+        };
+      }
+
       if (currentRoute === "country" || currentRoute === "hiddenGems") {
-        const inferredCode = selectedCountryId && selectedCountryId.length <= 3 ? selectedCountryId.toUpperCase() : featuredCountry.code;
+        const inferredCode = getCountryCodeFromIdentifier(selectedCountryId, featuredCountry.code);
         return {
           ...featuredCountry,
           id: selectedCountryId || featuredCountry.id,
           code: inferredCode,
-          name: "Loading country...",
-          region: "Loading country data...",
+          name: getCountryDisplayNameFromIdentifier(selectedCountryId, inferredCode),
+          region: featuredCountry.region,
           hiddenSongs: 1,
           genres: [],
           album: "",
           albumArtist: "",
           topSong: "",
           languages: [],
-          sceneNote: "Loading country data...",
+          sceneNote: featuredCountry.sceneNote,
           featuredArtists: [],
         };
       }
 
       return featuredCountry;
     },
-    [apiCountryPool, currentRoute, featuredCountry, selectedCountryId]
+    [allYearsDiscoveryCountries, apiCountryPool, countries, currentRoute, featuredCountry, selectedCountryId]
   );
 
   const comparisonCountryPool = useMemo(
@@ -437,7 +466,18 @@ export default function App() {
 
     switch (route) {
       case "welcome":
-        navigationRef.navigate("welcome");
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 1,
+            routes: [
+              {
+                name: "discovery",
+                params: getRouteParams("discovery", selectedYear, selectedCountryId),
+              },
+              { name: "welcome" },
+            ],
+          })
+        );
         break;
       case "discovery":
         navigationRef.navigate("discovery", getRouteParams("discovery", selectedYear, selectedCountryId));
@@ -966,7 +1006,7 @@ export default function App() {
       setLoadingMessage(null);
       return;
     }
-    setLoadingMessage(loading ? "Loading hidden gems..." : null);
+    setLoadingMessage(loading ? "Loading..." : null);
   }, [currentRoute, showHiddenGemsNavIntro]);
 
   if (!fontsLoaded) {

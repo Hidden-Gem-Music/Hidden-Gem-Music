@@ -56,6 +56,18 @@ async function fetchOnce(endpoint: string, init: RequestInit, parentSignal?: Abo
   }
 }
 
+function shouldRetryFetchError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  if (error.name === "AbortError" || error.name === "TimeoutError") {
+    return false;
+  }
+
+  return error.name === "TypeError" || error.name === "NetworkError";
+}
+
 export async function fetchWithTimeoutAndRetry(
   endpoint: string,
   init: RequestInit = {},
@@ -68,6 +80,9 @@ export async function fetchWithTimeoutAndRetry(
     return await fetchOnce(endpoint, initWithoutSignal, parentSignal, timeoutMs);
   } catch (error) {
     if (parentSignal?.aborted) {
+      throw error;
+    }
+    if (!shouldRetryFetchError(error)) {
       throw error;
     }
     return fetchOnce(endpoint, initWithoutSignal, parentSignal, timeoutMs);
