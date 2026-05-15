@@ -1,6 +1,191 @@
 mp3li implementation timeline document
 
-Updated: May 11, 2026
+Updated: May 15, 2026
+
+Interactive Discovery Map Completion, Code Review Stabilization, and PR-Readiness Pass (May 15, 2026)
+- Objective:
+  - Bring the broader interactive Discovery Map / map-or-globe issue into a PR-ready state after the web and mobile Discovery Map behavior was tested repeatedly on the user's devices.
+  - Treat the remaining work as edge-case testing rather than known blocking implementation gaps.
+  - Fold the code-review stabilization findings into the same branch so the PR includes both the feature completion work and the immediate risk mitigation work.
+  - Keep the approved UI intact: no visual redesign, no control removal, and no Discovery Map layout changes beyond already-approved stabilization fixes.
+
+- Runtime testing confirmed by the user before documentation/PR finalization:
+  - Discovery Map still opens normally.
+  - Discovery Map keeps the 2025 default-year behavior.
+  - Welcome and Comparison shared buttons still show pressed styling and navigate.
+  - Comparison year dropdown includes 2025 when metadata returns it.
+  - Comparison with 2025 no longer fails because of the old stale 2021 backend cap.
+  - The user confirmed repeated hands-on testing on their own devices until the known Discovery Map issues were no longer reproducing.
+
+- Code review risks addressed in this pass:
+  - Removed full generated enrichment outputs from git tracking while keeping the local files on disk.
+  - Added `tools/song_data_enrichment/output/` to `.gitignore`.
+  - Updated tool documentation to make clear that full generated output/state files are local runtime artifacts, not source-of-truth project code.
+  - Replaced stale hard-coded Comparison backend year validation (`1975..2021`) with metadata-backed available-year validation through `IMetadataRepository`.
+  - Kept invalid Comparison years returning `400`, but now based the decision on the dataset years returned by metadata instead of a fixed old range.
+  - Updated backend API documentation so Comparison year validation matches the current metadata-backed behavior.
+  - Restored shared native `ActionButton` behavior so actions fire from normal `Pressable onPress` instead of a timer started on `onPressIn`.
+  - Preserved the same button visuals, labels, gradients, pressed styling, and layout while making cancelled/dragged-away native presses safer.
+  - Added `npm run typecheck` so the frontend has a named verification script instead of relying only on the raw TypeScript command.
+  - Added `backend/Capstone.API/appsettings.Local.example.json` with placeholder values only, so local backend setup has a committed template without exposing private machine credentials.
+
+- Documentation updated in this pass:
+  - Updated the personal timeline with the Discovery Map completion and stabilization work.
+  - Updated `Documentation/QA-log.md` with the stabilization follow-up and user runtime confirmation.
+  - Updated frontend documentation dates and clarified current shared button interaction rules.
+  - Updated frontend architecture / interaction docs to reflect the completed shared Discovery/Comparison map path and current edge-testing status.
+  - Updated backend current API documentation for metadata-backed Comparison year validation.
+  - Updated backend local run/testing docs for the local config example.
+  - Updated tool docs for ignored generated enrichment output.
+  - Replaced the broader interactive-map PR markdown so it now represents the full issue as functionally completed with edge-case testing next.
+
+- Main implementation files touched by the code-review stabilization portion:
+  - `.gitignore`
+  - `backend/Capstone.API/Controllers/ComparisonController.cs`
+  - `backend/Capstone.API/appsettings.Local.example.json`
+  - `hidden-gem-music-app/src/components/ActionButton.tsx`
+  - `hidden-gem-music-app/package.json`
+  - `tools/README.md`
+  - `tools/song_data_enrichment/README.md`
+
+- Verification completed after stabilization edits:
+  - Ran `git diff --check`.
+  - Ran `npm run typecheck`.
+  - Ran `dotnet build`.
+  - Verified `git ls-files tools/song_data_enrichment/output` returns no tracked output files.
+  - Verified the local generated output files still exist on disk in `tools/song_data_enrichment/output/`.
+  - Attempted endpoint curl verification from the sandbox; the sandbox backend run did not open port `5140`, so endpoint curl verification was completed through the user's local runtime testing instead.
+
+- Final status:
+  - The interactive map/globe issue can be represented as functionally implemented for the current app scope.
+  - Discovery Map behavior is accepted on the user's tested devices.
+  - Comparison map/year flow is aligned with metadata years, including 2025.
+  - Remaining recommendation is edge-case testing, not another known implementation pass.
+
+Discovery Map Default-Year, Web Polish, and Mobile Interaction Stabilization Pass (May 14, 2026)
+- Objective:
+  - Stabilize the current app-owned Discovery Map experience across web and mobile after repeated real-device/runtime review exposed differences between what technically compiled and what actually felt usable.
+  - Keep the already-approved web and mobile layout direction intact wherever possible, and correct only the specific regressions found during hands-on review.
+  - Preserve the shared responsive frontend path rather than splitting Discovery into separate web/mobile screen trees.
+
+- Default-year behavior:
+  - Changed the Discovery Map default load year to `2025`.
+  - Corrected the mismatch where the Discovery data was functionally using 2025 while the timeline slider visually appeared to be sitting on 2024.
+  - Added 2025 into the frontend fallback/mock year scaffolding so the default year remains valid even before live API year metadata finishes loading.
+  - Adjusted route/year synchronization so the Discovery route does not accidentally pull the app back to an older route-param year during initial load.
+  - Preserved year params for screens that need year-specific route state, including Country, Hidden Gems, and Comparison flows.
+
+- Web Discovery Map corrections:
+  - Fixed year-changing behavior that could leave the app-level refreshing overlay stuck or visible over unrelated screens.
+  - Kept year refresh behavior scoped to the Discovery Map screen so leaving Discovery clears the Discovery refresh overlay state.
+  - Preserved the user's current map viewport when changing year instead of jumping the map back to a reset/default position.
+  - Corrected the country-list auto-highlight behavior so map hover syncs the matching country row into visible list position.
+  - Corrected inconsistent "No song data" handling where the list and map could disagree between "No song data" and an "Unknown song/album" display.
+  - Restored the web glassy blurb back to its compact visual scale after a mobile layout fix briefly made the web panel too large.
+  - Reaffirmed the glassy blurb heading color should use the app's light text token rather than raw white.
+
+- Discovery Map data-visibility behavior:
+  - Kept countries with year data visually distinct from countries without data.
+  - Preserved country borders for no-data countries on mobile so continent shapes remain readable instead of becoming blank merged land masses.
+  - On mobile, changed available/data countries to a solid dark-pink treatment and selected countries to the light-blue nav-side treatment.
+  - Kept no-data countries visually empty while retaining boundary lines so the background shows through but geography remains legible.
+
+- Mobile glassy blurb and map-layout stabilization:
+  - Reworked the mobile glassy blurb so it is positionally above the map rather than layered directly over the country shapes.
+  - Moved the map down under the blurb on mobile so the helper/details panel no longer impedes map interaction or hides country content.
+  - Restored the blurb heading line and separated the helper text under that line.
+  - Fixed the overlap where helper text was sitting directly on top of the `Discovery Map` heading and gem.
+  - Matched the mobile blurb heading size to the List View and Pre-Selected Filters section headings.
+  - Matched the mobile blurb helper/detail text size to country-listing and filter-button text.
+  - Reduced extra bottom space in the mobile helper-mode blurb without shrinking the approved text sizes.
+  - Added a shorter mobile detail-mode blurb height when the panel is showing country stats, since the country detail lines need less vertical space than the longer helper copy.
+  - Kept the web blurb compact and visually separate from the larger mobile-only blurb layout.
+
+- Mobile country list and filter popup corrections:
+  - Locked the mobile country-list panel into a bounded scrollable section like the web list instead of letting it stretch excessively down the page.
+  - Corrected the mobile list visibility glitch where the list could collapse into a thin black line until another section was expanded.
+  - Corrected mobile filter modal behavior so opening filters no longer only dimmed the screen with no visible content.
+  - Made the mobile year popup shorter and scrollable so top years such as 2025 remain reachable on the phone viewport.
+  - Ensured filter overlays do not persist incorrectly after navigating away from and back to Discovery.
+
+- Mobile map controls:
+  - Reworked mobile pan buttons, zoom buttons, and reset behavior so touch actions respond immediately enough to feel intentional.
+  - Removed an artificial delay from country-page navigation that made country taps feel frozen.
+  - Replaced transform-based mobile pan/zoom after it made the map and borders visibly blurry.
+  - Returned mobile pan/zoom to SVG viewBox movement so country borders stay crisp.
+  - Added visible press feedback to arrow, zoom, reset, and welcome route buttons so users can tell an action was accepted before heavier navigation/rendering work starts.
+  - Kept mobile reset visible even when the current map view is already at default, because hiding it made the control feel missing.
+  - Corrected reset default detection to compare against the real default map offset and zoom rather than comparing the map position against zero.
+
+- Mobile country tap behavior:
+  - Implemented the intended two-step mobile country interaction:
+    - first tap on a country previews/selects that same country and updates the glassy stat blurb,
+    - second tap on the same country opens the Country detail page.
+  - Fixed the regression where tapping a different second country could incorrectly open that different country instead of previewing it first.
+  - Fixed the regression where mobile country hit handling could fire both press-in and press events and accidentally act like two taps.
+  - Cleared stale highlighted-country state when returning from Country detail back to Discovery so the map does not remember a previous selected/highlighted country as if the user had just tapped it.
+
+- Welcome and route-transition behavior:
+  - Fixed the mobile welcome-to-Discovery route path that could feel unresponsive because the app waited for heavy underlying map work before visually dismissing the welcome overlay.
+  - Added guarded welcome button behavior so repeated taps do not enqueue multiple route actions.
+  - Fixed the React Navigation warning `The action 'GO_BACK' was not handled by any navigator` by checking whether the navigation stack can go back before calling `goBack`.
+  - Kept the fallback behavior safe by navigating to Discovery when the welcome screen has no back route to pop.
+  - Added mobile press styling to welcome buttons so route taps have immediate visible feedback.
+
+- App-owned map and screen-state decisions preserved during this pass:
+  - Kept `App.tsx` as the owner of selected year, selected country, Discovery year cache, route transitions, and loading overlay state.
+  - Kept `DiscoveryScreen.tsx` as the owner of Discovery filter/list layout behavior.
+  - Kept `GlobePanel.tsx` and `GlobeView.tsx` as the shared map seam instead of pushing map-specific behavior into unrelated screens.
+  - Kept the flat app-owned map direction and avoided returning to provider/WebView/native-map complexity.
+
+- Main files changed during this stabilization pass:
+  - `hidden-gem-music-app/App.tsx`
+  - `hidden-gem-music-app/src/screens/WelcomeScreen.tsx`
+  - `hidden-gem-music-app/src/screens/DiscoveryScreen.tsx`
+  - `hidden-gem-music-app/src/components/ActionButton.tsx`
+  - `hidden-gem-music-app/src/components/CountryCard.tsx`
+  - `hidden-gem-music-app/src/components/DiscoverySidebarPanels.tsx`
+  - `hidden-gem-music-app/src/components/YearSlider.tsx`
+  - `hidden-gem-music-app/src/components/globe/GlobePanel.tsx`
+  - `hidden-gem-music-app/src/components/globe/GlobeView.tsx`
+  - `hidden-gem-music-app/src/data/mockData.ts`
+
+- Verification completed after the final fixes:
+  - Ran `npx tsc --noEmit` from `hidden-gem-music-app`.
+  - Ran `git diff --check` from `hidden-gem-music-app`.
+  - Both checks passed after the final reset-button and mobile blurb height adjustments.
+  - Runtime behavior was iteratively reviewed through user hands-on feedback on mobile and web throughout the pass.
+
+- Documentation consolidation completed after the stabilization writeup:
+  - Moved the shared QA log out of temporary/personal `Documents/` and into durable root project documentation at `Documentation/QA-log.md`.
+  - Added ownership fields to QA entries so shared QA can be used by both mp3li and Leena.
+  - Folded the one-topic custom map document into `frontend-architecture.md`, `interaction-loading-and-overlay-rules.md`, and `frontend-styling-rules.md`.
+  - Folded the frontend glossary into `hidden-gem-music-app/Documentation/README.md`.
+  - Combined local environment and full-stack local testing into one runbook at `hidden-gem-music-app/Documentation/local-development-environment.md`.
+  - Deleted the redundant tiny docs after their useful content was merged:
+    - `hidden-gem-music-app/Documentation/custom-interactive-world-map.md`
+    - `hidden-gem-music-app/Documentation/frontend-glossary.md`
+    - `hidden-gem-music-app/Documentation/full-stack-local-testing.md`
+  - Reviewed and updated tool documentation:
+    - refreshed `tools/README.md`
+    - updated v1 enrichment flags for live progress, Deezer-only runs, chunk-runner modes, and source mode
+    - updated v2 getter docs for `genius_web_language`, `retry_failed`, source-specific behavior, and helper scripts
+  - Reviewed and updated backend API documentation:
+    - refreshed the backend API docs index
+    - confirmed the live controller inventory remains 7 controllers and 17 GET endpoints
+    - added the current shared cancellation/error-handling standard
+    - updated backend local testing notes for cancellation/error-handling checks
+    - corrected current project integration wording from Discovery Globe to Discovery Map where the doc described live frontend behavior
+
+- Final status at the end of this pass:
+  - Discovery Map default year behavior is fixed.
+  - Web glassy blurb sizing is restored.
+  - Mobile glassy blurb layout, typography, and detail/helper height behavior are aligned to the approved design direction.
+  - Mobile map boundaries remain visible and not blurry.
+  - Mobile map controls have press feedback and remain usable.
+  - Mobile reset is visible and styled.
+  - Mobile country tapping follows the required "same country twice opens details" behavior.
+  - Welcome-to-Discovery navigation no longer throws the unhandled `GO_BACK` warning and now gives visible button feedback.
 
 Flat Map Usability Correction Pass for Discovery and Comparison (May 11, 2026)
 - Replaced the short-lived orthographic globe attempt after real runtime review showed that the result was not usable:

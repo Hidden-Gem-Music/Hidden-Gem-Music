@@ -82,14 +82,16 @@ function WelcomeGradientTitle() {
 export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
   const [isClosing, setIsClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isClosingRef = useRef(false);
 
   const dismissWithAction = (action: () => void) => {
-    if (isClosing) {
+    if (isClosingRef.current) {
       return;
     }
 
+    isClosingRef.current = true;
     setIsClosing(true);
-    const closeDelay = Platform.OS === "web" ? 120 : 24;
+    const closeDelay = Platform.OS === "web" ? 120 : 80;
     closeTimerRef.current = globalThis.setTimeout(() => {
       action();
     }, closeDelay);
@@ -100,8 +102,13 @@ export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
       if (closeTimerRef.current) {
         clearTimeout(closeTimerRef.current);
       }
+      isClosingRef.current = false;
     };
   }, []);
+
+  if (isClosing) {
+    return <View style={styles.closedOverlay} pointerEvents="none" />;
+  }
 
   return (
     <View
@@ -167,6 +174,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 24,
     zIndex: 9999,
+  },
+  closedOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
   overlayBackdropPressTarget: {
     ...StyleSheet.absoluteFillObject,

@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-15
 **Status:** Current UX Behavior Rules
 
 ---
@@ -33,6 +33,11 @@ Current rules:
 - welcome preview content should stay guarded during the close transition and short cooldown
 - clicking outside the welcome modal should behave like the `Discovery Map` action, not like a dangerous bare click-through
 - welcome modal route buttons should close through the guarded route-transition path rather than bypassing the modal state
+- welcome route buttons should show visible pressed styling on mobile before route work begins
+- welcome dismissal must check whether navigation can go back before calling `goBack`
+- if there is no route to pop, welcome dismissal should navigate to Discovery instead of dispatching an unhandled back action
+- repeated mobile taps during welcome dismissal should be ignored while the close transition is already in progress
+- shared welcome/comparison `ActionButton` actions should fire from normal `Pressable onPress`; pressed styling can start on press-in, but navigation/action execution should not be driven by a press-in timer
 
 ## Loading overlay rule
 
@@ -108,6 +113,13 @@ Current rules:
 - sidebar list-end prefetch should not keep firing repeatedly without leaving/re-entering the threshold
 - empty Discovery lists should show an intentional loading state instead of a blank panel
 - the top glassy blurb on the Discovery Map is the app-owned map info panel and should stay visually separate from page-level overlays
+- Discovery year-refresh loading should clear when the user leaves Discovery
+- year changes should not force the map viewport back to default unless the user explicitly presses reset
+- the mobile map info panel should sit above the map, not overlap the map's country shapes
+- the mobile map info panel may use separate helper/detail heights because helper copy is longer than country-stat copy
+- mobile reset should remain visible and use the same immediate press-feedback convention as arrow and zoom controls
+- mobile map country interaction uses first tap to preview/select and second tap on the same country to open detail
+- tapping a different country after a preview should preview that different country first, not open it immediately
 
 ## Route-leave request rule
 

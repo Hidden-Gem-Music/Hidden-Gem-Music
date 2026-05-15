@@ -11,7 +11,7 @@
 
 - `CountryController` input validation now enforces:
   - `code` must be exactly 2 letters (`400` on failure)
-  - `year` must be in dataset-supported range `1975..2021`, excluding known unavailable gap years `2007..2010` (`400` on failure)
+  - `year` must exist in the dataset-supported metadata years returned by `IMetadataRepository` (`400` on failure)
 - Error handling for Country endpoints now distinguishes:
   - `400` invalid input
   - `404` valid input but no profile row for `/api/country/{code}`
@@ -57,6 +57,7 @@ ICountryRepository      →  CountryRepository          (Scoped)
 IHiddenGemsRepository   →  HiddenGemsRepository       (Scoped)
 IComparisonRepository   →  ComparisonRepository       (Scoped)
 IDashboardRepository    →  DashboardRepository        (Scoped)
+IMetadataRepository     →  MetadataRepository         (Scoped)
 ```
 
 ---
@@ -97,7 +98,7 @@ All country codes are normalized to uppercase (`.ToUpper()`) at the controller b
 
 **Route params:** `code` (2-letter ISO, normalized to uppercase)
 **Query params:** `year` (int)
-**Input validation:** `code` must be 2 letters; `year` must be `1975..2021` excluding `2007..2010` (`400` on validation failure).
+**Input validation:** `code` must be 2 letters; `year` must exist in the dataset-supported metadata years (`400` on validation failure).
 **Returns 404** if `GetCountryProfileAsync` returns null (country/year combination not found).
 **Returns 503** for SQL/database failures; **500** for unexpected failures.
 
@@ -127,6 +128,7 @@ Offset passed to SP is calculated as `(page - 1) * pageSize`.
 | GET | `/api/comparison/hidden-gems` | `ComparisonController.GetComparisonHiddenGems` | `year = 2021` |
 
 **Query params:** `countryA`, `countryB` (both required, no defaults), `year`
+**Input validation:** both country params must be 2-letter ISO codes, the countries must be different, and `year` must exist in the dataset-supported metadata years (`400` on validation failure).
 **Returns 404** if `GetCountryComparisonAsync` returns null (fewer than 2 result sets, or both country stats are empty).
 
 ---

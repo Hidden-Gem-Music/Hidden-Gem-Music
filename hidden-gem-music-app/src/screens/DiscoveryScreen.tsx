@@ -199,12 +199,21 @@ export function DiscoveryScreen({
   const [genreLoadingByCountryCode, setGenreLoadingByCountryCode] = useState<Record<string, boolean>>({});
   const genreRequestControllersRef = useRef<AbortController[]>([]);
   const requestedGenreCodesRef = useRef<Set<string>>(new Set());
-  const timelineYears = availableYears && availableYears.length > 0 ? availableYears : [selectedYear];
+  const timelineYears =
+    availableYears && availableYears.length > 0
+      ? Array.from(new Set([...availableYears, selectedYear])).sort((a, b) => a - b)
+      : [selectedYear];
   const isAllYearsSelected = selectedFilterYears.length === 0;
   const countriesForFiltering =
     isAllYearsSelected && allYearsCountries && allYearsCountries.length > 0
       ? allYearsCountries
       : countries;
+
+  useEffect(() => {
+    if (!isActive) {
+      setAllFiltersOpen(false);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     if (isAllYearsSelected) {
@@ -432,6 +441,7 @@ export function DiscoveryScreen({
           genreLoadingByCountryCode={genreLoadingByCountryCode}
           loadingText={discoveryLoadingText}
           onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
+          isActive={isActive}
         />
       </View>
       {isStacked ? null : (
@@ -472,7 +482,7 @@ export function DiscoveryScreen({
   );
 
   return (
-    <ScreenScaffold contentStyle={styles.scaffoldContent}>
+    <ScreenScaffold contentStyle={styles.scaffoldContent} disableScroll>
       <View
         style={styles.discoveryContentFrame}
         pointerEvents={allFiltersOpen ? "none" : "auto"}
@@ -975,6 +985,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
+    zIndex: 80,
+    elevation: 80,
   },
   overlayGradientWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -985,7 +997,8 @@ const styles = StyleSheet.create({
   modal: {
     width: "100%",
     maxWidth: 660,
-    maxHeight: "82%",
+    maxHeight: Platform.OS === "web" ? "82%" : 560,
+    height: Platform.OS === "web" ? undefined : 560,
     paddingVertical: 18,
     paddingHorizontal: 16,
     backgroundColor: colors.panel,
@@ -994,6 +1007,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "rgba(169, 176, 209, 0.24)",
     overflow: "hidden",
+    zIndex: 81,
+    elevation: 81,
   },
   modalDepthFill: {
     ...StyleSheet.absoluteFillObject,

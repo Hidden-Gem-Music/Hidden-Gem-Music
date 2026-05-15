@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-11
+**Date:** 2026-05-15
 **Status:** Active
 
 ---
@@ -19,18 +19,12 @@ The files in this folder are separated by responsibility:
   - route names, params, app-owned state, and navigation handoff
 - `screen-data-flow.md`
   - which screens call which frontend data helpers and how live data is reused
-- `custom-interactive-world-map.md`
-  - custom map ownership, asset source, and interaction rules
 - `interaction-loading-and-overlay-rules.md`
   - shared interaction, popup, loading, and overlay behavior rules
 - `local-development-environment.md`
-  - setup/reference expectations for local frontend work
-- `full-stack-local-testing.md`
-  - the actual end-to-end backend + frontend + phone/web runbook
+  - setup, local config, verification commands, and backend + frontend + phone/web runbook
 - `frontend-styling-rules.md`
   - visual-system and interaction-styling conventions
-- `frontend-glossary.md`
-  - internal frontend vocabulary
 
 The goal is to avoid repeating the same content across multiple files. If a topic already has a source-of-truth document here, other docs should reference it rather than restate it in full.
 
@@ -54,15 +48,10 @@ The goal is to avoid repeating the same content across multiple files. If a topi
   - cache/reuse behavior
   - additional-data integration points
 
-- `custom-interactive-world-map.md`
-  - geometry asset source and generation path
-  - Discovery/Comparison map behavior
-  - current map interaction and styling rules
-
 - `interaction-loading-and-overlay-rules.md`
   - popup/overlay behavior
   - loading-state rules
-  - search/welcome/Hidden Gems interaction rules
+  - search/welcome/Discovery/Hidden Gems interaction rules
   - explicit badge behavior
 
 - `local-development-environment.md`
@@ -70,8 +59,6 @@ The goal is to avoid repeating the same content across multiple files. If a topi
   - frontend setup/tooling expectations
   - API base URL behavior
   - frontend verification expectations
-
-- `full-stack-local-testing.md`
   - combined backend + frontend local run workflow
   - LAN/phone testing flow
   - why `--host lan` is used
@@ -81,12 +68,33 @@ The goal is to avoid repeating the same content across multiple files. If a topi
 - `frontend-styling-rules.md`
   - theme ownership
   - typography and surface rules
-  - spacing, responsive, and interaction styling conventions
+  - spacing, responsive, Discovery Map blurb, and interaction styling conventions
 
-- `frontend-glossary.md`
-  - internal frontend naming vocabulary
-  - section/component terminology
-  - code-location references for recurring UI structures
+## Shared vocabulary
+
+These are development terms, not necessarily user-facing labels.
+
+- Screen scaffold: shared page shell for background, padding, and responsive scroll behavior. Code: `src/components/ScreenScaffold.tsx`.
+- Panel: default bounded content surface. Code: `src/components/Panel.tsx`.
+- Secondary surface fill: layered visual fill used inside atmospheric panels. Code: `src/components/SecondarySurfaceFill.tsx`.
+- Loading overlay: blocking overlay used while the app prevents interaction during loading or modal states. Code: `src/components/LoadingOverlay.tsx`.
+- Discovery blurb: top explanatory panel on Discovery and related screens. Code: `src/components/DiscoveryBlurb.tsx`.
+- Discovery sidebar panels: Discovery controls/content areas used alongside map/list content. Code: `src/components/DiscoverySidebarPanels.tsx`.
+- Map view: Discovery visualization mode using the app-owned map instead of list rows. Code still lives under the historical `src/components/globe/` folder.
+- Map info blurb: glassy blurb inside the Discovery Map that shows helper copy by default and country detail text after map interaction.
+- Shared action button: app-styled route/action button used by welcome and comparison flows. It keeps mobile pressed styling but should fire actions through normal `Pressable onPress`.
+- List view panel: scrollable Discovery country list structure.
+- Year slider: Discovery year timeline control. Code: `src/components/YearSlider.tsx`.
+- Stat squares: square metric panels used in country/comparison summaries.
+- Favorite artists section: horizontal artist-preview section used on country, comparison, and Hidden Gems screens.
+- CD carousel: album-art carousel presentation used for top songs and related previews.
+- Hidden-gem preview carousel: country-page preview strip that links into full Hidden Gems.
+- Hidden song list panel: paged Hidden Gems song-row list.
+- Playing side panel: main selected-song detail panel in Hidden Gems.
+- Nav intro: introductory Hidden Gems prompt/state shown before a country/year selection is confirmed.
+- Explicit indicator: `E` badge for explicit lyrics or cover content. Code: `src/components/ExplicitIndicator.tsx`.
+- App header: top navigation/header on web layouts. Code: `src/components/AppHeader.tsx`.
+- Mobile bottom nav: bottom navigation on mobile layouts. Code: `src/components/MobileBottomNav.tsx`.
 
 ## Scope note
 

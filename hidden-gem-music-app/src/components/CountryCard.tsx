@@ -35,7 +35,10 @@ export function CountryCard({
   const [hovered, setHovered] = useState(false);
   const hasHiddenGems = country.hiddenSongs > 0;
   const noHiddenGemsCopy = selectedYear ? `No Hidden Gems for ${selectedYear}` : "No Hidden Gems for this year";
-  const hasNoSongData = country.hasSongData === false;
+  const hasNoSongData =
+    country.hasSongData === false ||
+    country.album.trim().toLowerCase().startsWith("unknown") ||
+    country.albumArtist.trim().toLowerCase().startsWith("unknown");
   const noSongDataCopy = selectedYear ? `No song data for ${selectedYear}` : "No song data for this year";
 
   return (
