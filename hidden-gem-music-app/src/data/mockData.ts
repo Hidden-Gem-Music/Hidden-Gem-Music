@@ -1,6 +1,6 @@
 import { Country, Song } from "../types/content";
 
-export const availableYears = Array.from({ length: 2021 - 1975 + 1 }, (_, index) => 1975 + index);
+export const availableYears = Array.from({ length: 2025 - 1975 + 1 }, (_, index) => 1975 + index);
 
 type CountrySeed = Country & {
   albumVariants: string[];

@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-14
 **Status:** Current Routing and App-State Reference
 
 ---
@@ -49,12 +49,14 @@ Current path mapping:
 
 Year and country values are passed through route params where relevant.
 
+Discovery opens to the app-owned default Discovery year, currently 2025, unless a year-sensitive downstream screen owns a stronger route param.
+
 ## Route-param rules
 
 Current route-param behavior:
 
 - `discovery`
-  - `year`
+  - route accepts year-shaped state historically, but the current default-load behavior is owned by the app shell so Discovery can open on the current default year without being pulled back by stale URL state
 
 - `comparisonSelect`
   - `year`
@@ -133,6 +135,18 @@ These helpers matter because they preserve shared behavior such as:
 - hidden-gem focus handoff
 - welcome/popup interaction rules
 
+Current welcome/navigation guard:
+
+- welcome dismissal should use `navigationRef.canGoBack()` before calling `goBack`
+- if the welcome screen has no back route to pop, the app should navigate to Discovery directly
+- mobile welcome route buttons should guard against repeated taps during the closing transition
+
+Current country-opening rule from Discovery on mobile:
+
+- the first tap on a country previews/selects that country in the Discovery Map info panel
+- a second tap on the same country opens the Country route
+- tapping a different country should preview/select that different country first, not open it immediately
+
 ## Hidden Gems focus-selection handoff
 
 Hidden Gems uses app-owned focus handoff so a preview click from another screen can open the full Hidden Gems screen on the intended song.
@@ -157,6 +171,7 @@ Important behavior:
 - year-sensitive screens keep their `year` param in sync
 - country-sensitive screens keep both `year` and `country` in sync
 - active-route params are updated through `CommonActions.setParams`
+- Discovery default-year behavior is intentionally app-owned so initial Discovery load can use the current product default year without depending on stale route params
 
 ## Comparison state rules
 

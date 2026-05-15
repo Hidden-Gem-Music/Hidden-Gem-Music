@@ -1,7 +1,7 @@
 # Additional Data API Documentation
 
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-14
 
 This folder documents the external API endpoints currently relevant to additional song metadata for Hidden Gem Music.
 
@@ -13,6 +13,7 @@ It also includes current supplement docs for the live backend API surface where 
   - current controller/endpoint inventory
   - live route/query behavior
   - controller-to-repository-to-stored-procedure mapping
+  - current cancellation/error-handling standard
   - current differences between older ADR route counts and the live backend surface
 - `backend-local-run-and-testing.md`
   - local backend run commands

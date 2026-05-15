@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-14
 **Status:** Current Live API Contract Supplement
 
 ---
@@ -25,6 +25,7 @@ Current live backend surface:
 
 - 7 controllers
 - 17 `GET` endpoints
+- endpoint inventory last checked against controller attributes on 2026-05-14
 
 Current controllers:
 
@@ -35,6 +36,30 @@ Current controllers:
 - `ComparisonController`
 - `DashboardController`
 - `GlobeController`
+
+## Current shared error-handling and cancellation standard
+
+Current controller behavior is standardized around:
+
+- `SqlException`
+  - returns `503`
+  - logs the database failure
+  - returns a user-facing unavailable message
+- `OperationCanceledException` when the request cancellation token was cancelled
+  - returns `EmptyResult`
+  - does not log as an error because client disconnect/navigation cancellation is expected behavior
+- unexpected `Exception`
+  - returns `500`
+  - logs the unexpected failure
+  - returns a user-facing unexpected-error message
+
+Current cancellation-token behavior:
+
+- controller actions accept `CancellationToken cancellationToken = default` where request work can be cancelled
+- repository interfaces and implementations pass cancellation tokens through to database calls
+- `SqlServerRepository` passes cancellation tokens into async connection/reader/read operations
+
+This matters because cancelled browser/mobile requests should stop driving backend and SQL work instead of holding resources until long-running queries finish.
 
 ## Endpoint inventory by controller
 
@@ -76,7 +101,7 @@ Endpoints:
 
 Primary role:
 
-- the current frontend Discovery screen’s main country/list/globe data source
+- the current frontend Discovery screen's main country/list/map data source
 
 Repository path:
 
@@ -146,7 +171,7 @@ Repository and stored procedure bindings:
 Current behavior notes:
 
 - `GetCountryProfile` returns `404` when the country/year profile row is not found
-- the controller returns `503` for SQL/database failures and `500` for unexpected failures on the country endpoints that have explicit exception handling
+- the controller returns `503` for SQL/database failures, silently ends cancelled requests with `EmptyResult`, and returns `500` for unexpected failures
 - `genre-samples` uses in-memory caching for both available years and sampled genre results
 
 Additional-data behavior notes:
@@ -293,7 +318,7 @@ Endpoints:
 
 Primary role:
 
-- legacy/supplementary globe summary route for Discovery Globe data
+- legacy/supplementary globe summary route for Discovery Map data
 
 Repository path:
 
@@ -339,6 +364,7 @@ Current examples of drift:
   - `DiscoveryController`
   - Country songs paging endpoint
   - Country genre-samples endpoint
+- older frontend wording may still say Discovery Globe, while the current app-facing feature name is Discovery Map
 - the additional-data integration docs describe the frontend-facing additional-data subset, but not the full dashboard/globe/backend route surface
 
 ## Update rule

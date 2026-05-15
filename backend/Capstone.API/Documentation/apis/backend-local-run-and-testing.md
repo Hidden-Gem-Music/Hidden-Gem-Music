@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-14
 **Status:** Current Backend Local Runbook
 
 ---
@@ -143,6 +143,18 @@ Practical implications:
 Relevant local cache location:
 
 - `backend/Capstone.API/live_song_enrichment_cache/`
+
+## Cancellation and error-handling checks
+
+Current controller behavior should treat client-side navigation/cancellation as a normal cancellation, not as an error.
+
+Practical checks:
+
+1. Start a slower endpoint request from the browser or frontend.
+2. Navigate away or cancel the request quickly.
+3. Backend logs should not show an error stack for normal `OperationCanceledException` cancellation.
+4. If the database is unavailable, routes should return `503` with a user-facing unavailable message.
+5. Unexpected unhandled failures should return `500` and be logged.
 
 ## Common failure cases
 

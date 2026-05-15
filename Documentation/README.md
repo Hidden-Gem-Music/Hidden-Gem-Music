@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-14
 **Status:** Active
 
 ---
@@ -14,6 +14,23 @@ This folder is the shared documentation entrypoint for the repository as a whole
 It exists to explain where project documentation lives across the repo, especially now that frontend, backend, and tooling each have their own documentation near the code they describe.
 
 ## Documentation layout
+
+### Shared project documentation
+
+Shared repository-level documentation lives in:
+
+- `Documentation/`
+
+Current scope here includes:
+
+- repository documentation map
+- shared QA/regression log used by project contributors
+
+The shared QA log is:
+
+- `Documentation/QA-log.md`
+
+Each QA entry should include ownership fields such as `Tester` and `Fix owner` when applicable.
 
 ### Frontend documentation
 
@@ -64,6 +81,10 @@ This keeps operational tool usage close to the scripts and runtime paths they de
 ## What does not belong here
 
 This shared documentation folder is for repo-wide orientation only.
+
+Exception:
+
+- the shared QA/regression log belongs here because it applies across frontend, backend, data, tooling, and teammate testing
 
 It is not intended to replace:
 

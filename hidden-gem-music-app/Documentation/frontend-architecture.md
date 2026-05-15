@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-11
+**Date:** 2026-05-14
 **Status:** Current Working Frontend Architecture
 
 ---
@@ -129,6 +129,46 @@ Current ownership rule:
 - the generation script lives in `tools/generate_world_map_assets.mjs`
 
 This keeps the map implementation swappable without forcing a full screen split.
+
+The live frontend does not call an external map provider. Country geometry comes from the checked-in generated asset:
+
+- source pipeline: Natural Earth 50m country boundaries through `tools/generate_world_map_assets.mjs`
+- runtime asset: `src/assets/maps/worldMap50m.ts`
+- runtime rendering: `GlobeView.tsx` reads the generated flat-map path data directly
+
+Current asset contents include:
+
+- country reference metadata
+- continent grouping metadata
+- generated flat-map path data
+- projection metadata
+
+Country placement and data availability still come from the frontend/backend `Country` model rather than from a live map service.
+
+Current Discovery-specific map ownership details:
+
+- `App.tsx` owns the default Discovery year, currently 2025, and Discovery year-data reuse
+- `DiscoveryScreen.tsx` owns filter/list layout and passes active/broader country pools into the map seam
+- `GlobeView.tsx` owns map viewport reset, mobile arrow/zoom/reset controls, and first-tap/second-tap mobile country behavior
+- the map info blurb is part of the map seam, not a separate screen-level overlay
+- mobile and web share the same renderer path with responsive behavior instead of separate screen implementations
+
+Current Discovery interaction rules:
+
+- web hover updates the map info blurb and synchronizes the country list
+- web click opens the country flow
+- mobile first tap previews/selects a country
+- mobile second tap on the same country opens the Country route
+- mobile arrow, zoom, and reset controls are explicit controls, not hidden gestures
+- mobile reset remains visible for discoverability
+
+Current Discovery visual/data rules:
+
+- Discovery default year is 2025
+- countries with data stay visually distinct from countries without data
+- countries without data keep visible boundary lines so geography remains readable
+- the map info blurb uses helper mode for instructional copy and detail mode for country stats
+- map-panel song data should follow the same data-quality rules as the country list
 
 ## Navigation and deep-link ownership
 

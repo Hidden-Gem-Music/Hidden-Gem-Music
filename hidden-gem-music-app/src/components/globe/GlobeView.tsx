@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { LayoutChangeEvent, PanResponder, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, RadialGradient as SvgRadialGradient, Stop } from "react-native-svg";
+import { LayoutChangeEvent, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import Svg, { Defs, Path, RadialGradient as SvgRadialGradient, Stop } from "react-native-svg";
 
 import {
   worldMapContinentOutlines,
@@ -30,12 +30,15 @@ type Props = {
   genreLoadingByCountryCode?: Record<string, boolean | undefined>;
   loadingText?: string;
   onEnsureGenreSample?: (countryCode: string) => void;
+  isActive?: boolean;
 };
 
 type ViewportOffset = {
   x: number;
   y: number;
 };
+
+type MapControl = "zoomIn" | "zoomOut" | "filters" | "year" | "panUp" | "panLeft" | "panRight" | "panDown" | "reset";
 
 const BASE_MAP_SIZE = worldMapProjection.width;
 const MAP_VIEWPORT_HEIGHT = worldMapProjection.height;
@@ -50,12 +53,17 @@ const DEFAULT_ZOOM = 2.6;
 const ZOOM_STEP = 0.4;
 const DEFAULT_OFFSET: ViewportOffset = { x: 120, y: 64 };
 const PAN_SPEED = 2.35;
+const CONTROL_NUDGE = 32;
+const MOBILE_HELPER_INFO_PANEL_HEIGHT = 174;
+const MOBILE_DETAIL_INFO_PANEL_HEIGHT = 138;
 const COUNTRY_STROKE = "rgba(169, 176, 209, 0.22)";
 const ACTIVE_COUNTRY_STROKE = "rgba(240, 232, 241, 0.88)";
 const ACTIVE_COUNTRY_GLOW = "rgba(15, 16, 21, 0.52)";
 const HOVER_COUNTRY_GLOW = "rgba(15, 16, 21, 0.42)";
 const COMPARISON_PRIMARY = "#C488A3";
 const COMPARISON_SECONDARY = "#88A8D8";
+const MOBILE_COUNTRY_FILL = "#75526B";
+const MOBILE_ACTIVE_COUNTRY_FILL = "#8EADE1";
 const CONTROL_ACTIVE_GRADIENT = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
 const INTERACTION_SUPPRESS_MS = 140;
 const MAP_GUIDE_COPY =
@@ -169,11 +177,13 @@ export function GlobeView({
   genreLoadingByCountryCode,
   loadingText = "Loading...",
   onEnsureGenreSample,
+  isActive = true,
 }: Props) {
   const { width } = useWindowDimensions();
   const isNativeMobile = Platform.OS !== "web";
-  const [hoveredControl, setHoveredControl] = useState<"zoomIn" | "zoomOut" | "filters" | "year" | "panUp" | "panLeft" | "panRight" | "panDown" | null>(null);
-  const [pressedControl, setPressedControl] = useState<"zoomIn" | "zoomOut" | "filters" | "year" | "panUp" | "panLeft" | "panRight" | "panDown" | null>(null);
+  const useMobilePanelLayout = isNativeMobile || width < 980;
+  const [hoveredControl, setHoveredControl] = useState<MapControl | null>(null);
+  const [pressedControl, setPressedControl] = useState<MapControl | null>(null);
   const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
   const [focusedCountryId, setFocusedCountryId] = useState<string | null>(null);
   const [isYearMenuOpen, setIsYearMenuOpen] = useState(false);
@@ -184,6 +194,9 @@ export function GlobeView({
   const hoverSelectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverSyncFrameRef = useRef<number | null>(null);
   const hoveredCountryIdRef = useRef<string | null>(null);
+  const focusedCountryIdRef = useRef<string | null>(null);
+  const controlActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const controlReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const offsetStartRef = useRef<ViewportOffset>(DEFAULT_OFFSET);
   const offsetRef = useRef<ViewportOffset>(DEFAULT_OFFSET);
   const zoomRef = useRef(DEFAULT_ZOOM);
@@ -192,7 +205,6 @@ export function GlobeView({
   const fallbackWidth = Math.max(316, Math.min(760, width - 30));
   const sceneWidth = containerWidth > 0 ? Math.max(316, containerWidth) : fallbackWidth;
   const sceneScale = sceneWidth / BASE_MAP_SIZE;
-  const sceneHeight = BASE_SCENE_HEIGHT * sceneScale;
   const mapCountries = allCountries && allCountries.length > 0 ? allCountries : countries;
   const countryByCode = useMemo(
     () => new Map(mapCountries.map((country) => [country.code.trim().toUpperCase(), country])),
@@ -225,7 +237,11 @@ export function GlobeView({
   const yearOptions = availableYears && availableYears.length > 0 ? [...availableYears].sort((a, b) => b - a) : [];
   const noHiddenGemsCopy = selectedYear ? `No Hidden Gems for ${selectedYear}` : "No Hidden Gems for this year";
   const hasNoSongData =
-    cardCountry ? cardCountry.album === "Unknown Album" && cardCountry.albumArtist === "Unknown Artist" : false;
+    cardCountry
+      ? cardCountry.hasSongData === false ||
+        cardCountry.album.trim().toLowerCase().startsWith("unknown") ||
+        cardCountry.albumArtist.trim().toLowerCase().startsWith("unknown")
+      : false;
   const noSongDataCopy = selectedYear ? `No song data for ${selectedYear}` : "No song data for this year";
   const showInfoPanel = Boolean(onFiltersPress);
   const webPressableProps =
@@ -234,7 +250,7 @@ export function GlobeView({
           onMouseDown: (event: any) => event.preventDefault(),
         } as any)
       : {};
-  const getControlGradient = (control: "zoomIn" | "zoomOut" | "filters" | "year" | "panUp" | "panLeft" | "panRight" | "panDown") => {
+  const getControlGradient = (control: MapControl) => {
     if (control === "filters" || control === "year") {
       if (pressedControl === control) {
         return ["rgba(78,51,74,0.9)", "rgba(69,80,106,0.72)", "rgba(27,28,47,0.86)"] as const;
@@ -280,8 +296,19 @@ export function GlobeView({
   }, [hoveredCountryId]);
 
   useEffect(() => {
+    focusedCountryIdRef.current = focusedCountryId;
+  }, [focusedCountryId]);
+
+  useEffect(() => {
     setIsYearMenuOpen(false);
   }, [selectedYear]);
+
+  useEffect(() => {
+    if (isActive) {
+      setFocusedCountryId(null);
+      setHoveredCountryId(null);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     if (Platform.OS !== "web" || !externalHoveredCountryId) {
@@ -313,6 +340,12 @@ export function GlobeView({
       }
       if (hoverSyncFrameRef.current != null && typeof cancelAnimationFrame === "function") {
         cancelAnimationFrame(hoverSyncFrameRef.current);
+      }
+      if (controlActionTimerRef.current) {
+        clearTimeout(controlActionTimerRef.current);
+      }
+      if (controlReleaseTimerRef.current) {
+        clearTimeout(controlReleaseTimerRef.current);
       }
     };
   }, []);
@@ -437,13 +470,40 @@ export function GlobeView({
       return;
     }
 
-    if (focusedCountryId === country.id) {
+    if (focusedCountryIdRef.current === country.id) {
       triggerPrimaryAction(country.id);
       return;
     }
 
+    focusedCountryIdRef.current = country.id;
     setFocusedCountryId(country.id);
     onSelectCountry(country.id);
+  };
+
+  const runMobileControlAction = (
+    control: Exclude<MapControl, "filters" | "year">,
+    action: () => void
+  ) => {
+    setPressedControl(control);
+    if (controlActionTimerRef.current) {
+      clearTimeout(controlActionTimerRef.current);
+    }
+    controlActionTimerRef.current = globalThis.setTimeout(() => {
+      controlActionTimerRef.current = null;
+      action();
+    }, 45);
+  };
+
+  const clearMobileControlPressLater = (
+    control: Exclude<MapControl, "filters" | "year">
+  ) => {
+    if (controlReleaseTimerRef.current) {
+      clearTimeout(controlReleaseTimerRef.current);
+    }
+    controlReleaseTimerRef.current = globalThis.setTimeout(() => {
+      controlReleaseTimerRef.current = null;
+      setPressedControl((current) => (current === control ? null : current));
+    }, 95);
   };
 
   const applyZoom = (nextZoom: number) => {
@@ -477,7 +537,8 @@ export function GlobeView({
   const viewBoxHeight = BASE_SCENE_HEIGHT / zoom;
   const viewBoxX = BASE_CENTER_X - viewBoxWidth / 2 - offset.x / zoom;
   const viewBoxY = BASE_CENTER_Y - viewBoxHeight / 2 - offset.y / zoom;
-  const baseStrokeWidth = zoom <= 1.2 ? 0.28 : zoom <= 1.8 ? 0.34 : zoom <= 2.6 ? 0.42 : 0.5;
+  const svgViewBox = `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`;
+  const baseStrokeWidth = isNativeMobile ? 0.42 : zoom <= 1.2 ? 0.28 : zoom <= 1.8 ? 0.34 : zoom <= 2.6 ? 0.42 : 0.5;
   const canZoomOut = zoom > MIN_ZOOM + 0.01;
   const canZoomIn = zoom < MAX_ZOOM - 0.01;
   const hoveredCountryStats = cardCountry
@@ -488,6 +549,13 @@ export function GlobeView({
           : `Most popular album in ${selectedYearLabel}:  ${cardCountry.album} by ${cardCountry.albumArtist}`,
       ]
     : null;
+  const mobileInfoPanelHeight = hoveredCountryStats ? MOBILE_DETAIL_INFO_PANEL_HEIGHT : MOBILE_HELPER_INFO_PANEL_HEIGHT;
+  const baseSceneHeight = BASE_SCENE_HEIGHT + (useMobilePanelLayout ? mobileInfoPanelHeight : 0);
+  const sceneHeight = baseSceneHeight * sceneScale;
+  const isViewportAtDefault =
+    Math.abs(offset.x - DEFAULT_OFFSET.x) <= 0.8 &&
+    Math.abs(offset.y - DEFAULT_OFFSET.y) <= 0.8 &&
+    Math.abs(zoom - DEFAULT_ZOOM) <= 0.02;
   const handleGlobeAreaLayout = (event: LayoutChangeEvent) => {
     const nextWidth = Math.floor(event.nativeEvent.layout.width);
     if (nextWidth > 0 && nextWidth !== containerWidth) {
@@ -498,9 +566,13 @@ export function GlobeView({
   return (
     <View style={[styles.globeArea, { minHeight: sceneHeight }]} onLayout={handleGlobeAreaLayout}>
       <View style={[styles.scene, { width: sceneWidth, height: sceneHeight }]}>
-        <View style={[styles.sceneInner, { transform: [{ scale: sceneScale }] }]}>
+        <View style={[styles.sceneInner, { height: baseSceneHeight, transform: [{ scale: sceneScale }] }]}>
           <View
-            style={styles.mapViewport}
+            style={[
+              styles.mapViewport,
+              useMobilePanelLayout ? styles.mapViewportMobile : null,
+              useMobilePanelLayout ? { height: MAP_VIEWPORT_HEIGHT + mobileInfoPanelHeight } : null,
+            ]}
             {...panHandlers}
             {...(Platform.OS === "web"
               ? ({
@@ -548,110 +620,82 @@ export function GlobeView({
             />
 
             {showInfoPanel ? (
-              isNativeMobile ? (
-                <Pressable
-                  onPress={cardCountry ? () => triggerPrimaryAction(cardCountry.id) : undefined}
-                  style={[styles.infoPanelShell, styles.infoPanelShellMobile, cardCountry ? styles.infoPanelShellInteractive : null]}
-                  disabled={!cardCountry}
-                >
-                  <LinearGradient
-                    colors={["rgba(117,82,107,0.24)", "rgba(108,119,142,0.12)", "rgba(44,46,75,0.28)"]}
-                    locations={[0, 0.36, 1]}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={styles.infoPanelFill}
-                  />
-                  <View style={[styles.infoPanelContent, styles.infoPanelContentMobile]}>
-                    <View style={styles.infoPanelMainRow}>
-                      <View style={styles.infoPanelCopyColumn}>
-                        <View style={styles.infoPanelToggle}>
-                          <View style={[styles.infoPanelHeadingRow, styles.infoPanelHeadingRowMobile]}>
-                            {cardCountry ? (
-                              <Text style={[styles.infoPanelHeading, styles.infoPanelHeadingMobile]}>{`${cardCountry.name} in ${selectedYearLabel}:`}</Text>
-                            ) : (
-                              <>
-                                <Text style={[styles.infoPanelHeading, styles.infoPanelHeadingMobile]}>Discovery Map</Text>
-                                <GemIcon size={12} />
-                              </>
-                            )}
-                          </View>
-                          <View style={styles.infoPanelHeadingLine} />
-                        </View>
-                        <View style={[styles.infoPanelBodyWrap, styles.infoPanelBodyWrapMobile]}>
-                          {hoveredCountryStats ? (
-                            <View style={styles.infoPanelStatsWrap}>
-                              {hoveredCountryStats.map((line) => (
-                                <View key={line} style={styles.infoPanelBulletRow}>
-                                  <GemIcon size={8} />
-                                  <Text style={[styles.infoPanelBody, styles.infoPanelBodyMobile]} numberOfLines={2}>
-                                    {line}
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
-                          ) : (
-                            <Text style={[styles.infoPanelBody, styles.infoPanelBodyMobile, styles.infoPanelGuideMobile]}>
-                              {MOBILE_MAP_GUIDE_COPY}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                    </View>
+              <Pressable
+                onPress={cardCountry ? () => triggerPrimaryAction(cardCountry.id) : undefined}
+                style={[
+                  styles.infoPanelShell,
+                  useMobilePanelLayout ? styles.infoPanelShellMobile : null,
+                  useMobilePanelLayout ? { height: mobileInfoPanelHeight } : null,
+                  cardCountry ? styles.infoPanelShellInteractive : null,
+                ]}
+                disabled={!cardCountry}
+              >
+                <LinearGradient
+                  colors={["rgba(117,82,107,0.24)", "rgba(108,119,142,0.12)", "rgba(44,46,75,0.28)"]}
+                  locations={[0, 0.36, 1]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.infoPanelFill}
+                />
+                <View style={[styles.infoPanelContent, useMobilePanelLayout ? styles.infoPanelContentMobile : null]}>
+                  <View style={[styles.infoPanelHeadingRow, useMobilePanelLayout ? styles.infoPanelHeadingRowMobile : null]}>
+                    {cardCountry ? (
+                      <Text
+                        style={[styles.infoPanelHeading, useMobilePanelLayout ? styles.infoPanelHeadingMobile : null]}
+                        numberOfLines={1}
+                      >{`${cardCountry.name} in ${selectedYearLabel}:`}</Text>
+                    ) : (
+                      <>
+                        <Text
+                          style={[styles.infoPanelHeading, useMobilePanelLayout ? styles.infoPanelHeadingMobile : null]}
+                          numberOfLines={1}
+                        >
+                          Discovery Map
+                        </Text>
+                        <GemIcon size={12} />
+                      </>
+                    )}
                   </View>
-                </Pressable>
-              ) : (
-                <View style={styles.infoPanelShell}>
-                  <LinearGradient
-                    colors={["rgba(117,82,107,0.24)", "rgba(108,119,142,0.12)", "rgba(44,46,75,0.28)"]}
-                    locations={[0, 0.36, 1]}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={styles.infoPanelFill}
-                  />
-                  <View style={styles.infoPanelContent}>
-                    <View style={styles.infoPanelMainRow}>
-                      <View style={styles.infoPanelCopyColumn}>
-                        <View style={styles.infoPanelToggle}>
-                          <View style={styles.infoPanelHeadingRow}>
-                            {cardCountry ? (
-                              <Text style={styles.infoPanelHeading}>{`${cardCountry.name} in ${selectedYearLabel}:`}</Text>
-                            ) : (
-                              <>
-                                <Text style={styles.infoPanelHeading}>Discovery Map</Text>
-                                <GemIcon size={11} />
-                              </>
-                            )}
+                  <View style={styles.infoPanelHeadingLine} />
+                  <View style={[styles.infoPanelBodyWrap, useMobilePanelLayout ? styles.infoPanelBodyWrapMobile : null]}>
+                    {hoveredCountryStats ? (
+                      <View style={styles.infoPanelStatsWrap}>
+                        {hoveredCountryStats.map((line) => (
+                          <View key={line} style={styles.infoPanelBulletRow}>
+                            <GemIcon size={useMobilePanelLayout ? 8 : 7} />
+                            <Text
+                              style={[styles.infoPanelBody, useMobilePanelLayout ? styles.infoPanelBodyMobile : null]}
+                              numberOfLines={useMobilePanelLayout ? 2 : 1}
+                            >
+                              {line}
+                            </Text>
                           </View>
-                          <View style={styles.infoPanelHeadingLine} />
-                        </View>
-                        <View style={styles.infoPanelBodyWrap}>
-                          {hoveredCountryStats ? (
-                            <View style={styles.infoPanelStatsWrap}>
-                              {hoveredCountryStats.map((line) => (
-                                <View key={line} style={styles.infoPanelBulletRow}>
-                                  <GemIcon size={7} />
-                                  <Text style={styles.infoPanelBody} numberOfLines={1}>
-                                    {line}
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
-                          ) : (
-                            <Text style={styles.infoPanelBody}>{MAP_GUIDE_COPY}</Text>
-                          )}
-                        </View>
+                        ))}
                       </View>
-                    </View>
+                    ) : (
+                      <Text
+                        style={[styles.infoPanelBody, useMobilePanelLayout ? styles.infoPanelBodyMobile : null]}
+                        numberOfLines={useMobilePanelLayout ? 4 : 2}
+                      >
+                        {useMobilePanelLayout ? MOBILE_MAP_GUIDE_COPY : MAP_GUIDE_COPY}
+                      </Text>
+                    )}
                   </View>
                 </View>
-              )
+              </Pressable>
             ) : null}
 
-            <View style={styles.svgViewport}>
+            <View
+              style={[
+                styles.svgViewport,
+                useMobilePanelLayout ? styles.svgViewportMobile : null,
+                useMobilePanelLayout ? { top: mobileInfoPanelHeight } : null,
+              ]}
+            >
               <Svg
                 width={BASE_MAP_SIZE}
                 height={BASE_SCENE_HEIGHT}
-                viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`}
+                viewBox={svgViewBox}
               >
                 <Defs>
                   <SvgRadialGradient id="map-country-base-fill" cx="38%" cy="28%" r="88%">
@@ -669,42 +713,6 @@ export function GlobeView({
                     <Stop offset="52%" stopColor={colors.backgroundRaised} stopOpacity={0.98} />
                     <Stop offset="100%" stopColor={colors.button} stopOpacity={0.96} />
                   </SvgRadialGradient>
-                  {isNativeMobile
-                    ? countryShapeMetadata.map(({ shape, shapeKey, bounds }) => {
-                        if (!shape.code) {
-                          return null;
-                        }
-
-                        return (
-                          <Fragment key={`mobile-country-gradient-${shapeKey}`}>
-                            <SvgLinearGradient
-                              id={`map-country-data-fill-mobile-${shapeKey}`}
-                              x1={bounds.minX}
-                              y1={bounds.minY}
-                              x2={bounds.maxX}
-                              y2={bounds.maxY}
-                              gradientUnits="userSpaceOnUse"
-                            >
-                              <Stop offset="0%" stopColor={colors.navGradient} stopOpacity={0.98} />
-                              <Stop offset="50%" stopColor={colors.accent} stopOpacity={0.96} />
-                              <Stop offset="100%" stopColor={colors.backgroundRaised} stopOpacity={0.98} />
-                            </SvgLinearGradient>
-                            <SvgLinearGradient
-                              id={`map-country-active-fill-mobile-${shapeKey}`}
-                              x1={bounds.minX}
-                              y1={bounds.minY}
-                              x2={bounds.maxX}
-                              y2={bounds.maxY}
-                              gradientUnits="userSpaceOnUse"
-                            >
-                              <Stop offset="0%" stopColor={colors.navGradient} stopOpacity={1} />
-                              <Stop offset="52%" stopColor={colors.backgroundRaised} stopOpacity={0.98} />
-                              <Stop offset="100%" stopColor={colors.button} stopOpacity={0.96} />
-                            </SvgLinearGradient>
-                          </Fragment>
-                        );
-                      })
-                    : null}
                 </Defs>
                 {countryShapeMetadata.map(({ shape, shapeIndex, shapeKey }) => {
                   const linkedCountry = shape.code ? countryByCode.get(shape.code) : undefined;
@@ -719,9 +727,9 @@ export function GlobeView({
                     ? `${comparisonColor}DD`
                     : isNativeMobile
                       ? isHovered || isFocusedCountry
-                        ? `url(#map-country-active-fill-mobile-${shapeKey})`
+                        ? MOBILE_ACTIVE_COUNTRY_FILL
                         : hasMapData
-                          ? `url(#map-country-data-fill-mobile-${shapeKey})`
+                          ? MOBILE_COUNTRY_FILL
                           : "transparent"
                       : isHovered || isFocusedCountry
                         ? "url(#map-country-active-fill)"
@@ -737,7 +745,7 @@ export function GlobeView({
 
                   return (
                     <Fragment key={`country-shape-group-${shapeKey}`}>
-                      {showGlow ? (
+                      {showGlow && !isNativeMobile ? (
                         <>
                           <Path
                             key={`country-shape-glow-outer-${shapeKey}`}
@@ -792,25 +800,28 @@ export function GlobeView({
                           strokeLinejoin="round"
                           strokeLinecap="round"
                           vectorEffect="non-scaling-stroke"
-                          onPress={pressHandler}
+                          onPress={undefined}
+                          onPressIn={pressHandler}
                         />
                       ) : null}
                     </Fragment>
                   );
                 })}
 
-                {worldMapContinentOutlines.map((outline, outlineIndex) => (
-                  <Path
-                    key={`continent-${outline.id ?? "no-id"}-${outlineIndex}`}
-                    d={outline.path}
-                    fill="none"
-                    stroke="rgba(212, 224, 249, 0.14)"
-                    strokeWidth={baseStrokeWidth}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ))}
+                {isNativeMobile
+                  ? null
+                  : worldMapContinentOutlines.map((outline, outlineIndex) => (
+                      <Path
+                        key={`continent-${outline.id ?? "no-id"}-${outlineIndex}`}
+                        d={outline.path}
+                        fill="none"
+                        stroke="rgba(212, 224, 249, 0.14)"
+                        strokeWidth={baseStrokeWidth}
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
               </Svg>
             </View>
 
@@ -819,9 +830,10 @@ export function GlobeView({
                 <View style={styles.directionPad}>
                   <View style={styles.directionPadRow}>
                     <Pressable
-                      onPress={() => nudgeViewport(0, 18)}
-                      onPressIn={() => setPressedControl("panUp")}
-                      onPressOut={() => setPressedControl((current) => (current === "panUp" ? null : current))}
+                      onPressIn={() => {
+                        runMobileControlAction("panUp", () => nudgeViewport(0, CONTROL_NUDGE));
+                      }}
+                      onPressOut={() => clearMobileControlPressLater("panUp")}
                       style={[styles.zoomButton, styles.mobileControlButton]}
                       {...webPressableProps}
                     >
@@ -837,9 +849,10 @@ export function GlobeView({
                       <Text style={[styles.directionButtonText, getControlGradient("panUp") ? styles.zoomButtonTextActive : null]}>↑</Text>
                     </Pressable>
                     <Pressable
-                      onPress={() => nudgeViewport(0, -18)}
-                      onPressIn={() => setPressedControl("panDown")}
-                      onPressOut={() => setPressedControl((current) => (current === "panDown" ? null : current))}
+                      onPressIn={() => {
+                        runMobileControlAction("panDown", () => nudgeViewport(0, -CONTROL_NUDGE));
+                      }}
+                      onPressOut={() => clearMobileControlPressLater("panDown")}
                       style={[styles.zoomButton, styles.mobileControlButton]}
                       {...webPressableProps}
                     >
@@ -857,9 +870,10 @@ export function GlobeView({
                   </View>
                   <View style={styles.directionPadRow}>
                     <Pressable
-                      onPress={() => nudgeViewport(18, 0)}
-                      onPressIn={() => setPressedControl("panLeft")}
-                      onPressOut={() => setPressedControl((current) => (current === "panLeft" ? null : current))}
+                      onPressIn={() => {
+                        runMobileControlAction("panLeft", () => nudgeViewport(CONTROL_NUDGE, 0));
+                      }}
+                      onPressOut={() => clearMobileControlPressLater("panLeft")}
                       style={[styles.zoomButton, styles.mobileControlButton]}
                       {...webPressableProps}
                     >
@@ -875,9 +889,10 @@ export function GlobeView({
                       <Text style={[styles.directionButtonText, getControlGradient("panLeft") ? styles.zoomButtonTextActive : null]}>←</Text>
                     </Pressable>
                     <Pressable
-                      onPress={() => nudgeViewport(-18, 0)}
-                      onPressIn={() => setPressedControl("panRight")}
-                      onPressOut={() => setPressedControl((current) => (current === "panRight" ? null : current))}
+                      onPressIn={() => {
+                        runMobileControlAction("panRight", () => nudgeViewport(-CONTROL_NUDGE, 0));
+                      }}
+                      onPressOut={() => clearMobileControlPressLater("panRight")}
                       style={[styles.zoomButton, styles.mobileControlButton]}
                       {...webPressableProps}
                     >
@@ -897,11 +912,23 @@ export function GlobeView({
               ) : null}
               <View style={styles.zoomControls}>
                 <Pressable
-                  onPress={() => applyZoom(clamp(zoom + ZOOM_STEP, MIN_ZOOM, MAX_ZOOM))}
+                  onPress={Platform.OS === "web" ? () => applyZoom(clamp(zoom + ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)) : undefined}
                   onHoverIn={() => setHoveredControl("zoomIn")}
                   onHoverOut={() => setHoveredControl((current) => (current === "zoomIn" ? null : current))}
-                  onPressIn={() => setPressedControl("zoomIn")}
-                  onPressOut={() => setPressedControl((current) => (current === "zoomIn" ? null : current))}
+                  onPressIn={() => {
+                    if (isNativeMobile) {
+                      runMobileControlAction("zoomIn", () => applyZoom(clamp(zoomRef.current + ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)));
+                    } else {
+                      setPressedControl("zoomIn");
+                    }
+                  }}
+                  onPressOut={() => {
+                    if (isNativeMobile) {
+                      clearMobileControlPressLater("zoomIn");
+                    } else {
+                      setPressedControl((current) => (current === "zoomIn" ? null : current));
+                    }
+                  }}
                   style={[
                     isNativeMobile ? styles.zoomButton : styles.zoomButtonShell,
                     isNativeMobile ? styles.mobileControlButton : null,
@@ -919,17 +946,19 @@ export function GlobeView({
                       style={isNativeMobile ? styles.controlFill : styles.zoomButtonGradient}
                     />
                   ) : null}
-                  <View style={isNativeMobile ? null : [styles.zoomButtonInner, getControlGradient("zoomIn") ? styles.zoomButtonInnerActive : null]}>
-                    <Text
-                      style={[
-                        styles.zoomButtonText,
-                        styles.zoomButtonTextPlus,
-                        getControlGradient("zoomIn") ? styles.zoomButtonTextActive : null,
-                      ]}
-                    >
-                      +
-                    </Text>
-                  </View>
+                  {isNativeMobile ? null : (
+                    <View style={[styles.zoomButtonInner, getControlGradient("zoomIn") ? styles.zoomButtonInnerActive : null]}>
+                      <Text
+                        style={[
+                          styles.zoomButtonText,
+                          styles.zoomButtonTextPlus,
+                          getControlGradient("zoomIn") ? styles.zoomButtonTextActive : null,
+                        ]}
+                      >
+                        +
+                      </Text>
+                    </View>
+                  )}
                   {isNativeMobile ? (
                     <Text
                       style={[
@@ -943,11 +972,23 @@ export function GlobeView({
                   ) : null}
                 </Pressable>
                 <Pressable
-                  onPress={() => applyZoom(clamp(zoom - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM))}
+                  onPress={Platform.OS === "web" ? () => applyZoom(clamp(zoom - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)) : undefined}
                   onHoverIn={() => setHoveredControl("zoomOut")}
                   onHoverOut={() => setHoveredControl((current) => (current === "zoomOut" ? null : current))}
-                  onPressIn={() => setPressedControl("zoomOut")}
-                  onPressOut={() => setPressedControl((current) => (current === "zoomOut" ? null : current))}
+                  onPressIn={() => {
+                    if (isNativeMobile) {
+                      runMobileControlAction("zoomOut", () => applyZoom(clamp(zoomRef.current - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)));
+                    } else {
+                      setPressedControl("zoomOut");
+                    }
+                  }}
+                  onPressOut={() => {
+                    if (isNativeMobile) {
+                      clearMobileControlPressLater("zoomOut");
+                    } else {
+                      setPressedControl((current) => (current === "zoomOut" ? null : current));
+                    }
+                  }}
                   style={[
                     isNativeMobile ? styles.zoomButton : styles.zoomButtonShell,
                     isNativeMobile ? styles.mobileControlButton : null,
@@ -965,17 +1006,19 @@ export function GlobeView({
                       style={isNativeMobile ? styles.controlFill : styles.zoomButtonGradient}
                     />
                   ) : null}
-                  <View style={isNativeMobile ? null : [styles.zoomButtonInner, getControlGradient("zoomOut") ? styles.zoomButtonInnerActive : null]}>
-                    <Text
-                      style={[
-                        styles.zoomButtonText,
-                        styles.zoomButtonTextMinus,
-                        getControlGradient("zoomOut") ? styles.zoomButtonTextActive : null,
-                      ]}
-                    >
-                      −
-                    </Text>
-                  </View>
+                  {isNativeMobile ? null : (
+                    <View style={[styles.zoomButtonInner, getControlGradient("zoomOut") ? styles.zoomButtonInnerActive : null]}>
+                      <Text
+                        style={[
+                          styles.zoomButtonText,
+                          styles.zoomButtonTextMinus,
+                          getControlGradient("zoomOut") ? styles.zoomButtonTextActive : null,
+                        ]}
+                      >
+                        −
+                      </Text>
+                    </View>
+                  )}
                   {isNativeMobile ? (
                     <Text
                       style={[
@@ -1015,37 +1058,39 @@ export function GlobeView({
                   </Pressable>
                   {isYearMenuOpen ? (
                     <View style={styles.mobileYearMenu}>
-                      {yearOptions.map((yearOption) => (
-                        <Pressable
-                          key={`map-year-option-${yearOption}`}
-                          onPress={() => {
-                            onChangeYear(yearOption);
-                            setIsYearMenuOpen(false);
-                          }}
-                          style={[styles.mapActionButtonShell, styles.mobileWideButtonShell]}
-                        >
-                          <View style={[styles.mapActionButton, styles.mobileSolidActionButton, yearOption === selectedYear ? styles.mapActionButtonActive : null]}>
-                            {yearOption === selectedYear ? (
-                              <LinearGradient
-                                colors={CONTROL_ACTIVE_GRADIENT}
-                                locations={[0, 0.34, 1]}
-                                start={{ x: 0, y: 0.5 }}
-                                end={{ x: 1, y: 0.5 }}
-                                style={styles.mapActionButtonGradient}
-                              />
-                            ) : null}
-                            <Text
-                              style={[
-                                styles.mapActionButtonText,
-                                styles.mobileWideButtonText,
-                                yearOption === selectedYear ? styles.mapActionButtonTextActive : null,
-                              ]}
-                            >
-                              {yearOption}
-                            </Text>
-                          </View>
-                        </Pressable>
-                      ))}
+                      <ScrollView style={styles.mobileYearMenuScroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+                        {yearOptions.map((yearOption) => (
+                          <Pressable
+                            key={`map-year-option-${yearOption}`}
+                            onPress={() => {
+                              onChangeYear(yearOption);
+                              setIsYearMenuOpen(false);
+                            }}
+                            style={[styles.mapActionButtonShell, styles.mobileWideButtonShell]}
+                          >
+                            <View style={[styles.mapActionButton, styles.mobileSolidActionButton, yearOption === selectedYear ? styles.mapActionButtonActive : null]}>
+                              {yearOption === selectedYear ? (
+                                <LinearGradient
+                                  colors={CONTROL_ACTIVE_GRADIENT}
+                                  locations={[0, 0.34, 1]}
+                                  start={{ x: 0, y: 0.5 }}
+                                  end={{ x: 1, y: 0.5 }}
+                                  style={styles.mapActionButtonGradient}
+                                />
+                              ) : null}
+                              <Text
+                                style={[
+                                  styles.mapActionButtonText,
+                                  styles.mobileWideButtonText,
+                                  yearOption === selectedYear ? styles.mapActionButtonTextActive : null,
+                                ]}
+                              >
+                                {yearOption}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
                     </View>
                   ) : null}
                 </View>
@@ -1087,16 +1132,38 @@ export function GlobeView({
               ) : null}
             </View>
 
-            {(Math.abs(offset.x) > 0.8 || Math.abs(offset.y) > 0.8 || Math.abs(zoom - DEFAULT_ZOOM) > 0.02) ? (
+            {(isNativeMobile || !isViewportAtDefault) ? (
               <Pressable
-                onPress={() => {
+                onPress={Platform.OS === "web" ? () => {
                   setOffset(DEFAULT_OFFSET);
                   setZoom(DEFAULT_ZOOM);
+                } : undefined}
+                onPressIn={() => {
+                  if (isNativeMobile) {
+                    runMobileControlAction("reset", () => {
+                      setOffset(DEFAULT_OFFSET);
+                      setZoom(DEFAULT_ZOOM);
+                    });
+                  }
                 }}
-                style={[styles.infoChip, styles.infoChipRight]}
+                onPressOut={() => {
+                  if (isNativeMobile) {
+                    clearMobileControlPressLater("reset");
+                  }
+                }}
+                style={[styles.infoChip, styles.infoChipRight, getControlGradient("reset") ? styles.infoChipPressed : null]}
                 {...webPressableProps}
               >
-                <Text style={styles.infoChipText}>Reset</Text>
+                {getControlGradient("reset") ? (
+                  <LinearGradient
+                    colors={getControlGradient("reset")!}
+                    locations={[0, 0.34, 1]}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.infoChipFill}
+                  />
+                ) : null}
+                <Text style={[styles.infoChipText, getControlGradient("reset") ? styles.infoChipTextPressed : null]}>Reset</Text>
               </Pressable>
             ) : null}
 
@@ -1143,6 +1210,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
     elevation: 0,
   },
+  mapViewportMobile: {
+    height: MAP_VIEWPORT_HEIGHT + MOBILE_HELPER_INFO_PANEL_HEIGHT,
+  },
   oceanFill: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -1166,7 +1236,8 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 14,
     overflow: "hidden",
     borderWidth: 0,
-    zIndex: 24,
+    zIndex: 64,
+    elevation: 64,
     ...(Platform.OS === "web"
       ? ({
           backdropFilter: "blur(18px)",
@@ -1176,63 +1247,43 @@ const styles = StyleSheet.create({
     minHeight: 58,
     height: 58,
   },
+  infoPanelShellMobile: {
+    height: MOBILE_HELPER_INFO_PANEL_HEIGHT,
+  },
   infoPanelFill: {
     ...StyleSheet.absoluteFillObject,
-  },
-  infoPanelShellMobile: {
-    minHeight: 92,
-    height: 92,
   },
   infoPanelShellInteractive: {
     opacity: 1,
   },
   infoPanelContent: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     paddingTop: 5,
-    paddingBottom: 0,
+    paddingBottom: 5,
+    zIndex: 2,
+    elevation: 2,
   },
   infoPanelContentMobile: {
-    paddingHorizontal: 12,
-    paddingTop: 18,
-    paddingBottom: 2,
-  },
-  infoPanelMainRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
-    gap: 0,
-  },
-  infoPanelCopyColumn: {
-    flex: 1,
-    minWidth: 0,
-  },
-  infoPanelToggle: {
-    flex: 1,
-    minWidth: 0,
-    ...(Platform.OS === "web"
-      ? ({
-          userSelect: "none",
-        } as any)
-      : null),
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   infoPanelHeadingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginTop: 4,
+    gap: 6,
+    marginTop: 0,
+    minHeight: 14,
   },
   infoPanelHeadingRowMobile: {
-    alignItems: "flex-start",
-    gap: 6,
-    marginTop: 3,
+    minHeight: 30,
   },
   infoPanelHeadingLine: {
     width: "100%",
     height: 2,
     borderRadius: 999,
-    marginTop: 3,
+    marginTop: 6,
     marginLeft: 1,
-    backgroundColor: colors.backgroundBottom,
+    backgroundColor: "rgba(240,232,241,0.82)",
   },
   infoPanelBodyWrap: {
     minHeight: 16,
@@ -1242,19 +1293,25 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   infoPanelBodyWrapMobile: {
-    minHeight: 28,
-    maxHeight: undefined,
-    marginTop: 10,
+    minHeight: 92,
+    maxHeight: 92,
+    marginTop: 12,
   },
   infoPanelHeading: {
     color: colors.textLight,
     fontFamily: typefaces.display,
+    fontWeight: "700",
     fontSize: 12,
     lineHeight: 14,
+    flexShrink: 1,
+    minWidth: 0,
+    textShadowColor: "rgba(15,16,21,0.8)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   infoPanelHeadingMobile: {
-    fontSize: 16,
-    lineHeight: 18,
+    fontSize: 22,
+    lineHeight: 26,
   },
   infoPanelStatsWrap: {
     gap: 2,
@@ -1272,11 +1329,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoPanelBodyMobile: {
-    fontSize: 11,
-    lineHeight: 13,
-  },
-  infoPanelGuideMobile: {
-    flexWrap: "wrap",
+    fontSize: 17,
+    lineHeight: 22,
   },
   infoPanelButton: {
     minHeight: 18,
@@ -1319,12 +1373,16 @@ const styles = StyleSheet.create({
     width: BASE_MAP_SIZE,
     height: BASE_SCENE_HEIGHT,
   },
+  svgViewportMobile: {
+    top: MOBILE_HELPER_INFO_PANEL_HEIGHT,
+  },
   mapControlStack: {
     position: "absolute",
     bottom: 8,
     left: 12,
     gap: 4,
-    zIndex: 16,
+    zIndex: 48,
+    elevation: 48,
   },
   directionPad: {
     gap: 4,
@@ -1486,13 +1544,16 @@ const styles = StyleSheet.create({
   },
   mobileYearControlWrap: {
     position: "relative",
+    zIndex: 30,
+    elevation: 30,
   },
   mobileYearMenu: {
     position: "absolute",
     left: 0,
     bottom: 42,
-    gap: 4,
-    zIndex: 20,
+    zIndex: 32,
+    elevation: 32,
+    maxHeight: 172,
     padding: 6,
     borderRadius: 12,
     backgroundColor: colors.panel,
@@ -1502,6 +1563,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.24,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 8 },
+  },
+  mobileYearMenuScroll: {
+    maxHeight: 160,
   },
   infoChip: {
     position: "absolute",
@@ -1517,12 +1581,25 @@ const styles = StyleSheet.create({
           userSelect: "none",
         } as any)
       : null),
+    overflow: "hidden",
+  },
+  infoChipFill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 8,
+  },
+  infoChipPressed: {
+    borderColor: colors.textLight,
+    transform: [{ scale: 0.98 }],
   },
   infoChipText: {
     color: colors.textLight,
     fontFamily: typefaces.condensed,
     fontSize: 10,
     lineHeight: 11,
+    zIndex: 1,
+  },
+  infoChipTextPressed: {
+    color: colors.textLight,
   },
   infoChipRight: {
     position: "absolute",

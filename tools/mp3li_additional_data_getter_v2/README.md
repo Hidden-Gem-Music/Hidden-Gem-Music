@@ -6,6 +6,8 @@ This is a separate tool from:
 
 That original folder remains the v1 tool path. This v2 folder is the newer source-specific additional-data getter workflow.
 
+Last reviewed: 2026-05-14
+
 ## Purpose
 
 This tool processes the shared no-dupes song list and writes source-specific additional-data outputs and runtime state.
@@ -35,13 +37,14 @@ Interactive source selection presents:
 
 ## Current run modes
 
-The tool currently supports five run modes:
+The tool currently supports six run modes:
 
 1. `begin`
 2. `resume`
 3. `fill_missing`
 4. `retry_skipped`
-5. `smart_catch_up`
+5. `retry_failed`
+6. `smart_catch_up`
 
 Interactive mode selection presents:
 
@@ -54,6 +57,7 @@ Interactive mode selection presents:
 Important rule:
 
 - `smart_catch_up` is only valid when `--source genius_web` is used
+- `genius_web_language` only supports `begin`, `resume`, and `retry_failed`
 
 ## Current input behavior
 
@@ -159,11 +163,13 @@ cd "/Users/stellar/School/Music_Capstone/tools/mp3li_additional_data_getter_v2" 
   - `deezer`
   - `genius_api`
   - `genius_web`
+  - `genius_web_language`
 - `--mode`
   - `begin`
   - `resume`
   - `fill_missing`
   - `retry_skipped`
+  - `retry_failed`
   - `smart_catch_up`
 - `--limit <n>`
   - optional row cap for test runs
@@ -208,6 +214,14 @@ Current focus:
 - attempt-trail tracking
 - deterministic skip classification
 - smart catch-up support for incomplete prior runs
+
+### Genius Web Language Getter
+
+Current focus:
+
+- reads lyric URLs from the Genius Web output
+- writes `language_ready_matches.*`
+- supports begin/resume/retry-failed language extraction passes
 
 ## Output shape notes
 

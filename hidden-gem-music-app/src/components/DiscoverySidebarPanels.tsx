@@ -222,13 +222,20 @@ export function DiscoverySidebarPanels({
       return;
     }
 
-    const y = positionsRef.current[selectedCountryId];
-    if (typeof y === "number") {
-      listScrollRef.current?.scrollTo({ y: Math.max(y - 18, 0), animated: false });
-    }
-  }, [autoScrollSignal, expandedPanel]);
+    const scrollToSelectedCountry = () => {
+      const y = positionsRef.current[selectedCountryId];
+      if (typeof y === "number") {
+        listScrollRef.current?.scrollTo({ y: Math.max(y - 18, 0), animated: false });
+      }
+    };
+
+    scrollToSelectedCountry();
+    const retryTimer = setTimeout(scrollToSelectedCountry, 40);
+    return () => clearTimeout(retryTimer);
+  }, [autoScrollSignal, expandedPanel, listContentHeight, selectedCountryId]);
 
   useEffect(() => {
+    positionsRef.current = {};
     nearListEndTriggeredRef.current = false;
     setListScrollY((current) => (current === 0 ? current : 0));
     if (isWeb) {
@@ -298,7 +305,8 @@ export function DiscoverySidebarPanels({
               style={[styles.panelScroll, !isWeb ? styles.panelScrollNative : null]}
               contentContainerStyle={styles.filterContent}
               showsVerticalScrollIndicator={false}
-              scrollEnabled={isWeb}
+              scrollEnabled
+              nestedScrollEnabled
               onLayout={(event) => setFilterViewportHeight(event.nativeEvent.layout.height)}
               onContentSizeChange={(_, height) => setFilterContentHeight(height)}
               onScroll={handleFilterScroll}
@@ -352,7 +360,8 @@ export function DiscoverySidebarPanels({
               style={[styles.panelScroll, !isWeb ? styles.panelScrollNative : null]}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
-              scrollEnabled={isWeb}
+              scrollEnabled
+              nestedScrollEnabled
               onLayout={(event) => setListViewportHeight(event.nativeEvent.layout.height)}
               onContentSizeChange={(_, height) => setListContentHeight(height)}
               onScroll={handleListScroll}
@@ -436,6 +445,7 @@ const styles = StyleSheet.create({
   },
   frameNative: {
     minHeight: 0,
+    height: 760,
     maxHeight: undefined,
   },
   section: {
@@ -569,7 +579,9 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   scrollAreaNative: {
-    flexGrow: 0,
+    flex: 1,
+    minHeight: 0,
+    maxHeight: undefined,
   },
   panelScroll: {
     flex: 1,
@@ -581,7 +593,7 @@ const styles = StyleSheet.create({
       : null),
   },
   panelScrollNative: {
-    flexGrow: 0,
+    flex: 1,
   },
   listContent: {
     paddingHorizontal: 18,

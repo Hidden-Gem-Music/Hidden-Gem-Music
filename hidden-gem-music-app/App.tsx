@@ -59,6 +59,7 @@ type HiddenGemsFocusSelection = {
 };
 
 const APP_STATE_STORAGE_KEY = "hidden-gem-app-state-v1";
+const DEFAULT_DISCOVERY_YEAR = 2025;
 
 function readPersistedAppState(): PersistedAppState {
   if (typeof window === "undefined") {
@@ -181,7 +182,6 @@ export default function App() {
 
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasAppliedLatestYearDefaultRef = useRef(false);
   const suppressOpenUntilRef = useRef(0);
   const isAwaitingDiscoveryRefreshRef = useRef(false);
   const hasSeenDiscoveryLoadingRef = useRef(false);
@@ -190,7 +190,13 @@ export default function App() {
   const initialNavigationSeed = initialNavigationSeedRef.current;
   const initialStackRoute = toInitialStackRoute(initialNavigationSeed.route);
   const persistedAppState = persistedAppStateRef.current;
-  const initialYear = initialNavigationSeed.year ?? persistedAppState.selectedYear ?? 2021;
+  const initialYear =
+    initialNavigationSeed.route === "country" ||
+    initialNavigationSeed.route === "hiddenGems" ||
+    initialNavigationSeed.route === "comparisonSelect" ||
+    initialNavigationSeed.route === "comparisonResults"
+      ? initialNavigationSeed.year ?? DEFAULT_DISCOVERY_YEAR
+      : DEFAULT_DISCOVERY_YEAR;
   const initialFeaturedCountry = getFeaturedCountry(initialYear);
 
   const [navigationReady, setNavigationReady] = useState(false);
@@ -352,7 +358,13 @@ export default function App() {
 
     setCurrentRoute(nextRoute);
 
-    if (typeof params.year === "number" && availableYears.includes(params.year)) {
+    const canSyncRouteYear =
+      nextRoute === "country" ||
+      nextRoute === "hiddenGems" ||
+      nextRoute === "comparisonSelect" ||
+      nextRoute === "comparisonResults";
+
+    if (canSyncRouteYear && typeof params.year === "number" && availableYears.includes(params.year)) {
       setSelectedYear((current) => (current === params.year ? current : params.year!));
     }
 
@@ -406,7 +418,12 @@ export default function App() {
       return;
     }
 
-    navigationRef.goBack();
+    if (navigationRef.canGoBack()) {
+      navigationRef.goBack();
+    } else {
+      navigationRef.navigate("discovery", getRouteParams("discovery", selectedYear, selectedCountryId));
+    }
+
     if (route === "discovery") {
       return;
     }
@@ -436,8 +453,6 @@ export default function App() {
       return;
     }
 
-    const countryLabel = apiCountryPool.find((country) => country.id === countryId || country.code === countryId)?.name ?? countries.find((country) => country.id === countryId || country.code === countryId)?.name ?? countryId;
-
     if (countryId === selectedCountryId) {
       if (navigationRef.isReady()) {
         navigationRef.navigate("country", {
@@ -448,24 +463,21 @@ export default function App() {
       return;
     }
 
-    setLoadingMessage(`Loading ${countryLabel} for ${selectedYear}...`);
+    setSelectedCountryId(countryId);
+    setLoadingMessage(null);
     if (loadingTimerRef.current) {
       clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = null;
     }
 
-    loadingTimerRef.current = setTimeout(() => {
-      setSelectedCountryId(countryId);
-      setLoadingMessage(null);
+    if (!navigationRef.isReady()) {
+      return;
+    }
 
-      if (!navigationRef.isReady()) {
-        return;
-      }
-
-      navigationRef.navigate("country", {
-        country: countryId,
-        year: selectedYear,
-      });
-    }, 500);
+    navigationRef.navigate("country", {
+      country: countryId,
+      year: selectedYear,
+    });
 
     return;
   };
@@ -651,7 +663,7 @@ export default function App() {
       return;
     }
 
-    if (hasSeenDiscoveryLoadingRef.current && loadingMessage && loadingMessage.startsWith("Refreshing")) {
+    if (loadingMessage && loadingMessage.startsWith("Refreshing")) {
       const timer = setTimeout(() => {
         setLoadingMessage(null);
         isAwaitingDiscoveryRefreshRef.current = false;
@@ -661,6 +673,16 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [isDiscoveryLoading, loadingMessage]);
+
+  useEffect(() => {
+    if (currentRoute === "discovery" || !loadingMessage?.startsWith("Refreshing Discovery Map")) {
+      return;
+    }
+
+    setLoadingMessage(null);
+    isAwaitingDiscoveryRefreshRef.current = false;
+    hasSeenDiscoveryLoadingRef.current = false;
+  }, [currentRoute, loadingMessage]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -687,24 +709,16 @@ export default function App() {
       return;
     }
 
+    if (availableYears.includes(selectedYear)) {
+      return;
+    }
+
     const nearestYear = apiAvailableYears.reduce((currentNearest, currentYear) =>
       Math.abs(currentYear - selectedYear) < Math.abs(currentNearest - selectedYear) ? currentYear : currentNearest
     , apiAvailableYears[0]);
 
     setSelectedYear(nearestYear);
   }, [apiAvailableYears, selectedYear]);
-
-  useEffect(() => {
-    if (hasAppliedLatestYearDefaultRef.current || initialNavigationSeed.year != null || apiAvailableYears.length === 0) {
-      return;
-    }
-
-    const latestYear = apiAvailableYears[apiAvailableYears.length - 1];
-    hasAppliedLatestYearDefaultRef.current = true;
-    if (latestYear !== selectedYear) {
-      setSelectedYear(latestYear);
-    }
-  }, [apiAvailableYears, initialNavigationSeed.year, selectedYear]);
 
   useEffect(() => {
     if (currentRoute !== "hiddenGems") {
@@ -863,6 +877,7 @@ export default function App() {
       isAwaitingDiscoveryRefreshRef.current = true;
       hasSeenDiscoveryLoadingRef.current = false;
       setLoadingMessage(`Refreshing ${context} for ${nextYear}...`);
+      setIsDiscoveryLoading(true);
       setSelectedYear(nextYear);
       return;
     }
@@ -953,7 +968,13 @@ export default function App() {
               >
                 {() => (
                   <WelcomeScreen
-                    onDismiss={() => navigationRef.goBack()}
+                    onDismiss={() => {
+                      if (navigationRef.canGoBack()) {
+                        navigationRef.goBack();
+                      } else {
+                        navigationRef.navigate("discovery", getRouteParams("discovery", selectedYear, selectedCountryId));
+                      }
+                    }}
                     onSelectRoute={handleWelcomeRouteSelection}
                   />
                 )}
@@ -963,7 +984,7 @@ export default function App() {
                 {() => (
                   <DiscoveryScreen
                     isActive={currentRoute === "discovery"}
-                    isLoading={isDiscoveryLoading}
+                    isLoading={isDiscoveryLoading && discoveryCountries.length === 0}
                     countries={discoveryCountries}
                     allYearsCountries={allYearsDiscoveryCountries}
                     selectedCountryId={selectedCountryId}

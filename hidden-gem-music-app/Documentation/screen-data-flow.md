@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-11
+**Date:** 2026-05-14
 **Status:** Current Frontend Data-Flow Reference
 
 ---
@@ -18,7 +18,7 @@ Use this file for:
 - cache and reuse behavior
 - which additional-data fields are already live in the frontend
 
-Use `local-development-environment.md` for API base URL environment/reference notes and `full-stack-local-testing.md` for local run/testing workflow.
+Use `local-development-environment.md` for API base URL environment notes and local run/testing workflow.
 
 ## API base URL ownership
 
@@ -29,7 +29,6 @@ API base URL logic lives in:
 This file treats `apiBaseUrl.ts` as part of the frontend data seam, but the local environment and override behavior are documented in:
 
 - `local-development-environment.md`
-- `full-stack-local-testing.md`
 
 ## Main frontend API files
 
@@ -77,6 +76,8 @@ Discovery year reuse is also kept in app state through:
 
 - `discoveryCountriesByYear` in `App.tsx`
 
+Discovery's current default year is app-owned and set to 2025. The frontend fallback year list includes 2025 so the UI can initialize consistently before metadata loading completes.
+
 Important note:
 
 - these caches are frontend session-memory reuse
@@ -98,18 +99,21 @@ Main files:
 Current flow:
 
 1. `App.tsx` loads available years.
-2. `App.tsx` loads Discovery countries for the selected year.
-3. Discovery results are cached by year in app state.
-4. `DiscoveryScreen.tsx` filters/sorts the active country set for UI use.
-5. The custom map receives:
+2. `App.tsx` initializes Discovery to the current default year, 2025.
+3. `App.tsx` loads Discovery countries for the selected year.
+4. Discovery results are cached by year in app state.
+5. `DiscoveryScreen.tsx` filters/sorts the active country set for UI use.
+6. The custom map receives:
    - the active filtered country set
    - and the broader current Discovery country pool for dimmed-but-visible context
-6. Genre samples are prefetched in smaller batches through `loadCountryGenreSamples`.
+7. Genre samples are prefetched in smaller batches through `loadCountryGenreSamples`.
 
 Important current rule:
 
 - user-facing country pools should exclude `GLOBAL`-style rows
 - the custom map does not call an external map service at runtime; it renders from the app-owned geometry asset
+- the map and list should use the same song-data quality rules so "No song data" states do not conflict with misleading "Unknown" album/song labels
+- changing year should update the active country data without resetting the user's current map viewport
 
 ## Country screen flow
 

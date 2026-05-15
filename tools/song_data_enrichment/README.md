@@ -2,6 +2,8 @@
 
 This is the original additional-data getter tool.
 
+Last reviewed: 2026-05-14
+
 Tool folder path remains:
 
 `tools/song_data_enrichment`
@@ -108,6 +110,8 @@ Outputs are written to:
 - `--limit <n>` row limit for test runs
 - `--offset <n>` skip first `n` deduped input rows
 - `--merge-output` merge new chunk into existing output and dedupe by `song_name + artist_name`
+- `--live-progress` show detailed per-song progress, step text, bars, and counts
+- `--deezer-only` skip Genius requests and run Deezer-only enrichment
 
 ## Large dataset chunk strategy (recommended)
 
@@ -148,6 +152,20 @@ What it does:
   - timeout marks stall
   - retries same chunk once
 - if stall repeats, retries with smaller chunk size (`200` by default)
+
+Runner flags:
+
+- `--input <path>` custom input CSV path; default prefers `no_dupes_input_songs.csv`, then `input_songs.csv`
+- `--output-dir <path>` output folder
+- `--chunk-size <n>` rows per chunk
+- `--start-offset <n>` starting deduped-row offset
+- `--max-chunks <n>` optional chunk cap; `0` means run to completion
+- `--stall-timeout-sec <n>` stall timeout per chunk
+- `--retry-on-stall <n>` retry count before reduced chunk handling
+- `--reduced-chunk-on-second-stall <n>` fallback chunk size after repeated stall
+- `--checkpoint-log <path>` checkpoint JSONL path
+- `--mode begin|resume|unmatched`
+- `--source-mode both|deezer-only`
 
 ## Interactive terminal app behavior
 

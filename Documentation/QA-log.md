@@ -3,6 +3,73 @@
 
 ---
 
+## 2026-05-14 — Discovery Map Web/Mobile Stabilization
+
+**Tester:** mp3li
+**Fix owner:** mp3li / Codex-assisted implementation
+**Scope:** Discovery Map default year, web hover/list behavior, mobile map controls, mobile country taps, mobile glassy blurb, welcome navigation, and reset behavior
+
+### What I noticed
+
+During hands-on web and mobile review, the Discovery Map had several issues that were not captured by compile-only checks:
+
+- Discovery opened with 2025 data but the timeline slider visually appeared to be on 2024.
+- Web year changes could leave refreshing/loading UI stuck or visible after leaving Discovery.
+- Web map hover highlighted the country list but did not always scroll the highlighted row into view.
+- Country-list and map no-song-data messaging could disagree.
+- Mobile welcome-to-Discovery could feel unresponsive before the welcome modal disappeared.
+- Mobile welcome dismissal could trigger an unhandled `GO_BACK` navigation warning when there was no route to pop.
+- Mobile glassy blurb helper text overlapped the `Discovery Map` heading/gem and needed to sit under the divider line.
+- Mobile map arrows/zoom/reset needed visible press feedback so the user could tell taps were accepted.
+- Mobile map transform-based movement made country borders blurry.
+- Mobile country taps needed the required rule: first tap previews, second tap on the same country opens detail.
+- No-data countries needed visible borders so continent shapes remained readable.
+- Mobile reset disappeared because reset visibility was tied to brittle viewport-default detection.
+
+### What was fixed
+
+- Set the app-owned Discovery default year to 2025 and aligned the slider's visual state to the actual selected year.
+- Kept Discovery year refresh overlays scoped to Discovery and cleared them when navigating away.
+- Preserved current map viewport across year changes instead of forcing a reset.
+- Improved web map/list synchronization so country hover can bring the highlighted list row into view.
+- Aligned no-song-data handling between list and map card/blurb states.
+- Guarded welcome dismissal with `navigationRef.canGoBack()` before calling `goBack`.
+- Added a safe fallback route to Discovery when welcome has no back route.
+- Added tap guards and mobile pressed styling for welcome buttons.
+- Reworked mobile map blurb positioning so it sits above the map, with the map below it.
+- Restored the heading divider line and placed helper/detail text under it.
+- Matched mobile blurb heading/detail text scale to nearby Discovery section/list text.
+- Added separate mobile blurb heights for helper mode and country-detail mode.
+- Kept web blurb compact after mobile layout changes.
+- Restored crisp mobile map rendering by using SVG viewBox movement instead of scaling the whole SVG view.
+- Added press styling to mobile arrow, zoom, and reset controls.
+- Kept reset visible on mobile and fixed reset to compare against the real default viewport.
+- Implemented mobile country tap behavior so only a second tap on the same country opens the Country page.
+- Kept no-data country borders visible while leaving no-data country fills empty.
+
+### How to test
+
+1. Open Discovery from the welcome modal on mobile. The welcome button should show pressed feedback and the modal should dismiss without a `GO_BACK` warning.
+2. Confirm Discovery initializes to 2025 and the timeline/slider visually agrees with the active year.
+3. On web, hover a map country and confirm the matching country in the list is highlighted and brought into view.
+4. Change Discovery year on web and confirm the map does not jump back to the default viewport unless Reset is pressed.
+5. On mobile, tap one country once. It should update the glassy blurb and should not open the Country page.
+6. Tap a different country once. It should preview that different country, not open it.
+7. Tap the same selected country again. It should open the Country page.
+8. Navigate back to Discovery and confirm stale selected-country highlighting does not incorrectly carry over as a fresh tap.
+9. Use arrow, zoom, and reset controls on mobile and confirm each shows visible press styling.
+10. Confirm no-data countries still show borders and the map remains crisp, not blurry.
+11. Confirm the mobile glassy blurb is taller for helper copy and shorter for country detail copy.
+
+### Verification
+
+- `npx tsc --noEmit`
+- `git diff --check`
+
+Both passed after the final reset visibility and mobile blurb height fixes.
+
+---
+
 ## 2026-05-13 — Backend Error Handling
 
 **Scope:** All 7 controllers

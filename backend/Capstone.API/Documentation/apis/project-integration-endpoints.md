@@ -1,7 +1,7 @@
 # Project Integration Endpoints
 
 **Author:** mp3li
-**Date:** 2026-05-09
+**Date:** 2026-05-14
 
 ## Purpose of this file
 
@@ -67,8 +67,8 @@ These are the app endpoints the frontend calls.
 - Frontend wrapper:
   - `loadCountryGenreSamples`
 - Current role:
-  - Discovery Globe country-list genre line
-  - Discovery Globe hover-card genre line
+  - Discovery Map country-list genre line
+  - Discovery Map hover/detail genre line
   - uses the current repo’s `B / I / Y` sampling logic on the backend
 
 ### 5. Hidden Gems page

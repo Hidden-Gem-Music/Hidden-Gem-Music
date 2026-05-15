@@ -28,6 +28,7 @@ type Props = {
   genreLoadingByCountryCode?: Record<string, boolean | undefined>;
   loadingText?: string;
   onEnsureGenreSample?: (countryCode: string) => void;
+  isActive?: boolean;
 };
 
 export function GlobePanel({
@@ -53,6 +54,7 @@ export function GlobePanel({
   genreLoadingByCountryCode,
   loadingText,
   onEnsureGenreSample,
+  isActive,
 }: Props) {
   const activeCountry = countries.find((country) => country.id === activeCountryId);
 
@@ -88,6 +90,7 @@ export function GlobePanel({
             genreLoadingByCountryCode={genreLoadingByCountryCode}
             loadingText={loadingText}
             onEnsureGenreSample={onEnsureGenreSample}
+            isActive={isActive}
           />
         )}
       </Panel>
