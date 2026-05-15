@@ -3,6 +3,70 @@
 
 ---
 
+## 2026-05-15 — Hidden Gems Direct Navigation and Code Review Follow-Up
+
+**Tester:** mp3li / Codex-assisted verification
+**Fix owner:** mp3li / Codex-assisted implementation
+**Scope:** Hidden Gems direct/reload prompt behavior, route header/breadcrumb stability, loading overlays, country filtering, fetch retry behavior, and Welcome navigation reset
+
+### What I noticed
+
+After the Issue 125 branch was reviewed and tested, these remaining risks or regressions needed focus:
+
+- Direct `/hidden-gems` navigation needed to show the country/year selection prompt when there was no confirmed country/year context.
+- In-app navigation to Hidden Gems still needed to skip the prompt and open the intended country/year page.
+- Hidden Gems year changes could temporarily show `Loading country...` in the header and breadcrumb.
+- Returning from Hidden Gems to Country could leave the Country header/breadcrumb stuck on `Loading country...`.
+- A later fallback briefly showed country codes such as `AR` instead of full names such as `Argentina`.
+- Hidden Gems sections needed the same glassy/dimmed loading treatment used elsewhere.
+- The global Hidden Gems loading message used feature-specific copy instead of neutral `Loading...`.
+- General app country filtering was too tightly coupled to `hiddenSongs > 0`.
+- Fetch retry behavior could retry abort/timeout failures and duplicate long waits.
+- Clicking `Welcome` from an active page could show the Welcome modal over that page instead of returning to the normal Welcome state.
+
+### What was fixed
+
+- Added app-owned Hidden Gems prompt logic for direct/reload paths without complete country/year params.
+- Preserved app-driven Hidden Gems handoff behavior for Country and preview-click navigation.
+- Added stable country lookup fallbacks so route titles, headers, and breadcrumbs keep full country names while API country pools reload.
+- Added world-map ISO fallback so API ids like `iso-ar` resolve to `Argentina` rather than flashing `AR`.
+- Added glassy/dimmed `Loading...` veils to the Hidden Gems song list, now-playing panel, and favorite-artists section.
+- Replaced `Loading hidden gems...` with neutral `Loading...`.
+- Split general app-data country filtering from Hidden-Gems-specific hidden-gem availability filtering.
+- Limited fetch retry behavior to likely transient network fetch failures, not aborts or timeouts.
+- Changed Welcome navigation from header/breadcrumb clicks to reset into the normal Welcome-over-Discovery stack.
+
+### How to test
+
+1. Open `/hidden-gems` directly with no country/year params. The country/year intro prompt should appear.
+2. From a Country page, open Hidden Gems. It should go straight to that country's Hidden Gems page.
+3. Refresh after app-driven Hidden Gems handoff. The selected country/year behavior should remain correct.
+4. Change the Hidden Gems year dropdown. Header, document title, and breadcrumb should keep the full country name.
+5. Return from Hidden Gems to Country. Header and breadcrumb should keep the full country name and should not get stuck on `Loading country...`.
+6. Test an API country id route such as `iso-ar` when available. The label should resolve to `Argentina`, not flash `AR`.
+7. Confirm Hidden Gems section loading uses the dimmed/glassy `Loading...` veil.
+8. Confirm Hidden Gems loading text is neutral `Loading...`.
+9. Check Discovery/Country/Comparison country choices are not wrongly removed just because a country has zero hidden gems.
+10. Click `Welcome` from a Country or Hidden Gems page. Welcome should return to the normal Welcome state instead of appearing over the current page.
+
+### Verification
+
+- `npm run typecheck -- --noEmit`
+
+### User runtime confirmation
+
+mp3li confirmed:
+
+- direct Hidden Gems prompt behavior is correct
+- in-app Hidden Gems navigation is correct
+- reload/handoff behavior is correct
+- basic backend data loading is good
+- glassy Hidden Gems loading treatment is correct
+- country names no longer show `Loading country...` or flash country codes
+- Welcome navigation behavior is good
+
+---
+
 ## 2026-05-15 — Project Stabilization Follow-Up
 
 **Tester:** mp3li / Codex-assisted verification

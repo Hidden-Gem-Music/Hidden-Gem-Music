@@ -35,6 +35,8 @@ This file treats `apiBaseUrl.ts` as part of the frontend data seam, but the loca
 - `src/data/discoveryApi.ts`
 - `src/data/countryApi.ts`
 - `src/data/apiMappers.ts`
+- `src/data/fetchWithTimeout.ts`
+- `src/data/countryDisplay.ts`
 
 These files are the main frontend seam between:
 
@@ -191,6 +193,23 @@ Important current rules:
 - do not over-pull more data than needed for the active page
 - keep page counts based on the real backend total count
 - dedupe songs on the frontend mapping side when the response shape needs that protection
+- Hidden Gems country/year prompt options should use the Hidden-Gems-specific availability filter, not the broader app-data country filter
+- general Discovery/Country/Comparison country pools should not disappear only because a country has zero hidden gems for the selected year
+- while the selected year's API country pool reloads, route/header/breadcrumb labels should use stable known country metadata instead of loading placeholders or raw ISO codes
+- API route ids such as `iso-ar` can be resolved through the world-map ISO metadata so user-facing labels can remain full names such as `Argentina`
+
+## Fetch timeout and retry behavior
+
+Main file:
+
+- `src/data/fetchWithTimeout.ts`
+
+Current rules:
+
+- data helpers should use the shared timeout/retry wrapper where that wrapper is already wired in
+- aborts should not be retried
+- request timeouts should not be retried as a second full timeout window
+- retry should stay limited to likely transient network fetch failures
 
 ## Additional-data field behavior
 

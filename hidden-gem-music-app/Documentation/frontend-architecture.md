@@ -203,6 +203,8 @@ Main data-layer files:
 - `src/data/discoveryApi.ts`
 - `src/data/countryApi.ts`
 - `src/data/apiMappers.ts`
+- `src/data/fetchWithTimeout.ts`
+- `src/data/countryDisplay.ts`
 
 Responsibilities:
 
@@ -210,18 +212,22 @@ Responsibilities:
 - fetch helpers
 - cache/reuse maps
 - backend-response mapping into frontend-friendly shapes
+- shared country-display filtering rules
+- stable request timeout/retry behavior
 
 ## Mock/static data role
 
 Mock/static data still exists in:
 
 - `src/data/mockData.ts`
+- `src/assets/maps/worldMap50m.ts`
 
 Current role of that file:
 
 - fallback data
 - default country/year scaffolding
 - UI bootstrapping help where API data is not yet the only source of truth
+- ISO country-name lookup for stable route/header/breadcrumb labels during API reload gaps
 
 It should not be treated as the long-term source of truth for live app behavior where backend data already exists.
 
