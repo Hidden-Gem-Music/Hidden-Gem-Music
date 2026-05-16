@@ -64,6 +64,16 @@ Hidden Gems:
 
 - `GET /api/hidden-gems/{countryCode}?year={year}&minCountries={n}&page={page}&pageSize={pageSize}`
 
+Dashboard / Discovery Dashboard:
+
+- `GET /api/dashboard/overlap-rate?start={date}&end={date}`
+- `GET /api/dashboard/discovery-gap?start={date}&end={date}&minCountries={n}`
+- `GET /api/dashboard/gap-distribution?start={date}&end={date}`
+- `GET /api/dashboard/isolation-leader?start={date}&end={date}`
+- `GET /api/dashboard/isolation-ranking?start={date}&end={date}`
+- `GET /api/dashboard/peak-reach?start={date}&end={date}`
+- `GET /api/dashboard/overlap-trend?start={date}&end={date}`
+
 ## Frontend cache/reuse behavior
 
 Current frontend cache maps include:
@@ -197,6 +207,35 @@ Important current rules:
 - general Discovery/Country/Comparison country pools should not disappear only because a country has zero hidden gems for the selected year
 - while the selected year's API country pool reloads, route/header/breadcrumb labels should use stable known country metadata instead of loading placeholders or raw ISO codes
 - API route ids such as `iso-ar` can be resolved through the world-map ISO metadata so user-facing labels can remain full names such as `Argentina`
+- Favorite Artists are profile-backed, so their loading state should follow the country-profile request rather than the page-list request
+- Favorite Artists may reuse artist image URLs already present in loaded Hidden Gems song rows when the profile side does not provide an image URL
+- CD image loading is separate from API data loading; image slots should keep per-art loading feedback until the image file itself loads or errors
+
+## Discovery Dashboard flow
+
+Main files:
+
+- `src/screens/DashboardScreen.web.tsx`
+- `src/screens/DashboardScreen.tsx`
+- `src/data/dashboardApi.ts`
+- `src/data/discoveryApi.ts`
+- `src/data/countryApi.ts`
+
+Current flow:
+
+1. The web Dashboard loads its KPI/chart data from the Dashboard API date range `2017-01-01` through `2025-12-31`.
+2. The country selector separately builds its dropdown from countries with app data across available metadata years.
+3. Isolation scores are displayed only for countries included in the current `isolation-ranking` response.
+4. Countries with app data but no returned isolation score stay selectable and use honest no-score messaging rather than fake ranking values.
+5. Chapter 4 peak reach uses `albumArtUrl` from the Dashboard peak-reach response when available.
+
+Important current rules:
+
+- The Dashboard nav label is `Discovery Dashboard`.
+- The nav order should keep `Discovery Dashboard` directly after `Discovery Map` on web, mobile, and Welcome screen actions.
+- The country selector and isolation ranking chart do not currently have the same source: the selector uses app-data countries, while the chart uses `sp_GetIsolationRanking`.
+- `sp_GetIsolationRanking` currently returns the stored procedure result as-is; if the graph needs all isolation-score countries, the stored procedure/data-owner path needs to remove its `SELECT TOP 20` limit.
+- Peak reach art should come from backend enrichment when possible; the frontend can use a known fallback only to avoid a blank CD for the current peak song.
 
 ## Fetch timeout and retry behavior
 

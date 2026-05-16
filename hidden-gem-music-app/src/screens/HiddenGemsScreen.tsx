@@ -324,14 +324,33 @@ function MiniCdCase({
   artImageUrl?: string;
   showPlayButton: boolean;
 }) {
+  const hasArtImage = typeof artImageUrl === "string" && artImageUrl.trim().length > 0;
+  const [artLoaded, setArtLoaded] = useState(false);
   const artSize = Math.round(54 * CD_ART_SIZE_RATIO);
   const left = Math.round(54 * CD_ART_LEFT_RATIO);
   const top = Math.round(54 * CD_ART_TOP_RATIO);
 
+  useEffect(() => {
+    setArtLoaded(false);
+  }, [artImageUrl]);
+
   return (
     <View style={styles.miniCdCaseFrame}>
       <View style={[styles.miniCdCaseBackdrop, { left, top, width: artSize, height: artSize, backgroundColor: color }]}>
-        {artImageUrl ? <Image source={{ uri: artImageUrl }} style={styles.miniCdCaseBackdropImage} resizeMode="cover" /> : null}
+        {hasArtImage ? (
+          <Image
+            source={{ uri: artImageUrl }}
+            style={[styles.miniCdCaseBackdropImage, !artLoaded ? styles.miniCdCaseBackdropImageLoading : null]}
+            resizeMode="cover"
+            onLoad={() => setArtLoaded(true)}
+            onError={() => setArtLoaded(true)}
+          />
+        ) : null}
+        {hasArtImage && !artLoaded ? (
+          <View style={styles.miniCdLoadingOverlay}>
+            <ActivityIndicator size={14} color={colors.textLight} />
+          </View>
+        ) : null}
       </View>
       <Image source={cdCaseSource} style={styles.miniCdCaseImage} resizeMode="contain" />
       {showPlayButton ? (
@@ -1002,6 +1021,7 @@ export function HiddenGemsScreen({
   const isStacked = isNativePlatform;
   const isBlurbStacked = isNativePlatform || width < 1380;
   const [apiProfile, setApiProfile] = useState<ReturnType<typeof mapApiCountryProfile> | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(showNavIntro);
   const [apiSongs, setApiSongs] = useState<Song[] | null>(null);
   const [isSongsLoading, setIsSongsLoading] = useState(showNavIntro);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -1153,21 +1173,29 @@ export function HiddenGemsScreen({
   useEffect(() => {
     if (!isActive || shouldShowNavIntro) {
       setApiProfile(null);
+      setIsProfileLoading(false);
       return;
     }
     const controller = new AbortController();
+    setApiProfile(null);
+    setIsProfileLoading(true);
     loadCountryProfile(country.code, selectedYear, controller.signal)
       .then((profilePayload) => {
-        setApiProfile(mapApiCountryProfile(profilePayload));
+        if (!controller.signal.aborted) {
+          setApiProfile(mapApiCountryProfile(profilePayload));
+          setIsProfileLoading(false);
+        }
       })
       .catch(() => {
         if (!(controller.signal.aborted)) {
           setApiProfile(null);
+          setIsProfileLoading(false);
         }
       });
 
     return () => {
       controller.abort();
+      setIsProfileLoading(false);
     };
   }, [country.code, isActive, selectedYear, shouldShowNavIntro]);
 
@@ -1436,6 +1464,11 @@ export function HiddenGemsScreen({
       return [];
     }
 
+    const imageByArtist = new Map(
+      hiddenGemSongs
+        .filter((song) => song.artistImageUrl && song.artistImageUrl.trim().length > 0)
+        .map((song) => [song.artist.trim().toLowerCase(), song.artistImageUrl] as const)
+    );
     const selectedArtists: FavoriteArtistPreview[] = [];
     const seen = new Set<string>();
     const addArtist = (name: string, songTitle: string, artistImageUrl?: string) => {
@@ -1445,7 +1478,7 @@ export function HiddenGemsScreen({
       }
 
       seen.add(normalized);
-      selectedArtists.push({ artist: name, songTitle, artistImageUrl });
+      selectedArtists.push({ artist: name, songTitle, artistImageUrl: artistImageUrl || imageByArtist.get(normalized) });
     };
 
     apiProfile.topUniqueSongs.forEach((song) => addArtist(song.artist, song.title, song.artistImageUrl));
@@ -1454,7 +1487,7 @@ export function HiddenGemsScreen({
     }
 
     return selectedArtists;
-  }, [apiProfile]);
+  }, [apiProfile, hiddenGemSongs]);
 
   const selectedSongIndex = hiddenGemSongs.findIndex((song) => song.id === selectedSong.id);
   const hasPreviousSong = selectedSongIndex > 0 || page > 1;
@@ -1923,8 +1956,8 @@ export function HiddenGemsScreen({
             country={country}
             selectedYear={selectedYear}
             artists={favoriteArtists}
-            useLoadingLabels={shouldShowNavIntro}
-            isLoading={isScreenLoading}
+            useLoadingLabels={shouldShowNavIntro || isProfileLoading}
+            isLoading={isScreenLoading || isProfileLoading}
           />
         </View>
       </View>
@@ -2890,6 +2923,15 @@ const styles = StyleSheet.create({
   miniCdCaseBackdropImage: {
     width: "100%",
     height: "100%",
+  },
+  miniCdCaseBackdropImageLoading: {
+    opacity: 0.28,
+  },
+  miniCdLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15,16,21,0.2)",
   },
   miniCdCaseImage: {
     width: 54,

@@ -8,9 +8,9 @@ import { typefaces } from "../theme/typography";
 
 const mobileNavItems: Array<{ label: string; route: ScreenRoute }> = [
   { label: "Discovery Map", route: "discovery" },
+  { label: "Discovery Dashboard", route: "dashboard" },
   { label: "Compare", route: "comparisonSelect" },
   { label: "Hidden Gems", route: "hiddenGems" },
-  { label: "Dashboard", route: "dashboard" },
   { label: "Credits", route: "credits" },
 ];
 const mobileSearchItem = { label: "Search", route: "search" as const };

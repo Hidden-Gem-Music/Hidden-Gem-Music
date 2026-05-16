@@ -79,6 +79,8 @@ Current rules:
 - direct Hidden Gems reload/direct navigation without confirmed country/year params should show the country/year intro prompt
 - app-driven Hidden Gems navigation from Country or preview flows should open the intended country/year page without showing the intro prompt
 - Hidden Gems list, now-playing, and favorite-artists sections should use the shared glassy/dimmed `Loading...` veil while their data is loading
+- Hidden Gems Favorite Artists must follow the country-profile request state, not only the Hidden Gems song-list request state
+- CD artwork should keep an individual spinner/dim treatment until its own image file finishes loading or errors; page-level data loading finishing does not mean image loading has finished
 
 ## Explicit badge rules
 
@@ -126,6 +128,7 @@ Current rules:
 - mobile reset should remain visible and use the same immediate press-feedback convention as arrow and zoom controls
 - mobile map country interaction uses first tap to preview/select and second tap on the same country to open detail
 - tapping a different country after a preview should preview that different country first, not open it immediately
+- SVG map paint definitions must use instance-safe IDs so web route transitions do not make country gradient fills resolve against stale or missing definitions
 
 ## Route-leave request rule
 

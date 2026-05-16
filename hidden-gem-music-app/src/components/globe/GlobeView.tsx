@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { LayoutChangeEvent, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Defs, Path, RadialGradient as SvgRadialGradient, Stop } from "react-native-svg";
 
@@ -190,6 +190,10 @@ export function GlobeView({
   const [containerWidth, setContainerWidth] = useState(0);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [offset, setOffset] = useState<ViewportOffset>(DEFAULT_OFFSET);
+  const gradientIdPrefix = useId().replace(/:/g, "");
+  const baseFillId = `${gradientIdPrefix}-map-country-base-fill`;
+  const dataFillId = `${gradientIdPrefix}-map-country-data-fill`;
+  const activeFillId = `${gradientIdPrefix}-map-country-active-fill`;
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverSelectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverSyncFrameRef = useRef<number | null>(null);
@@ -698,17 +702,17 @@ export function GlobeView({
                 viewBox={svgViewBox}
               >
                 <Defs>
-                  <SvgRadialGradient id="map-country-base-fill" cx="38%" cy="28%" r="88%">
+                  <SvgRadialGradient id={baseFillId} cx="38%" cy="28%" r="88%">
                     <Stop offset="0%" stopColor={colors.backgroundBottom} stopOpacity={0.94} />
                     <Stop offset="54%" stopColor={colors.backgroundRaised} stopOpacity={0.98} />
                     <Stop offset="100%" stopColor={colors.panelAlt} stopOpacity={1} />
                   </SvgRadialGradient>
-                  <SvgRadialGradient id="map-country-data-fill" cx="34%" cy="26%" r="92%">
+                  <SvgRadialGradient id={dataFillId} cx="34%" cy="26%" r="92%">
                     <Stop offset="0%" stopColor={colors.navGradient} stopOpacity={0.98} />
                     <Stop offset="50%" stopColor={colors.accent} stopOpacity={0.96} />
                     <Stop offset="100%" stopColor={colors.backgroundRaised} stopOpacity={0.98} />
                   </SvgRadialGradient>
-                  <SvgRadialGradient id="map-country-active-fill" cx="36%" cy="24%" r="92%">
+                  <SvgRadialGradient id={activeFillId} cx="36%" cy="24%" r="92%">
                     <Stop offset="0%" stopColor={colors.navGradient} stopOpacity={1} />
                     <Stop offset="52%" stopColor={colors.backgroundRaised} stopOpacity={0.98} />
                     <Stop offset="100%" stopColor={colors.button} stopOpacity={0.96} />
@@ -732,9 +736,9 @@ export function GlobeView({
                           ? MOBILE_COUNTRY_FILL
                           : "transparent"
                       : isHovered || isFocusedCountry
-                        ? "url(#map-country-active-fill)"
+                        ? `url(#${activeFillId})`
                         : hasMapData
-                          ? "url(#map-country-data-fill)"
+                          ? `url(#${dataFillId})`
                           : "transparent";
                   const stroke = comparisonColor
                     ? comparisonColor

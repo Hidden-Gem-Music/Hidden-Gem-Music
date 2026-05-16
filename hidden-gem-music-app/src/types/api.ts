@@ -161,6 +161,7 @@ export type ApiPeakReach = {
   songTitle: string;
   artistName: string;
   peakDate: string;
+  albumArtUrl?: string | null;
 };
 
 export type ApiTrendPoint = {

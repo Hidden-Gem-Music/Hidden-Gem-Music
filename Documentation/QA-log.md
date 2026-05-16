@@ -3,6 +3,189 @@
 
 ---
 
+## 2026-05-15 — Dashboard Issue 128 Frontend Fixes and Discovery Dashboard Rename
+
+**Tester:** mp3li / Codex-assisted verification
+**Fix owner:** mp3li / Codex-assisted implementation
+**Scope:** Dashboard country selector, KPI sizing, chapter spacing, Chapter 3 signed value, Chapter 4 peak-song art, Dashboard nav naming/order, PR handoff notes
+
+### What I noticed
+
+Dashboard Issue 128 contained several clear frontend polish requests plus several vague/data-owner requests. The clear frontend items were implemented in this pass. The stored-procedure/data-source/naming-clarification items were documented in the PR markdown instead of guessed.
+
+### What was fixed
+
+- The "See where your country fits in" dropdown now includes countries with app data across available metadata years.
+- Countries with a returned isolation score show the score and label it as an isolation score.
+- Countries with app data but no returned isolation score no longer show a confusing placeholder on the right side of the dropdown.
+- The selected-country banner avoids fake scores when the current ranking response does not include that country.
+- Chapter 1 Discovery Gap Distribution explanatory text now has better spacing below it.
+- The first four Chapter 1 KPI flip cards are larger and render as a two-by-two layout.
+- KPI card content typography was increased and the `flip ↻` hint placement was made consistent.
+- Section divider numbers/headings were increased and given more spacing below.
+- Chapter 2 isolation-score explanation spacing was increased.
+- Chapter 3 now shows a single inline signed value such as `+6 pts` or `-6 pts` instead of stacked plus/minus symbols.
+- The phrase "then a 22-month silence" was removed.
+- Chapter 4 / THE CEILING now displays peak-song art inside the existing CD case component.
+- Conclusion stat cards were enlarged while preserving a two-by-two square-card layout.
+
+### API/model change
+
+The Dashboard peak-reach API response now includes `albumArtUrl`.
+
+Implementation detail:
+
+- `DashboardRepository.GetPeakReachAsync` still calls `sp_GetPeakCrossRegionalReach`.
+- The returned peak song title and artist are passed through the existing Deezer enrichment service.
+- The frontend uses `albumArtUrl` in the Chapter 4 CD case.
+- A known cover-art fallback is present for the current peak song so the UI does not stay blank if enrichment does not resolve art.
+
+### Navigation/name update
+
+- The Dashboard nav label is now `Discovery Dashboard`.
+- Web header nav order is now:
+  - Discovery Map
+  - Discovery Dashboard
+  - Comparison Mode
+  - Hidden Gems
+  - Credits
+- Mobile bottom nav was reordered the same way.
+- Welcome screen copy and buttons were updated so Discovery Dashboard appears directly after Discovery Map.
+- PR handoff notes state that the team has discussed wanting a catchier name but has not settled on one yet.
+
+### Follow-up items intentionally not completed
+
+- "Adjust wording on explanation" needs the exact target text or replacement wording.
+- "Conclusion card - make KPI cards a carousel?" needs a screenshot or expected behavior because the conclusion currently has four stat cards.
+- "Add data sources to About this data" needs exact data-source labels from the data owner.
+- "Adjust isolation scores by country graph to include all countries" appears to require changing `sp_GetIsolationRanking`, which currently uses `SELECT TOP 20`. The PR markdown documents a "Potential SQL direction" without changing that stored procedure in this frontend pass.
+
+### How to test
+
+1. Open Dashboard / Discovery Dashboard.
+2. Confirm the main nav shows `Discovery Dashboard` immediately after `Discovery Map` on web.
+3. Check mobile width and confirm bottom nav order matches.
+4. Open Welcome and confirm its buttons put `Discovery Dashboard` after `Discovery Map`.
+5. Open the Dashboard country dropdown and confirm countries with app data are present.
+6. Confirm countries with scores show `%` and `isolation score`; countries without scores show no right-side placeholder.
+7. Confirm Chapter 1 KPI cards are larger, two-by-two, and still flip correctly.
+8. Confirm section divider spacing, Chapter 2 explanation spacing, and Chapter 3 `+/- pts` alignment.
+9. Confirm Chapter 4 shows CD art for the peak song.
+10. Confirm conclusion stat cards are two-by-two square cards with larger text.
+
+### Verification
+
+- `npm run typecheck` passed.
+- `dotnet build Capstone.API.csproj` passed.
+- `git diff --check` passed.
+
+---
+
+## 2026-05-15 — New Local DB Restore and Post-Restore UI Regression Fixes
+
+**Tester:** mp3li / Codex-assisted verification
+**Fix owner:** mp3li / Codex-assisted implementation
+**Scope:** Local SQL Server restore, backend/browser smoke test, Discovery Map SVG fills, Hidden Gems CD/artist-image loading states
+
+### What I noticed
+
+Before starting Issue 128 dashboard work, Leena provided an updated database backup: `05.15_HiddenGemMusic.bak`.
+
+The local app needed to be verified against the new DB first because the work depends on updated dashboard/country data. The local setup is Docker SQL Server on macOS with SSMS running inside Parallels Windows 11.
+
+After restore, the backend and main app screens worked, but two frontend regressions appeared during hands-on smoke testing:
+
+- Navigating from Dashboard to Discovery could make map country gradients disappear until a hard refresh.
+- Hidden Gems loaded faster, but Favorite Artists/CD artwork could remain blank placeholder colors after the glassy loading veil cleared.
+
+### Restore and DB verification
+
+- Backed up the previous local `HiddenGemMusic` database first.
+- Copied Leena's backup into the Docker SQL container:
+  - source: `/Users/stellar/Downloads/05.15_HiddenGemMusic.bak`
+  - container: `capstone-sql`
+  - destination: `/var/opt/mssql/backup/05.15_HiddenGemMusic.bak`
+- Used `RESTORE FILELISTONLY` and confirmed logical names:
+  - `HiddenGemMusic`
+  - `HiddenGemMusic_log`
+- Restored over the existing local `HiddenGemMusic` database name so the app did not need a new database name or connection string.
+- Confirmed restored table counts:
+
+| Table | Count |
+|---|---:|
+| `dbo.Country` | 246 |
+| `dbo.DIM_Song` | 240,848 |
+| `dbo.DIM_Artist` | 103,015 |
+| `dbo.HiddenGems` | 2,585,433 |
+| `dbo.IsolationScoreByCountry` | 546 |
+
+### Endpoint smoke test
+
+The following browser/API checks returned JSON after restore:
+
+- `GET /api/metadata/years`
+- `GET /api/discovery/countries?year=2025`
+- `GET /api/dashboard/overlap-rate?start=2017-01-01&end=2025-12-31`
+- `GET /api/dashboard/isolation-leader?start=2017-01-01&end=2025-12-31`
+- `GET /api/dashboard/isolation-ranking?start=2017-01-01&end=2025-12-31`
+- `GET /api/dashboard/discovery-gap?start=2017-01-01&end=2025-12-31&minCountries=2`
+- `GET /api/dashboard/gap-distribution?start=2017-01-01&end=2025-12-31`
+- `GET /api/dashboard/peak-reach?start=2017-01-01&end=2025-12-31`
+- `GET /api/dashboard/overlap-trend?start=2017-01-01&end=2025-12-31`
+
+Frontend smoke testing confirmed:
+
+- Dashboard loaded.
+- Discovery loaded.
+- Country page loaded for US / 2025.
+- Hidden Gems loaded for US / 2025.
+- Comparison loaded for US vs. GB / 2025.
+
+### Follow-up items intentionally not fixed in this pass
+
+- `dashboard/isolation-ranking` currently returns 20 countries. That lines up with the upcoming Issue 128 scope and should be handled there with approval.
+- `dashboard/overlap-rate` returned a nonzero `overlapPct` with `songsIn2Plus: 0`, while `overlap-trend` returned nonzero yearly `songsIn2Plus` values. This should be investigated as a later dashboard SP/output-mapping issue.
+
+### Bug 1 — Discovery Map gradients disappeared after route navigation
+
+**Symptom:** After navigating Dashboard → Discovery, countries with data sometimes lost their normal gradient fills and hovered countries lost their active gradient. A hard refresh restored the correct colors.
+
+**Root cause:** `GlobeView.tsx` used fixed SVG gradient IDs such as `map-country-data-fill` and `map-country-active-fill`. On web route transitions, SVG `url(#...)` fill references could resolve against stale or missing paint definitions.
+
+**Fix:** `GlobeView.tsx` now generates unique SVG gradient IDs per map instance with `useId`, and country fill references use those generated IDs.
+
+### Bug 2 — Hidden Gems art loading ended before images were ready
+
+**Symptom:** Favorite Artists CDs could stay as blank placeholder-color cases after the glassy loading veil cleared. The screen had also lost visible per-art spinners in places where image files were still loading.
+
+**Root cause:** Favorite Artists were tied to the hidden-gems song-list loading boolean, but Favorite Artists depend on the separate country-profile request. Also, CD image loading was not tracked independently from API data loading.
+
+**Fixes:**
+
+- Added a profile-specific loading state for Hidden Gems Favorite Artists.
+- Kept Favorite Artists in the glassy/loading state until country profile data arrives.
+- Allowed Favorite Artists to reuse artist image URLs from the loaded Hidden Gems song rows when profile rows do not include image URLs.
+- Updated `CdCaseArt.tsx` so each CD keeps its spinner/dim overlay until its actual image finishes loading or errors.
+- Added equivalent per-image spinner/dim handling to mini CD artwork in the Hidden Gems song list.
+
+### How to test
+
+1. Restore/run against the new `HiddenGemMusic` database.
+2. Open Dashboard, then navigate to Discovery without hard refresh.
+3. Confirm countries with data keep their normal gradient fills.
+4. Hover a country with data and confirm the active gradient appears.
+5. Open Hidden Gems for a country/year with artwork.
+6. Confirm Favorite Artists do not drop to blank placeholders while profile data is still loading.
+7. Confirm CD art areas show individual spinners/dim overlays until their own image appears.
+
+### Verification
+
+- `npm run typecheck` passed after the Discovery Map SVG gradient fix.
+- `npm run typecheck` passed after the Hidden Gems art-loading fixes.
+- User verified the Hidden Gems loading fix worked after retest.
+
+---
+
 ## 2026-05-15 — Discovery Globe SP Optimization and Summary Table
 
 **Tester:** Leena Komenski

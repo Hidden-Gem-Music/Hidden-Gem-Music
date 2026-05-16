@@ -304,6 +304,8 @@ Current behavior notes:
 - `start` and `end` are `DateOnly` query parameters
 - several KPI routes return `404` when no single-row KPI result exists
 - list/chart endpoints generally return `200` with an empty collection instead of `404`
+- `peak-reach` returns the stored procedure's peak song/artist/date/count plus `albumArtUrl` when the existing Deezer enrichment service resolves cover art for that song
+- `isolation-ranking` currently returns the stored procedure result as-is; `sp_GetIsolationRanking` currently limits rows with `SELECT TOP 20`
 
 ### GlobeController
 
