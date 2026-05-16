@@ -3,7 +3,7 @@
 
 **Project:** HiddenGemMusic Capstone  
 **Author:** Leena Komenski  
-**Date:** April 29, 2026 — updated May 6, 2026 — updated May 8, 2026  
+**Date:** April 29, 2026 — updated May 6, 2026 — updated May 8, 2026 — updated May 13, 2026  
 **Status:** Accepted  
 **Track:** BDA  
 
@@ -256,9 +256,9 @@ it is the story.
 
 | Procedure | Changed | Nature of Change |
 |-----------|---------|-----------------|
-| `sp_PopulateDiscoveryGapByDay` | Yes | Final WHERE changed from `gap_days >= 0` to `gap_days > 0`. HAVING filter added to Origin CTE to exclude dataset boundary-week origins. `AND ce.chart_type_id != 2` added to FirstAppearance CTE. Table repopulated. |
-| `sp_GetAverageDiscoveryGap` | Yes | Rewrote Filtered CTE to aggregate to SongFirstCrossing (MIN per song) before averaging. days_to_spread filter changed to `> 0`. |
-| `sp_GetDiscoveryGapDistribution` | Yes | Added date range filter via SongCountryPresence EXISTS check. Changed `days_to_spread >= 0` to `> 0`. |
+| `sp_PopulateDiscoveryGapByDay` | Yes | Final WHERE changed from `gap_days >= 0` to `gap_days > 0` (May 8), then raised again to `> 1` (May 13 — day-1 simultaneous global rollouts excluded). HAVING filter added to Origin CTE to exclude dataset boundary-week origins. `AND ce.chart_type_id != 2` added to FirstAppearance CTE. `first_chart_date DATE NULL` column added to `DiscoveryGapByDay` table (May 13 schema change) and populated from `origin_date` in the Spread CTE. Table repopulated. |
+| `sp_GetAverageDiscoveryGap` | Yes | Rewrote Filtered CTE to aggregate to SongFirstCrossing (MIN per song) before averaging (May 8). Floor raised from `> 0` to `> 1` (May 13). SongCountryPresence date join replaced with `WHERE dgd.first_chart_date BETWEEN @DateStart AND @DateEnd` (May 13 — direct filter on origin date, semantically correct). SongCountryPresence EXISTS clause for `@MinCountries` filter retained — that use is correct and unchanged. |
+| `sp_GetDiscoveryGapDistribution` | Yes | SongCountryPresence JOIN date filter added as an intermediate fix (May 8 — later superseded). Final fix (May 13): SongCountryPresence join removed entirely; `first_chart_date` column added to `DiscoveryGapByDay` table; filter changed to `WHERE dgbd.first_chart_date BETWEEN @DateStart AND @DateEnd`. Floor changed from `>= 0` to `> 0` (May 8), raised to `> 1` (May 13). |
 | `sp_PopulateSongCountryPresence` | Yes | `AND ce.chart_type_id != 2` added to main WHERE clause. Table repopulated. |
 | `sp_PopulatePeakReachBySong` | Yes | `AND ce.chart_type_id != 2` added to DailyReach CTE. Table repopulated. |
 | `sp_PopulateGlobalOverlapByYear` | No | Reads from SongCountryPresence — inherits clean data after repopulation. No direct changes. |
@@ -268,10 +268,40 @@ it is the story.
 
 ---
 
-## 7. Consequences
+## 7. May 13, 2026 — SP / Interface Cross-Check Follow-Up
 
-- `DiscoveryGapByDay` was truncated and repopulated after SP changes. All read SPs that 
-  query it now return clean data.
+During a full stored procedure / controller / interface cross-check on branch `67-cross-check-interfaces-controllers-against-sps`, two additional issues were found in the Discovery Gap SPs that had not been caught in the April 29 or May 8 passes.
+
+### Issue 6 — `sp_GetDiscoveryGapDistribution`: date parameters were never applied
+
+`@DateStart` and `@DateEnd` were declared in the SP signature and wired through the full stack (controller → repository → SP), but the SP body never referenced them. Every call returned the complete all-years dataset regardless of date range.
+
+The May 8 intermediate fix (`JOIN SongCountryPresence WHERE scp.chart_year BETWEEN ...`) was identified as semantically imprecise: `chart_year` records when a song was *charting*, not when its spread event *originated*. A song spreading in 2018 could appear in SongCountryPresence rows for 2019 and 2020, making the year join a noisy proxy.
+
+**Decision:** Add `first_chart_date DATE NULL` directly to `DiscoveryGapByDay` at the schema level, populated from `origin_date` in the Spread CTE of `sp_PopulateDiscoveryGapByDay`. Filter `sp_GetDiscoveryGapDistribution` on `WHERE dgbd.first_chart_date BETWEEN @DateStart AND @DateEnd` — exact and semantically correct.
+
+**Additional finding:** The day-1 floor was also raised from `> 0` to `> 1`. Day-1 entries represent songs released simultaneously across multiple markets on launch day — global rollouts, not organic cross-border discovery events. Excluding them tightens the semantic accuracy of the histogram.
+
+### Issue 7 — `sp_GetAverageDiscoveryGap`: same class of problem as Issue 6
+
+The same `SongCountryPresence chart_year` date proxy identified in Issue 6 was also present in `sp_GetAverageDiscoveryGap`. The SP was filtering by `scp.chart_year` rather than by the spread event origin date, producing imprecise date scoping.
+
+**Decision:** Replace the SongCountryPresence date join with `WHERE dgd.first_chart_date BETWEEN @DateStart AND @DateEnd`, matching the fix applied to the distribution SP. The SongCountryPresence `EXISTS` clause for the `@MinCountries` filter was retained — that use is correct. Floor also raised from `> 0` to `> 1` for consistency with the population SP after its May 13 update.
+
+### Schema change
+
+```sql
+ALTER TABLE DiscoveryGapByDay ADD first_chart_date DATE NULL;
+```
+
+`sp_PopulateDiscoveryGapByDay` was updated to populate `first_chart_date` from `origin_date` in the Spread CTE and the table was repopulated. No change to the table's existing columns or FK constraints.
+
+---
+
+## 8. Consequences
+
+- `DiscoveryGapByDay` was truncated and repopulated after SP changes. A `first_chart_date` column now stores the origin date of each spread event directly on the pre-computed table, enabling exact date-range filtering in read SPs without joining back to `SongCountryPresence`.
+- All read SPs that query `DiscoveryGapByDay` now filter on `first_chart_date` — the date the spread event originated — rather than on a proxy `chart_year` from `SongCountryPresence`.
 - The dashboard Discovery Gap Distribution histogram now shows a shape that peaks at 
   0–7d, which is correct and consistent with the average and median KPI values.
 - The 22-month data gap (Dec 2021 – Oct 2023) and the 2023 partial year are treated as 

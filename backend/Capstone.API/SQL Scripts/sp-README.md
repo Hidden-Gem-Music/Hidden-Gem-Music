@@ -18,7 +18,7 @@ This folder contains all MSSQL stored procedures for the HiddenGemMusic database
  
 ```
 stored-procedures/
-├── run-all-population.sql       ← Run this once after ingestion
+├── run-all-population.sql           ← Run this once after ingestion
 ├── population/
 │   ├── sp_PopulateSongCountryPresence.sql
 │   ├── sp_PopulateCountryYearStats.sql
@@ -27,11 +27,14 @@ stored-procedures/
 │   ├── sp_PopulateDiscoveryGapByDay.sql
 │   ├── sp_PopulateIsolationScoreByCountry.sql
 │   ├── sp_PopulatePeakReachBySong.sql
-│   └── sp_PopulateHiddenGems.sql
+│   ├── sp_PopulateHiddenGems.sql
+│   └── sp_PopulateTopSongByCountryYear  ← no .sql extension
 └── read/
-    ├── sp_GetGlobeSummary.sql
+    ├── sp_GetAvailableYears.sql
+    ├── sp_GetDiscoverPageInfo.sql
     ├── sp_GetCountryProfile.sql
     ├── sp_GetCountryHiddenGemsPreview.sql
+    ├── sp_GetCountrySongsPaged.sql
     ├── sp_GetHiddenGems.sql
     ├── sp_GetCountryComparison.sql
     ├── sp_GetComparisonHiddenGems.sql
@@ -62,7 +65,8 @@ EXEC sp_PopulateTrendVelocityBySong;
 EXEC sp_PopulateDiscoveryGapByDay;
 EXEC sp_PopulateIsolationScoreByCountry;
 EXEC sp_PopulatePeakReachBySong;
-EXEC sp_PopulateHiddenGems;        -- always last
+EXEC sp_PopulateHiddenGems;              -- run last among HiddenGems dependencies
+EXEC sp_PopulateTopSongByCountryYear;    -- independent; can run any time after ingestion
 ```
  
 > **Note:** `sp_PopulateHiddenGems` is the most expensive operation in the system. It runs a cross-country exclusion query across all years. Do not close SSMS while it's running.
@@ -70,35 +74,38 @@ EXEC sp_PopulateHiddenGems;        -- always last
 After population completes, verify row counts:
  
 ```sql
-SELECT 'SongCountryPresence'     AS tbl, COUNT(*) AS rows FROM SongCountryPresence
+SELECT 'SongCountryPresence'       AS tbl, COUNT(*) AS rows FROM SongCountryPresence
 UNION ALL
-SELECT 'CountryYearStats',        COUNT(*) FROM CountryYearStats
+SELECT 'CountryYearStats',          COUNT(*) FROM CountryYearStats
 UNION ALL
-SELECT 'GlobalOverlapByYear',     COUNT(*) FROM GlobalOverlapByYear
+SELECT 'GlobalOverlapByYear',       COUNT(*) FROM GlobalOverlapByYear
 UNION ALL
-SELECT 'TrendVelocityBySong',     COUNT(*) FROM TrendVelocityBySong
+SELECT 'TrendVelocityBySong',       COUNT(*) FROM TrendVelocityBySong
 UNION ALL
-SELECT 'DiscoveryGapByDay',       COUNT(*) FROM DiscoveryGapByDay
+SELECT 'DiscoveryGapByDay',         COUNT(*) FROM DiscoveryGapByDay
 UNION ALL
-SELECT 'IsolationScoreByCountry', COUNT(*) FROM IsolationScoreByCountry
+SELECT 'IsolationScoreByCountry',   COUNT(*) FROM IsolationScoreByCountry
 UNION ALL
-SELECT 'PeakReachBySong',         COUNT(*) FROM PeakReachBySong
+SELECT 'PeakReachBySong',           COUNT(*) FROM PeakReachBySong
 UNION ALL
-SELECT 'HiddenGems',              COUNT(*) FROM HiddenGems;
+SELECT 'HiddenGems',                COUNT(*) FROM HiddenGems
+UNION ALL
+SELECT 'TopSongByCountryYear',      COUNT(*) FROM TopSongByCountryYear;
 ```
  
-**Confirmed row counts (post star schema migration, April 27, 2026):**
+**Confirmed row counts (post star schema migration, April 27, 2026 — six tables repopulated May 8, 2026 after Viral 50 exclusion fix):**
  
-| Table | Rows |
-|---|---|
-| `SongCountryPresence` | 289,690 |
-| `CountryYearStats` | 546 |
-| `GlobalOverlapByYear` | 9 |
-| `TrendVelocityBySong` | 707,689 |
-| `DiscoveryGapByDay` | 466,845 |
-| `IsolationScoreByCountry` | 546 |
-| `PeakReachBySong` | 240,844 |
-| `HiddenGems` | 2,585,433 |
+| Table | Rows (April 27) | Notes |
+|---|---|---|
+| `SongCountryPresence` | 289,690 | Decreased after May 8 repopulation (Viral 50 excluded) |
+| `CountryYearStats` | 546 | Repopulated May 8 |
+| `GlobalOverlapByYear` | 9 | Repopulated May 8 |
+| `TrendVelocityBySong` | 707,689 | Unchanged |
+| `DiscoveryGapByDay` | 466,845 | Decreased after May 8 repopulation (Viral 50 + day-1 excluded) |
+| `IsolationScoreByCountry` | 546 | Repopulated May 8 |
+| `PeakReachBySong` | 240,844 | Repopulated May 8 |
+| `HiddenGems` | 2,585,433 | Unchanged |
+| `TopSongByCountryYear` | — | Populated May 15, 2026 — run `EXEC sp_PopulateTopSongByCountryYear` for current count |
  
 **ChartEntry and dimension table counts (confirmed April 27, 2026):**
  
@@ -174,7 +181,7 @@ For each song: finds the `snapshot_date` on which it charted in the most countri
 ---
  
 ### `sp_PopulateHiddenGems`
-**The most expensive procedure in the system. Always run last.**
+**The most expensive procedure in the system.**
  
 For each country and year: finds songs charting in `@MinCountries` or more other countries but completely absent from this country's charts. Computes a `TrendScore` composite for each result:
  
@@ -196,28 +203,55 @@ EXEC sp_PopulateHiddenGems @MinCountries = 5;
 - **Run order:** 8 — depends on all other population procedures
 ---
  
+### `sp_PopulateTopSongByCountryYear`
+Pre-computes the most frequently charted song per country per year. Stores `country_id`, `chart_year`, `song_id`, `album_name`, and primary `artist_name` in `TopSongByCountryYear` for use by `sp_GetDiscoverPageInfo` at request time. Without this table, the Discovery Map SP would need to scan `ChartEntry` live on every load.
+ 
+Ties broken deterministically by `song_id ASC`. Includes a sanity-check result set on completion showing rows populated per year. Can be re-run any time `ChartEntry` is updated — uses `TRUNCATE` before repopulating.
+ 
+> **Note:** File has no `.sql` extension — open it directly in SSMS and execute.
+ 
+- **Reads:** `ChartEntry`, `DIM_Song`, `Bridge_SongArtist`, `DIM_Artist`
+- **Writes:** `TopSongByCountryYear`
+- **Run order:** 9 — independent of `sp_PopulateHiddenGems`; both read from base tables only
+---
+ 
 ## Read Procedures
  
 All read procedures are called by the .NET 9 API at request time. **None of them touch `ChartEntry` directly.**
  
 > **Star schema update (April 26, 2026):** Seven read procedures were updated to reference `DIM_Song`, `Bridge_SongArtist`, and `DIM_Artist` instead of the old `Song`, `ArtistSong`, `Artist`, and `Album` tables. Output shapes and parameter signatures are identical — no API or DTO changes required.
 >
-> Updated procedures: `sp_GetGlobeSummary`, `sp_GetCountryProfile`, `sp_GetCountryHiddenGemsPreview`, `sp_GetHiddenGems`, `sp_GetCountryComparison`, `sp_GetComparisonHiddenGems`, `sp_GetPeakCrossRegionalReach`
+> Updated procedures: `sp_GetDiscoverPageInfo` (replaced `sp_GetGlobeSummary`), `sp_GetCountryProfile`, `sp_GetCountryHiddenGemsPreview`, `sp_GetHiddenGems`, `sp_GetCountryComparison`, `sp_GetComparisonHiddenGems`, `sp_GetPeakCrossRegionalReach`
 >
 > Unchanged procedures: `sp_GetGlobalOverlapRate`, `sp_GetAverageDiscoveryGap`, `sp_GetDiscoveryGapDistribution`, `sp_GetIsolationLeader`, `sp_GetIsolationRanking`, `sp_GetGlobalOverlapTrend`
  
 ---
  
-### Globe / Discovery Screen
+### Metadata
  
-#### `sp_GetGlobeSummary`
-One lightweight row per country for globe dots and the country list sidebar. Also used as the source for the Mapbox tileset export.
+#### `sp_GetAvailableYears`
+Returns the sorted list of distinct chart years present in `ChartEntry`. Called by the `/api/metadata/years` endpoint on app startup to populate year selectors across all screens.
  
 ```sql
-EXEC sp_GetGlobeSummary @Year = 2021;
+EXEC sp_GetAvailableYears;
 ```
  
-**Returns:** `country_code`, `country_name`, `latitude`, `longitude`, `region`, `hidden_gem_count`, `top_album_name`
+**Returns:** `chart_year`
+ 
+---
+ 
+### Discovery Screen
+ 
+#### `sp_GetDiscoverPageInfo`
+One lightweight row per country for the Discovery Map and the country list sidebar. Reads only pre-computed tables (`Country`, `HiddenGems`, `TopSongByCountryYear`) — near-instant response time. Countries are matched by `iso_code` (SVG map shape matching), so only rows with a valid `iso_code` are returned.
+ 
+```sql
+EXEC sp_GetDiscoverPageInfo @Year = 2021;
+```
+ 
+**Returns:** `country_code`, `country_name`, `latitude`, `longitude`, `region`, `hidden_gem_count`, `top_album_name`, `top_artist_name`
+ 
+> `top_album_name` and `top_artist_name` come from `TopSongByCountryYear`. Countries with no chart data for the year return `NULL` for both fields — this is expected and handled by the frontend.
  
 ---
  
@@ -236,6 +270,20 @@ Top 5 hidden gems teaser for the country profile page widget. Ordered by `TrendS
 ```sql
 EXEC sp_GetCountryHiddenGemsPreview @CountryCode = 'US', @Year = 2021;
 ```
+ 
+#### `sp_GetCountrySongsPaged`
+Paginated shared or unique song list for the country profile songs tab. `@ListType = 'shared'` returns songs that charted in more than one country; `@ListType = 'unique'` returns songs that charted only in this country. Uses `NOT EXISTS` against `HiddenGems` as a proxy for local chart presence (same approach as `sp_GetCountryProfile`). Includes `total_count` via `COUNT(1) OVER()` for pagination.
+ 
+```sql
+EXEC sp_GetCountrySongsPaged
+    @CountryCode = 'US',
+    @Year        = 2021,
+    @ListType    = 'shared',
+    @Offset      = 0,
+    @PageSize    = 50;
+```
+ 
+**Returns:** `song_title`, `artist_name`, `album_name`, `total_count`
  
 ---
  
@@ -382,3 +430,5 @@ EXEC sp_GetGlobalOverlapTrend
 - `sp_GetCountryProfile` shared and unique song result sets use `NOT EXISTS` against `HiddenGems` as a proxy for local chart presence. Results will be incorrect if `sp_PopulateHiddenGems` has not been run.
 - `sp_PopulateHiddenGems` can be re-run independently with a different `@MinCountries` threshold without re-running any other population procedure.
 - Audio feature columns on `DIM_Song` are NULL for all DS1-only songs. Any component using audio features must handle NULL values gracefully.
+- `TopSongByCountryYear` uses `TRUNCATE` before each repopulation — running `sp_PopulateTopSongByCountryYear` twice is safe. If the table is empty, `sp_GetDiscoverPageInfo` still returns rows but `top_album_name` and `top_artist_name` will be `NULL` for all countries.
+- `sp_GetAvailableYears` scans `ChartEntry` directly (no summary table). It is called once at startup and the result is cached in-memory by the API — not a hot path.

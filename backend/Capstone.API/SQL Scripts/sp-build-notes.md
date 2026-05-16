@@ -1,12 +1,12 @@
 # Stored Procedure Build Notes
 **SOFT290 Capstone — HiddenGemMusic**
-Date: April 23, 2026 | Updated: April 27, 2026 | Author: Leena
+Date: April 23, 2026 | Updated: April 27, 2026; May 15, 2026 | Author: Leena
  
 ---
  
 ## Overview
  
-All 8 population procedures and 13 read procedures written and compiled successfully on April 23, 2026. On April 26–27, 2026, all procedures were reviewed and updated as part of the star schema migration. Notes below document every issue encountered during both the original build and the migration, and how each was resolved.
+All 8 population procedures and 13 read procedures written and compiled successfully on April 23, 2026. On April 26–27, 2026, all procedures were reviewed and updated as part of the star schema migration. On May 15, 2026, `sp_PopulateTopSongByCountryYear` (population) and `sp_GetDiscoverPageInfo` (read) were added, and `sp_GetAvailableYears` and `sp_GetCountrySongsPaged` were added as read procedures — bringing the totals to 9 population and 15 read procedures. Notes below document every issue encountered during the original build and the star schema migration, and how each was resolved.
  
 ---
  
@@ -188,22 +188,26 @@ EXEC sp_PopulateDiscoveryGapByDay;        -- slow — date comparisons across 28
 EXEC sp_PopulateIsolationScoreByCountry;  -- moderate
 EXEC sp_PopulatePeakReachBySong;          -- moderate
 EXEC sp_PopulateHiddenGems;               -- slowest — cross-country exclusion logic
+EXEC sp_PopulateTopSongByCountryYear;     -- fast — independent; reads base tables only
 ```
  
 ---
  
 ## Confirmed Row Counts (post star schema migration, April 27, 2026)
  
-| Table | Row Count |
-|---|---|
-| `SongCountryPresence` | 289,690 |
-| `CountryYearStats` | 546 |
-| `GlobalOverlapByYear` | 9 |
-| `TrendVelocityBySong` | 707,689 |
-| `DiscoveryGapByDay` | 466,845 |
-| `IsolationScoreByCountry` | 546 |
-| `PeakReachBySong` | 240,844 |
-| `HiddenGems` | 2,585,433 |
+> **May 8, 2026 update:** Six tables were repopulated after the Viral 50 exclusion fix (`AND ce.chart_type_id != 2` added to `sp_PopulateSongCountryPresence`, `sp_PopulateDiscoveryGapByDay`, `sp_PopulatePeakReachBySong`). `DiscoveryGapByDay` also had the floor raised from `> 0` to `> 1`. Counts below reflect the April 27 state — post-fix counts are lower for the repopulated tables.
+
+| Table | Row Count (April 27) | Notes |
+|---|---|---|
+| `SongCountryPresence` | 289,690 | Decreased after May 8 repopulation |
+| `CountryYearStats` | 546 | Repopulated May 8 |
+| `GlobalOverlapByYear` | 9 | Repopulated May 8 |
+| `TrendVelocityBySong` | 707,689 | Unchanged |
+| `DiscoveryGapByDay` | 466,845 | Decreased after May 8 repopulation |
+| `IsolationScoreByCountry` | 546 | Repopulated May 8 |
+| `PeakReachBySong` | 240,844 | Repopulated May 8 |
+| `HiddenGems` | 2,585,433 | Unchanged |
+| `TopSongByCountryYear` | — | Populated May 15, 2026 |
  
 ---
  

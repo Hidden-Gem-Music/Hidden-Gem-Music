@@ -211,12 +211,11 @@ namespace Capstone.API.Controllers
 
             try
             {
-                var results = new List<Capstone.API.Models.Country.CountryGenreSample>(normalizedCodes.Count);
-                foreach (var countryCode in normalizedCodes)
+                var tasks = normalizedCodes.Select(async (countryCode) =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     var cacheKey = $"country-genre-sample::{year}::{countryCode}";
-                    var cached = await _memoryCache.GetOrCreateAsync(cacheKey, async (entry) =>
+                    return await _memoryCache.GetOrCreateAsync(cacheKey, async (entry) =>
                     {
                         entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
                         var genres = await _repo.GetCountryGenreSampleAsync(countryCode, year, cancellationToken);
@@ -226,12 +225,11 @@ namespace Capstone.API.Controllers
                             Genres = genres.ToList()
                         };
                     });
+                });
 
-                    if (cached is not null)
-                    {
-                        results.Add(cached);
-                    }
-                }
+                var results = (await Task.WhenAll(tasks))
+                    .Where(sample => sample is not null)
+                    .ToList();
 
                 return Ok(results);
             }

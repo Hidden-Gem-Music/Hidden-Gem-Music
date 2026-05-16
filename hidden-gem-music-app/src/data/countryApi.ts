@@ -115,18 +115,32 @@ export async function loadHiddenGemsPage(
   return payload;
 }
 
-export async function loadAvailableYears(signal?: AbortSignal): Promise<number[]> {
+let availableYearsPromise: Promise<number[]> | null = null;
+
+export function loadAvailableYears(_signal?: AbortSignal): Promise<number[]> {
+  if (availableYearsPromise !== null) {
+    return availableYearsPromise;
+  }
+
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/metadata/years`;
-  const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
-  const payload = await parseJsonResponse<unknown[]>(response, endpoint);
 
-  return payload
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value))
-    .map((value) => Math.trunc(value))
-    .filter((value) => value > 0)
-    .sort((a, b) => a - b);
+  availableYearsPromise = fetchWithTimeoutAndRetry(endpoint)
+    .then((response) => parseJsonResponse<unknown[]>(response, endpoint))
+    .then((payload) =>
+      payload
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value))
+        .map((value) => Math.trunc(value))
+        .filter((value) => value > 0)
+        .sort((a, b) => a - b)
+    )
+    .catch((err: unknown) => {
+      availableYearsPromise = null;
+      throw err;
+    });
+
+  return availableYearsPromise;
 }
 
 export async function loadCountrySongsPage(
