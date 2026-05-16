@@ -1,11 +1,15 @@
 -- =============================================
 -- Author:      Leena Komenski
 -- Create date: 04/23/2026
+-- Updated:     05/15/2026 — Added sp_PopulateTopSongByCountryYear (step 9)
+--                           and TopSongByCountryYear to the row count check.
 -- Description: Runs all population stored procedures in the correct
 --              execution order. Run once after initial data ingestion,
 --              or any time the pre-computed summary tables need to be rebuilt.
 --              WARNING: Each procedure truncates its target table before inserting.
---              sp_PopulateHiddenGems is the most expensive — run last.
+--              sp_PopulateHiddenGems is the most expensive.
+--              sp_PopulateTopSongByCountryYear is independent — reads base
+--              tables only and can run at any point after ingestion.
 -- =============================================
 
 USE HiddenGemMusic;
@@ -27,24 +31,28 @@ EXEC sp_PopulatePeakReachBySong;
 GO
 EXEC sp_PopulateHiddenGems;
 GO
+EXEC sp_PopulateTopSongByCountryYear;
+GO
 
 -- Optional: run with custom minimum country threshold
 -- EXEC sp_PopulateHiddenGems @MinCountries = 5;
 -- GO
 
 -- Confirm row counts after population
-SELECT 'SongCountryPresence'    AS tbl, COUNT(*) AS rows FROM SongCountryPresence
+SELECT 'SongCountryPresence'     AS tbl, COUNT(*) AS rows FROM SongCountryPresence
 UNION ALL
-SELECT 'CountryYearStats',       COUNT(*) FROM CountryYearStats
+SELECT 'CountryYearStats',        COUNT(*) FROM CountryYearStats
 UNION ALL
-SELECT 'GlobalOverlapByYear',    COUNT(*) FROM GlobalOverlapByYear
+SELECT 'GlobalOverlapByYear',     COUNT(*) FROM GlobalOverlapByYear
 UNION ALL
-SELECT 'TrendVelocityBySong',    COUNT(*) FROM TrendVelocityBySong
+SELECT 'TrendVelocityBySong',     COUNT(*) FROM TrendVelocityBySong
 UNION ALL
-SELECT 'DiscoveryGapByDay',      COUNT(*) FROM DiscoveryGapByDay
+SELECT 'DiscoveryGapByDay',       COUNT(*) FROM DiscoveryGapByDay
 UNION ALL
-SELECT 'IsolationScoreByCountry',COUNT(*) FROM IsolationScoreByCountry
+SELECT 'IsolationScoreByCountry', COUNT(*) FROM IsolationScoreByCountry
 UNION ALL
-SELECT 'PeakReachBySong',        COUNT(*) FROM PeakReachBySong
+SELECT 'PeakReachBySong',         COUNT(*) FROM PeakReachBySong
 UNION ALL
-SELECT 'HiddenGems',             COUNT(*) FROM HiddenGems;
+SELECT 'HiddenGems',              COUNT(*) FROM HiddenGems
+UNION ALL
+SELECT 'TopSongByCountryYear',    COUNT(*) FROM TopSongByCountryYear;

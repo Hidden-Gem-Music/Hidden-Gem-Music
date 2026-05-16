@@ -1,3 +1,7 @@
+> **Superseded — May 15, 2026.** All entries from this file have been consolidated into [`Documentation/QA-log.md`](../../Documentation/QA-log.md), which is the single source of truth for QA history. This file is kept as a raw historical record only.
+
+---
+
 # QA Findings Log
 ## Dashboard Integration Testing — April 29, 2026
 
@@ -17,7 +21,7 @@ Three data inconsistencies were identified during live dashboard integration tes
 | 1 | Avg Discovery Gap KPI contradicts Distribution chart | Resolved | SP rewrite + repopulate |
 | 2 | Global Reach values inconsistent with Overlap Rate KPI | Resolved | UI labeling only |
 | 3 | Argentina 2023 hidden gems dominated by Christmas songs | Known limitation | UI labeling only |
-| 4 | Viral 50 / Top 200 treated as equivalent charting events across all metrics | Known limitation — flagged for future iteration | UI copy + ADR documentation |
+| 4 | Viral 50 / Top 200 treated as equivalent charting events across all metrics | Resolved — SP fix applied 05/08/2026 | SP fix + repopulate |
 
 ---
 
@@ -175,7 +179,7 @@ as equivalent charting events in all population stored procedures.
 
 ### Fix applied — 05/08/2026
 
-`AND ce.chart_type_id != 2` added to the `WHERE` clause of the `FACT_ChartEntry` query 
+`AND ce.chart_type_id != 2` added to the `WHERE` clause of the `ChartEntry` query 
 in three population procedures:
 
 - `sp_PopulateSongCountryPresence` — main WHERE clause
