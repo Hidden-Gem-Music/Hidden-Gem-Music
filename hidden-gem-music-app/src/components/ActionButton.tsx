@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -17,17 +17,45 @@ const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(
 export function ActionButton({ label, onPress, size = "default" }: Props) {
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
+  const nativeReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showGradient = isHovered || isPressed;
+
+  useEffect(() => {
+    return () => {
+      if (nativeReleaseTimerRef.current) {
+        clearTimeout(nativeReleaseTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <Pressable
       onPress={onPress}
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
-      onPressIn={() => setIsPressed(true)}
-      onPressOut={() => setIsPressed(false)}
+      onPressIn={() => {
+        setIsPressed(true);
+        if (Platform.OS !== "web") {
+          if (nativeReleaseTimerRef.current) {
+            clearTimeout(nativeReleaseTimerRef.current);
+            nativeReleaseTimerRef.current = null;
+          }
+        }
+      }}
+      onPressOut={() => {
+        if (Platform.OS === "web") {
+          setIsPressed(false);
+          return;
+        }
+
+        nativeReleaseTimerRef.current = globalThis.setTimeout(() => {
+          nativeReleaseTimerRef.current = null;
+          setIsPressed(false);
+        }, 180);
+      }}
       style={[
         styles.buttonWrap,
+        Platform.OS !== "web" && isPressed ? styles.buttonWrapPressed : null,
         size === "compact" ? styles.buttonWrapCompact : null,
         size === "small" ? styles.buttonWrapSmall : null,
       ]}
@@ -45,6 +73,7 @@ export function ActionButton({ label, onPress, size = "default" }: Props) {
         style={[
           styles.button,
           showGradient ? styles.buttonActive : null,
+          Platform.OS !== "web" && isPressed ? styles.buttonPressedNative : null,
           size === "compact" ? styles.buttonCompact : null,
           size === "small" ? styles.buttonSmall : null,
         ]}
@@ -61,6 +90,9 @@ const styles = StyleSheet.create({
     position: "relative",
     borderRadius: 17,
     overflow: "hidden",
+  },
+  buttonWrapPressed: {
+    transform: [{ scale: 0.98 }],
   },
   buttonWrapCompact: {
     width: 224,
@@ -90,6 +122,9 @@ const styles = StyleSheet.create({
   },
   buttonActive: {
     backgroundColor: "transparent",
+  },
+  buttonPressedNative: {
+    borderColor: colors.textLight,
   },
   buttonCompact: {
     paddingHorizontal: 16,

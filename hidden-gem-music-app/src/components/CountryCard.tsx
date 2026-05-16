@@ -15,6 +15,7 @@ type Props = {
   onPressIn?: () => void;
   onTitlePress?: () => void;
   onHover?: () => void;
+  onHoverOut?: () => void;
   genreLine?: string;
   languageLine?: string;
 };
@@ -27,13 +28,17 @@ export function CountryCard({
   onPressIn,
   onTitlePress,
   onHover,
+  onHoverOut,
   genreLine,
   languageLine,
 }: Props) {
   const [hovered, setHovered] = useState(false);
   const hasHiddenGems = country.hiddenSongs > 0;
   const noHiddenGemsCopy = selectedYear ? `No Hidden Gems for ${selectedYear}` : "No Hidden Gems for this year";
-  const hasNoSongData = country.hasSongData === false;
+  const hasNoSongData =
+    country.hasSongData === false ||
+    country.album.trim().toLowerCase().startsWith("unknown") ||
+    country.albumArtist.trim().toLowerCase().startsWith("unknown");
   const noSongDataCopy = selectedYear ? `No song data for ${selectedYear}` : "No song data for this year";
 
   return (
@@ -44,7 +49,10 @@ export function CountryCard({
         setHovered(true);
         onHover?.();
       }}
-      onHoverOut={() => setHovered(false)}
+      onHoverOut={() => {
+        setHovered(false);
+        onHoverOut?.();
+      }}
     >
       <Panel style={[styles.card, selected ? styles.selected : undefined, hovered ? styles.hovered : undefined]}>
         <LinearGradient

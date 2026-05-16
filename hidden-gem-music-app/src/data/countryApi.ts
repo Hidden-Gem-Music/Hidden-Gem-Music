@@ -1,5 +1,6 @@
 import type { ApiCountryGenreSample, ApiCountryHiddenGemPreview, ApiCountryProfile, ApiCountrySongsPage, ApiHiddenGemResponse } from "../types/api";
 import { getApiBaseUrl } from "./apiBaseUrl";
+import { fetchWithTimeoutAndRetry } from "./fetchWithTimeout";
 
 const countryProfileCache = new Map<string, ApiCountryProfile>();
 const countryHiddenGemsPreviewCache = new Map<string, ApiCountryHiddenGemPreview[]>();
@@ -46,7 +47,7 @@ export async function loadCountryProfile(countryCode: string, year: number, sign
 
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/country/${countryCode}?year=${year}`;
-  const response = await fetch(endpoint, { signal });
+  const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
   const payload = await parseJsonResponse<ApiCountryProfile>(response, endpoint);
   countryProfileCache.set(cacheKey, payload);
   return payload;
@@ -108,7 +109,7 @@ export async function loadHiddenGemsPage(
 
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/hidden-gems/${countryCode}?year=${year}&minCountries=${minCountries}&page=${page}&pageSize=${pageSize}`;
-  const response = await fetch(endpoint, { signal });
+  const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
   const payload = await parseJsonResponse<ApiHiddenGemResponse>(response, endpoint);
   hiddenGemsPageCache.set(cacheKey, payload);
   return payload;
@@ -124,7 +125,7 @@ export function loadAvailableYears(_signal?: AbortSignal): Promise<number[]> {
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/metadata/years`;
 
-  availableYearsPromise = fetch(endpoint)
+  availableYearsPromise = fetchWithTimeoutAndRetry(endpoint)
     .then((response) => parseJsonResponse<unknown[]>(response, endpoint))
     .then((payload) =>
       payload
@@ -158,7 +159,7 @@ export async function loadCountrySongsPage(
 
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/country/${countryCode}/songs?year=${year}&listType=${listType}&page=${page}&pageSize=${pageSize}`;
-  const response = await fetch(endpoint, { signal });
+  const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
   const payload = await parseJsonResponse<ApiCountrySongsPage>(response, endpoint);
   countrySongsPageCache.set(cacheKey, payload);
   return payload;
@@ -195,7 +196,7 @@ export async function loadCountryGenreSamples(
 
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/country/genre-samples?year=${year}&codes=${encodeURIComponent(missingCodes.join(","))}`;
-  const response = await fetch(endpoint, { signal });
+  const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
   const payload = await parseJsonResponse<ApiCountryGenreSample[]>(response, endpoint);
   payload.forEach((item) => {
     countryGenreSampleCache.set(buildCountryGenreSampleKey(item.countryCode, year), item);

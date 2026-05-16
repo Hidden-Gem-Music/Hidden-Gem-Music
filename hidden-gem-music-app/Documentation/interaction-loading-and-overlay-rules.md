@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-15
 **Status:** Current UX Behavior Rules
 
 ---
@@ -31,8 +31,14 @@ Current rules:
 
 - welcome preview content should not be interactable while the welcome modal is active
 - welcome preview content should stay guarded during the close transition and short cooldown
-- clicking outside the welcome modal should behave like the `Discovery Globe` action, not like a dangerous bare click-through
+- clicking outside the welcome modal should behave like the `Discovery Map` action, not like a dangerous bare click-through
 - welcome modal route buttons should close through the guarded route-transition path rather than bypassing the modal state
+- navigating to Welcome from the header or breadcrumbs should reset to the normal Welcome-over-Discovery stack, not layer the Welcome modal over the current active page
+- welcome route buttons should show visible pressed styling on mobile before route work begins
+- welcome dismissal must check whether navigation can go back before calling `goBack`
+- if there is no route to pop, welcome dismissal should navigate to Discovery instead of dispatching an unhandled back action
+- repeated mobile taps during welcome dismissal should be ignored while the close transition is already in progress
+- shared welcome/comparison `ActionButton` actions should fire from normal `Pressable onPress`; pressed styling can start on press-in, but navigation/action execution should not be driven by a press-in timer
 
 ## Loading overlay rule
 
@@ -70,6 +76,9 @@ Current rules:
 - when the Hidden Gems nav intro is active, the underlying page frame should not stay interactable
 - focus-selection handoff from other screens should resolve only when the target country actually matches the active Hidden Gems context
 - page fallback should not override a stronger exact match when a stronger match is available
+- direct Hidden Gems reload/direct navigation without confirmed country/year params should show the country/year intro prompt
+- app-driven Hidden Gems navigation from Country or preview flows should open the intended country/year page without showing the intro prompt
+- Hidden Gems list, now-playing, and favorite-artists sections should use the shared glassy/dimmed `Loading...` veil while their data is loading
 
 ## Explicit badge rules
 
@@ -93,6 +102,8 @@ Current rules:
 
 - loading text should remain visually stable enough that sections do not jump excessively
 - shared loading text helpers should be reused instead of rebuilding one-off animated loading strings in many screens
+- shared/app-level loading copy should stay neutral as `Loading...` unless a feature-specific message is intentionally required
+- Hidden Gems should not use a separate app-wide `Loading hidden gems...` message when the screen already has section-level loading treatment
 
 ## Discovery scroll and sidebar rules
 
@@ -100,12 +111,21 @@ Main files:
 
 - `src/screens/DiscoveryScreen.tsx`
 - `src/components/DiscoverySidebarPanels.tsx`
+- `src/components/globe/GlobeView.tsx`
 
 Current rules:
 
 - popup-blocking wrappers must still allow the real Discovery scroll container to fill height correctly
 - sidebar list-end prefetch should not keep firing repeatedly without leaving/re-entering the threshold
 - empty Discovery lists should show an intentional loading state instead of a blank panel
+- the top glassy blurb on the Discovery Map is the app-owned map info panel and should stay visually separate from page-level overlays
+- Discovery year-refresh loading should clear when the user leaves Discovery
+- year changes should not force the map viewport back to default unless the user explicitly presses reset
+- the mobile map info panel should sit above the map, not overlap the map's country shapes
+- the mobile map info panel may use separate helper/detail heights because helper copy is longer than country-stat copy
+- mobile reset should remain visible and use the same immediate press-feedback convention as arrow and zoom controls
+- mobile map country interaction uses first tap to preview/select and second tap on the same country to open detail
+- tapping a different country after a preview should preview that different country first, not open it immediately
 
 ## Route-leave request rule
 

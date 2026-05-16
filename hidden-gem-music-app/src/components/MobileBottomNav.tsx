@@ -7,7 +7,7 @@ import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 const mobileNavItems: Array<{ label: string; route: ScreenRoute }> = [
-  { label: "Discovery Globe", route: "discovery" },
+  { label: "Discovery Map", route: "discovery" },
   { label: "Compare", route: "comparisonSelect" },
   { label: "Hidden Gems", route: "hiddenGems" },
   { label: "Dashboard", route: "dashboard" },

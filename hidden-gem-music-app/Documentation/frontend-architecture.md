@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-15
 **Status:** Current Working Frontend Architecture
 
 ---
@@ -113,6 +113,69 @@ Fonts are loaded in:
 
 - `App.tsx`
 
+## Shared map ownership
+
+The Discovery and Comparison map surface is intentionally kept behind the shared globe/map seam:
+
+- `src/components/globe/GlobePanel.tsx`
+- `src/components/globe/GlobeView.tsx`
+
+Current ownership rule:
+
+- screen files own filter state, selected-country state, and route actions
+- `GlobePanel.tsx` owns the framed map slot and shared map-area action button treatment
+- `GlobeView.tsx` owns the actual custom world-map rendering and map interaction behavior
+- generated geometry lives in `src/assets/maps/worldMap50m.ts`
+- the generation script lives in `tools/generate_world_map_assets.mjs`
+
+This keeps the map implementation swappable without forcing a full screen split.
+
+Current PR-readiness note:
+
+- the app-owned map path is functionally implemented for the current Discovery and Comparison screen flows
+- Discovery Map behavior has been hands-on tested on web/mobile by mp3li after the stabilization pass
+- remaining work is edge-case testing rather than known missing map implementation
+
+The live frontend does not call an external map provider. Country geometry comes from the checked-in generated asset:
+
+- source pipeline: Natural Earth 50m country boundaries through `tools/generate_world_map_assets.mjs`
+- runtime asset: `src/assets/maps/worldMap50m.ts`
+- runtime rendering: `GlobeView.tsx` reads the generated flat-map path data directly
+
+Current asset contents include:
+
+- country reference metadata
+- continent grouping metadata
+- generated flat-map path data
+- projection metadata
+
+Country placement and data availability still come from the frontend/backend `Country` model rather than from a live map service.
+
+Current Discovery-specific map ownership details:
+
+- `App.tsx` owns the default Discovery year, currently 2025, and Discovery year-data reuse
+- `DiscoveryScreen.tsx` owns filter/list layout and passes active/broader country pools into the map seam
+- `GlobeView.tsx` owns map viewport reset, mobile arrow/zoom/reset controls, and first-tap/second-tap mobile country behavior
+- the map info blurb is part of the map seam, not a separate screen-level overlay
+- mobile and web share the same renderer path with responsive behavior instead of separate screen implementations
+
+Current Discovery interaction rules:
+
+- web hover updates the map info blurb and synchronizes the country list
+- web click opens the country flow
+- mobile first tap previews/selects a country
+- mobile second tap on the same country opens the Country route
+- mobile arrow, zoom, and reset controls are explicit controls, not hidden gestures
+- mobile reset remains visible for discoverability
+
+Current Discovery visual/data rules:
+
+- Discovery default year is 2025
+- countries with data stay visually distinct from countries without data
+- countries without data keep visible boundary lines so geography remains readable
+- the map info blurb uses helper mode for instructional copy and detail mode for country stats
+- map-panel song data should follow the same data-quality rules as the country list
+
 ## Navigation and deep-link ownership
 
 Navigation wiring is centralized in:
@@ -140,6 +203,8 @@ Main data-layer files:
 - `src/data/discoveryApi.ts`
 - `src/data/countryApi.ts`
 - `src/data/apiMappers.ts`
+- `src/data/fetchWithTimeout.ts`
+- `src/data/countryDisplay.ts`
 
 Responsibilities:
 
@@ -147,18 +212,22 @@ Responsibilities:
 - fetch helpers
 - cache/reuse maps
 - backend-response mapping into frontend-friendly shapes
+- shared country-display filtering rules
+- stable request timeout/retry behavior
 
 ## Mock/static data role
 
 Mock/static data still exists in:
 
 - `src/data/mockData.ts`
+- `src/assets/maps/worldMap50m.ts`
 
 Current role of that file:
 
 - fallback data
 - default country/year scaffolding
 - UI bootstrapping help where API data is not yet the only source of truth
+- ISO country-name lookup for stable route/header/breadcrumb labels during API reload gaps
 
 It should not be treated as the long-term source of truth for live app behavior where backend data already exists.
 

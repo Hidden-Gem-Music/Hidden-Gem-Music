@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-10
+**Date:** 2026-05-15
 **Status:** Active
 
 ---
@@ -50,6 +50,7 @@ Rules:
 - prefer theme tokens over inline hex values
 - add new theme tokens before repeating a new raw color in multiple files
 - use inline hex values only when a one-off visual treatment is genuinely screen-specific
+- do not use raw white for normal UI text; use the app's light or dark text tokens unless there is a specific decorative exception
 
 ## Typography
 
@@ -134,9 +135,26 @@ Rules:
 
 - hover styling should be web-specific and should not create accidental mobile-like click behavior
 - mobile should not depend on hover-only affordances
-- if a control has no meaningful mobile interaction state, keep it visually stable on mobile
+- controls that trigger heavier mobile work should show visible pressed styling quickly so the user knows the tap was accepted
+- map arrow, zoom, reset, and welcome route buttons should keep mobile press feedback even when the actual map/navigation work may take a moment
+- mobile pressed styling should not require firing the actual action from `onPressIn`; route/action buttons should keep normal completed-press semantics
 - explicit-content badges on mobile should remain non-hover and non-click styled
 - overlays/popups should block unintended underlying interactions unless navigation is intentionally exempted
+
+## Discovery Map styling rules
+
+Current Discovery Map rules:
+
+- web glassy map-info blurb stays compact
+- mobile glassy map-info blurb can be taller than web, but it must sit above the map rather than overlap country shapes
+- mobile helper mode and detail mode may use separate heights because helper copy is longer than country stats
+- the Discovery Map blurb heading uses the display font and app light text token
+- helper/detail text should align in scale with nearby mobile country-list and filter-button text
+- mobile data countries use the approved solid country fill treatment
+- mobile selected countries use the approved light-blue selected treatment
+- no-data countries should remain empty but keep visible borders so continent shapes are understandable
+- the map should not rely on permanent labels; country identity is surfaced through hover/tap detail states
+- reset should stay visually discoverable on mobile even when the map is already at its default viewport
 
 ## Loading-state styling and copy rules
 

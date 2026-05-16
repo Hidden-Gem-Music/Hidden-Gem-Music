@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from "react-native";
 
 import { Country } from "../types/content";
@@ -18,6 +18,7 @@ import { typefaces } from "../theme/typography";
 
 export type Props = {
   isActive?: boolean;
+  isLoading?: boolean;
   countries: Country[];
   allYearsCountries?: Country[];
   selectedCountryId: string;
@@ -167,6 +168,7 @@ function DiscoveryYearDropdown({
 
 export function DiscoveryScreen({
   isActive = true,
+  isLoading = false,
   countries,
   allYearsCountries,
   selectedCountryId,
@@ -176,12 +178,13 @@ export function DiscoveryScreen({
   onChangeYear,
   availableYears,
 }: Props) {
-  // Issue #6 shell: this screen owns the core Discovery Globe layout,
-  // including globe rendering, country selection, panel structure, and dummy-data wiring.
+  // Issue #6 shell: this screen owns the core Discovery Map layout,
+  // including map rendering, country selection, panel structure, and dummy-data wiring.
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
   const [allFiltersOpen, setAllFiltersOpen] = useState(false);
   const [listAutoScrollSignal, setListAutoScrollSignal] = useState(0);
+  const [hoveredListCountryId, setHoveredListCountryId] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption | null>(null);
   const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
   const [onlyWithHiddenGems, setOnlyWithHiddenGems] = useState(true);
@@ -196,12 +199,21 @@ export function DiscoveryScreen({
   const [genreLoadingByCountryCode, setGenreLoadingByCountryCode] = useState<Record<string, boolean>>({});
   const genreRequestControllersRef = useRef<AbortController[]>([]);
   const requestedGenreCodesRef = useRef<Set<string>>(new Set());
-  const timelineYears = availableYears && availableYears.length > 0 ? availableYears : [selectedYear];
+  const timelineYears =
+    availableYears && availableYears.length > 0
+      ? Array.from(new Set([...availableYears, selectedYear])).sort((a, b) => a - b)
+      : [selectedYear];
   const isAllYearsSelected = selectedFilterYears.length === 0;
   const countriesForFiltering =
     isAllYearsSelected && allYearsCountries && allYearsCountries.length > 0
       ? allYearsCountries
       : countries;
+
+  useEffect(() => {
+    if (!isActive) {
+      setAllFiltersOpen(false);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     if (isAllYearsSelected) {
@@ -379,8 +391,14 @@ export function DiscoveryScreen({
   }, [ensureCountryGenreSamples, filteredCountries, genrePrefetchCount, isActive, visibleSelectedCountryId]);
 
   const handleGlobeFocus = (countryId: string) => {
-    onSelectCountry(countryId);
-    setListAutoScrollSignal((current) => current + 1);
+    if (countryId === visibleSelectedCountryId) {
+      return;
+    }
+
+    startTransition(() => {
+      onSelectCountry(countryId);
+      setListAutoScrollSignal((current) => current + 1);
+    });
   };
 
   const listColumn = (
@@ -391,6 +409,7 @@ export function DiscoveryScreen({
         selectedCountryId={visibleSelectedCountryId}
         onSelectCountry={onSelectCountry}
         onOpenCountry={onOpenCountry}
+        onHoverCountryChange={Platform.OS === "web" ? setHoveredListCountryId : undefined}
         autoScrollSignal={listAutoScrollSignal}
         genreSummaryByCountryCode={genreSummaryByCountryCode}
         genreLoadingByCountryCode={genreLoadingByCountryCode}
@@ -406,23 +425,24 @@ export function DiscoveryScreen({
       <View style={styles.globePanelWrap}>
         <GlobePanel
           countries={filteredCountries}
+          allCountries={filteredCountries}
+          isLoading={isLoading}
           activeCountryId={visibleSelectedCountryId}
+          hoveredCountryId={Platform.OS === "web" ? hoveredListCountryId : null}
           selectedYear={selectedYear}
+          availableYears={timelineYears}
           onSelectCountry={handleGlobeFocus}
           onOpenCountry={onOpenCountry}
-          title="Globe View"
+          onChangeYear={onChangeYear}
+          title="Discovery Map"
           onRightAction={() => setAllFiltersOpen(true)}
           showHeader={false}
           genreSummaryByCountryCode={genreSummaryByCountryCode}
           genreLoadingByCountryCode={genreLoadingByCountryCode}
           loadingText={discoveryLoadingText}
           onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
+          isActive={isActive}
         />
-        {isStacked ? (
-          <View style={styles.mobileYearDropdownOverlay}>
-            <DiscoveryYearDropdown selectedYear={selectedYear} years={timelineYears} onChangeYear={onChangeYear} />
-          </View>
-        ) : null}
       </View>
       {isStacked ? null : (
         <YearSlider
@@ -462,7 +482,7 @@ export function DiscoveryScreen({
   );
 
   return (
-    <ScreenScaffold contentStyle={styles.scaffoldContent}>
+    <ScreenScaffold contentStyle={styles.scaffoldContent} disableScroll>
       <View
         style={styles.discoveryContentFrame}
         pointerEvents={allFiltersOpen ? "none" : "auto"}
@@ -834,6 +854,7 @@ const styles = StyleSheet.create({
   },
   layout: {
     flexDirection: "row",
+    alignItems: "stretch",
     gap: 16,
     flexWrap: "wrap",
   },
@@ -844,11 +865,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 340,
     gap: 16,
+    alignSelf: "stretch",
   },
   rightColumn: {
     flex: 1,
     minWidth: 340,
     gap: 16,
+    alignSelf: "stretch",
   },
   globePanelWrap: {
     position: "relative",
@@ -962,6 +985,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
+    zIndex: 80,
+    elevation: 80,
   },
   overlayGradientWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -972,7 +997,8 @@ const styles = StyleSheet.create({
   modal: {
     width: "100%",
     maxWidth: 660,
-    maxHeight: "82%",
+    maxHeight: Platform.OS === "web" ? "82%" : 560,
+    height: Platform.OS === "web" ? undefined : 560,
     paddingVertical: 18,
     paddingHorizontal: 16,
     backgroundColor: colors.panel,
@@ -981,6 +1007,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "rgba(169, 176, 209, 0.24)",
     overflow: "hidden",
+    zIndex: 81,
+    elevation: 81,
   },
   modalDepthFill: {
     ...StyleSheet.absoluteFillObject,

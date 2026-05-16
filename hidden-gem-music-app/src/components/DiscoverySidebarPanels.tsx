@@ -16,6 +16,7 @@ type Props = {
   selectedCountryId?: string;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry: (countryId: string) => void;
+  onHoverCountryChange?: (countryId: string | null) => void;
   autoScrollSignal?: number;
   selectedYear?: number;
   genreSummaryByCountryCode?: Record<string, string | undefined>;
@@ -35,6 +36,7 @@ export function DiscoverySidebarPanels({
   selectedCountryId,
   onSelectCountry,
   onOpenCountry,
+  onHoverCountryChange,
   autoScrollSignal,
   selectedYear,
   genreSummaryByCountryCode,
@@ -220,13 +222,20 @@ export function DiscoverySidebarPanels({
       return;
     }
 
-    const y = positionsRef.current[selectedCountryId];
-    if (typeof y === "number") {
-      listScrollRef.current?.scrollTo({ y: Math.max(y - 18, 0), animated: false });
-    }
-  }, [autoScrollSignal, expandedPanel]);
+    const scrollToSelectedCountry = () => {
+      const y = positionsRef.current[selectedCountryId];
+      if (typeof y === "number") {
+        listScrollRef.current?.scrollTo({ y: Math.max(y - 18, 0), animated: false });
+      }
+    };
+
+    scrollToSelectedCountry();
+    const retryTimer = setTimeout(scrollToSelectedCountry, 40);
+    return () => clearTimeout(retryTimer);
+  }, [autoScrollSignal, expandedPanel, listContentHeight, selectedCountryId]);
 
   useEffect(() => {
+    positionsRef.current = {};
     nearListEndTriggeredRef.current = false;
     setListScrollY((current) => (current === 0 ? current : 0));
     if (isWeb) {
@@ -283,7 +292,7 @@ export function DiscoverySidebarPanels({
               {isNarrowHeader ? "Pre-Selected\nFilters" : "Pre-Selected Filters"}
             </Text>
             <Text style={[styles.sectionHelper, isNarrowHeader ? styles.sectionHelperStacked : null]}>
-              Select optional pre-selected filters here and use 'All Filters' button on the globe for more filters.
+              Select optional pre-selected filters here and use the All Filters button on the map for more filters.
             </Text>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "filters" ? "−" : "+"}</Text>
@@ -296,7 +305,8 @@ export function DiscoverySidebarPanels({
               style={[styles.panelScroll, !isWeb ? styles.panelScrollNative : null]}
               contentContainerStyle={styles.filterContent}
               showsVerticalScrollIndicator={false}
-              scrollEnabled={isWeb}
+              scrollEnabled
+              nestedScrollEnabled
               onLayout={(event) => setFilterViewportHeight(event.nativeEvent.layout.height)}
               onContentSizeChange={(_, height) => setFilterContentHeight(height)}
               onScroll={handleFilterScroll}
@@ -350,7 +360,8 @@ export function DiscoverySidebarPanels({
               style={[styles.panelScroll, !isWeb ? styles.panelScrollNative : null]}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
-              scrollEnabled={isWeb}
+              scrollEnabled
+              nestedScrollEnabled
               onLayout={(event) => setListViewportHeight(event.nativeEvent.layout.height)}
               onContentSizeChange={(_, height) => setListContentHeight(height)}
               onScroll={handleListScroll}
@@ -375,7 +386,9 @@ export function DiscoverySidebarPanels({
                     onHover={() => {
                       onEnsureGenreSample?.(country.code);
                       onSelectCountry(country.id);
+                      onHoverCountryChange?.(country.id);
                     }}
+                    onHoverOut={() => onHoverCountryChange?.(null)}
                     onTitlePress={() => {
                       onEnsureGenreSample?.(country.code);
                       onOpenCountry(country.id);
@@ -425,12 +438,14 @@ export function DiscoverySidebarPanels({
 
 const styles = StyleSheet.create({
   frame: {
-    minHeight: 642,
-    maxHeight: 642,
+    minHeight: 824,
+    maxHeight: 824,
     gap: 16,
+    alignSelf: "stretch",
   },
   frameNative: {
     minHeight: 0,
+    height: 760,
     maxHeight: undefined,
   },
   section: {
@@ -564,7 +579,9 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   scrollAreaNative: {
-    flexGrow: 0,
+    flex: 1,
+    minHeight: 0,
+    maxHeight: undefined,
   },
   panelScroll: {
     flex: 1,
@@ -576,7 +593,7 @@ const styles = StyleSheet.create({
       : null),
   },
   panelScrollNative: {
-    flexGrow: 0,
+    flex: 1,
   },
   listContent: {
     paddingHorizontal: 18,

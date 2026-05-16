@@ -2,6 +2,8 @@ import type { Country } from "../types/content";
 import { mapApiCountryGlobeSummary } from "./apiMappers";
 import type { ApiCountryGlobeSummary } from "../types/api";
 import { getApiBaseUrl } from "./apiBaseUrl";
+import { normalizeCountryDisplayName } from "./countryDisplay";
+import { fetchWithTimeoutAndRetry } from "./fetchWithTimeout";
 
 const discoveryCountriesCache = new Map<number, Country[]>();
 const discoveryCountriesInFlight = new Map<number, Promise<Country[]>>();
@@ -21,7 +23,7 @@ export function loadDiscoveryCountries(year: number, fallbackCountries: Country[
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/discovery/countries?year=${year}`;
 
-  const promise = fetch(endpoint)
+  const promise = fetchWithTimeoutAndRetry(endpoint)
     .then((response) => {
       if (!response.ok) {
         throw new Error(`Discovery country request failed with status ${response.status}.`);
@@ -38,8 +40,10 @@ export function loadDiscoveryCountries(year: number, fallbackCountries: Country[
           return {
             id: `iso-${normalizedCode.toLowerCase() || index}`,
             code: normalizedCode,
-            name: mapped.countryName,
+            name: normalizeCountryDisplayName(mapped.countryName),
             region: mapped.region,
+            lat: typeof mapped.lat === "number" ? mapped.lat : existing?.lat ?? 0,
+            long: typeof mapped.long === "number" ? mapped.long : existing?.long ?? 0,
             hiddenSongs: mapped.hiddenSongs,
             genres: existing?.genres?.length ? existing.genres : ["Unknown"],
             album: mapped.topAlbum,

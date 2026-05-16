@@ -47,8 +47,9 @@ export function YearSlider({ year, onChangeYear, years, displayLabel }: Props) {
     }
     return yearIndex >= yearAfterGapIndex ? yearIndex + 1 : yearIndex;
   };
-  const dragSlotIndex = getSlotFromYear(dragYear);
-  const progress = (dragSlotIndex / maxSlotIndex) * 100;
+  const visualYear = isDragging ? dragYear : year;
+  const visualSlotIndex = getSlotFromYear(visualYear);
+  const progress = (visualSlotIndex / maxSlotIndex) * 100;
   const clampedProgress = Math.min(Math.max(progress, 0), 100);
   const gapStartProgress = hasGap ? ((gapSlotIndex - 0.5) / maxSlotIndex) * 100 : 0;
   const gapEndProgress = hasGap ? ((gapSlotIndex + 0.5) / maxSlotIndex) * 100 : 0;
