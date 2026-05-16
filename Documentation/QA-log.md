@@ -189,6 +189,99 @@ Both passed after the final reset visibility and mobile blurb height fixes.
 
 ---
 
+## 2026-05-13 — Frontend Load Optimization (Redundant API Calls)
+
+**Branch:** `loading-optimization`
+**Scope:** `discoveryApi.ts`, `dashboardApi.ts`, `countryApi.ts`
+
+### What I noticed
+
+Audited all API fetch functions for repeat pinging — cases where the same endpoint was being called multiple times when once was enough. Found two categories: functions with no cache at all, and a race condition in a newly-added cache.
+
+### What was wrong
+
+| File | Function | Problem |
+|---|---|---|
+| `dashboardApi.ts` | All 7 functions | No caching — all 7 dashboard endpoints re-fired on every visit to the dashboard screen (every mount) |
+| `countryApi.ts` | `loadAvailableYears` | No cache — called independently in `App.tsx`, `CountryScreen`, and `ComparisonResultsScreen`; fired on every mount of each |
+| `discoveryApi.ts` | `loadDiscoveryCountries` | No module-level cache — relied entirely on `App.tsx` React state, which doesn't deduplicate concurrent calls |
+
+### What was fixed
+
+**`dashboardApi.ts`** — Added a `Map` cache to all 7 functions (`loadOverlapRate`, `loadDiscoveryGap`, `loadIsolationLeader`, `loadPeakReach`, `loadOverlapTrend`, `loadIsolationRanking`, `loadGapDistribution`) keyed on the date range string. First visit fetches; every subsequent visit is served from the module cache with zero network requests.
+
+**`countryApi.ts` — `loadAvailableYears`** — Replaced the simple result cache (which still had a race window) with a Promise-level cache. All concurrent callers share the same in-flight request rather than each firing their own. If the request fails, the cache clears so the next call retries.
+
+**`discoveryApi.ts` — `loadDiscoveryCountries`** — Added a module-level result cache and in-flight Promise deduplication, both keyed on year. On a cache hit, returns instantly. If a request for the same year is already in-flight (e.g., two callers at startup), the second caller shares the existing Promise instead of firing a second request.
+
+### Why it matters
+
+The dashboard had 7 concurrent SP calls on every screen visit with no way to reuse results — navigating away and back re-fired all 7 every time. `loadAvailableYears` was being called from 3 separate places with no coordination. These are the same pattern of repeat pinging that caused performance issues in earlier iterations.
+
+### How to test
+
+1. Open the app and navigate to the Dashboard — note load time
+2. Navigate away and return to the Dashboard — should render **instantly** with no network requests visible in DevTools → Network tab
+3. Open DevTools → Network, filter by `/api/metadata/years` — should appear **once** total across the session regardless of how many screens call it
+4. Open DevTools → Network, filter by `/api/discovery/countries` — should appear **once per year** across the session; switching years fetches once for that year, switching back is instant
+
+---
+
+## 2026-05-13 — Genre Sampling Sequential Bottleneck
+
+**Branch:** `loading-optimization`
+**Scope:** `CountryController.cs` — `GetCountryGenreSamples` endpoint
+
+### What I noticed
+
+Genre samples on the Discovery globe screen were taking an extremely long time on first load. DevTools showed the `/api/country/genre-samples` request for the initial 8-country batch was the bottleneck — country page visits were much faster and frequently showed browser disk cache hits.
+
+### What was wrong
+
+The backend `GetCountryGenreSamples` endpoint processed country codes in a **sequential `foreach` loop**. For each code, it checked `IMemoryCache` first, then if not cached, called `GetCountryGenreSampleAsync` which involves a DB query and Deezer API calls. Because the loop was sequential, an 8-country batch request took the **sum** of all individual resolution times — potentially 8–12 seconds on a cold cache.
+
+The country page felt faster because it only ever requests 1 country at a time, and browser disk cache hits from previous visits made repeat requests instant. The globe fires a batch URL with all 8 codes combined (e.g. `?codes=AR,AU,BR,DE,...`) — a URL the browser has never cached — so it always paid the full sequential cost.
+
+### What was fixed
+
+Changed the `foreach` loop to `Task.WhenAll` so all country codes in the batch are resolved **in parallel**:
+
+```csharp
+var tasks = normalizedCodes.Select(async (countryCode) => { ... });
+var results = (await Task.WhenAll(tasks)).Where(sample => sample is not null).ToList();
+```
+
+Total resolution time for a batch is now the **slowest single country** instead of the sum of all of them.
+
+This is safe with the existing Deezer infrastructure — `DeezerSongEnrichmentService` is registered as a singleton, so the shared `SlidingWindowRateLimiter` and file cache gate apply across all parallel tasks. The `IMemoryCache` keys are per-country-code so there is no concurrent access on the same key.
+
+### Separate finding — `sp_GetDiscoverPageInfo` pre-computation
+
+The `/api/discovery/countries` SP (`sp_GetDiscoverPageInfo`) was scanning `ChartEntry` for an entire year to find the most frequently charted song per country using `ROW_NUMBER()`. This was written without knowing it would be called on every globe screen load.
+
+**What was fixed** — Created `TopSongByCountryYear` summary table and `sp_PopulateTopSongByCountryYear` population SP (same pattern as dashboard SPs). Updated `sp_GetDiscoverPageInfo` to JOIN on the summary table instead of scanning `ChartEntry` live. The SP now reads only pre-computed tables and is near-instant.
+
+**SSMS steps required before deploying:**
+```sql
+CREATE TABLE TopSongByCountryYear (
+    country_id  INT            NOT NULL,
+    chart_year  INT            NOT NULL,
+    album_name  NVARCHAR(500)  NULL,
+    artist_name NVARCHAR(500)  NULL,
+    PRIMARY KEY (country_id, chart_year)
+);
+EXEC sp_PopulateTopSongByCountryYear;
+-- Then register sp_GetDiscoverPageInfo.sql
+```
+
+### How to test
+
+1. Hard refresh and navigate to Discovery Globe — the genre loading spinner in the sidebar should resolve noticeably faster than before
+2. In DevTools → Network, find the `/api/country/genre-samples` request — check its duration on first load (cold server cache) vs before the fix
+3. Confirm the fix is safe: check the backend logs — no Deezer rate limit errors (`429`) should appear during the batch request
+
+---
+
 ## 2026-05-13 — Backend Error Handling
 
 **Scope:** All 7 controllers
