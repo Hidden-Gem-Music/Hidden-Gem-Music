@@ -2,6 +2,146 @@ mp3li implementation timeline document
 
 Updated: May 15, 2026
 
+Dashboard Issue 128 Frontend Polish, Discovery Dashboard Rename, and PR Handoff (May 15, 2026)
+- Objective:
+  - Complete the clear frontend/UI portions of Dashboard Issue 128 after the restored database was verified.
+  - Keep database-owner work separate by documenting the isolation-ranking `TOP 20` finding instead of changing the stored procedure in this pass.
+  - Produce a PR markdown handoff that separates completed work from clarification-needed items.
+
+- Dashboard country selector changes:
+  - Updated the "See where your country fits in" selector so its dropdown can include all countries with app data across available metadata years, not only the current top-20 isolation ranking response.
+  - Kept isolation scores visible only where the Dashboard ranking API actually returns them.
+  - For app-data countries that do not have a returned isolation score, the dropdown now leaves the right side blank instead of showing a confusing placeholder label.
+  - Selected countries without a returned ranking show honest "app data available / no isolation ranking returned" messaging rather than fake score values.
+
+- Dashboard visual fixes completed:
+  - Added balanced spacing below the Chapter 1 Discovery Gap Distribution explanation.
+  - Increased the first four Chapter 1 KPI flip cards and changed them from one row of four into a larger two-by-two layout.
+  - Increased KPI card front/back typography and made the `flip ↻` hint placement consistent.
+  - Increased section divider numbers and headings, then added more spacing below them after review.
+  - Added more spacing under the Chapter 2 isolation-score explanation.
+  - Replaced the Chapter 3 stacked plus/minus display with a single inline signed value such as `+6 pts` or `-6 pts`.
+  - Removed the phrase "then a 22-month silence."
+  - Increased the conclusion stat cards while keeping them in a two-by-two square-card layout.
+
+- Chapter 4 art/API work:
+  - Added CD case art to Chapter 4 / THE CEILING using the existing `CdCaseArt` component.
+  - Extended the Dashboard peak-reach API model with `albumArtUrl`.
+  - Reused the existing backend Deezer enrichment service to resolve peak-song album art.
+  - Added a known cover-art fallback for the current peak-reach song so the CD case does not remain blank when live enrichment misses the art.
+
+- Navigation/name cleanup:
+  - Renamed the Dashboard nav label to `Discovery Dashboard`.
+  - Moved `Discovery Dashboard` directly after `Discovery Map` in the web header nav and mobile bottom nav.
+  - Updated the Welcome screen copy and buttons so `Discovery Dashboard` appears directly after `Discovery Map`.
+  - Updated the mobile/native fallback Dashboard heading to `Discovery Dashboard`.
+  - Noted in the PR handoff that the team has discussed wanting a catchier dashboard name, but has not settled on one yet.
+
+- Clarification/data-owner items documented in the PR markdown:
+  - "Adjust wording on explanation" needs exact target text or replacement wording.
+  - "Conclusion card - make KPI cards a carousel?" needs a screenshot or target behavior because the conclusion only has four stat cards.
+  - "Add data sources to About this data" needs exact source labels from the data owner.
+  - "Adjust isolation scores by country graph to include all countries" appears to require changing `sp_GetIsolationRanking` from `SELECT TOP 20` to all country rows with isolation-score data; documented as "Potential SQL direction" instead of changing the stored procedure.
+
+- Files updated for Issue 128:
+  - `hidden-gem-music-app/src/screens/DashboardScreen.web.tsx`
+  - `hidden-gem-music-app/src/screens/DashboardScreen.tsx`
+  - `hidden-gem-music-app/src/components/AppHeader.tsx`
+  - `hidden-gem-music-app/src/components/MobileBottomNav.tsx`
+  - `hidden-gem-music-app/src/screens/WelcomeScreen.tsx`
+  - `hidden-gem-music-app/src/types/api.ts`
+  - `backend/Capstone.API/Infrastructure/Repositories/DashboardRepository.cs`
+  - `backend/Capstone.API/Models/Dashboard/PeakReachKpi.cs`
+  - `Documents/PR_Issue_128.md`
+
+- Verification completed:
+  - Ran `npm run typecheck` after implementation and follow-up visual adjustments.
+  - Ran `dotnet build Capstone.API.csproj` after the peak-reach API/model change.
+  - Ran `git diff --check`.
+  - User verified the dropdown behavior, histogram spacing, KPI cards, section headers, Chapter 2 spacing, Chapter 3 signed value, removed phrase, and Chapter 4 CD art follow-up behavior during the iteration.
+
+New Local Database Restore, Post-Restore Verification, and UI Regression Fixes (May 15, 2026)
+- Objective:
+  - Restore Leena's updated `05.15_HiddenGemMusic.bak` into the local Docker-hosted SQL Server database before starting Issue 128 dashboard work.
+  - Verify the existing backend and frontend still worked against the new database before making issue-specific changes.
+  - Fix only the regressions found during the post-restore smoke test before returning to planned issue work.
+
+- Local DB restore workflow completed:
+  - Backed up the current local `HiddenGemMusic` database in SSMS before restore.
+  - Copied Leena's backup from macOS Downloads into the Docker SQL Server container:
+    - source file: `/Users/stellar/Downloads/05.15_HiddenGemMusic.bak`
+    - container: `capstone-sql`
+    - container restore path: `/var/opt/mssql/backup/05.15_HiddenGemMusic.bak`
+  - Used `RESTORE FILELISTONLY` to confirm logical names:
+    - `HiddenGemMusic`
+    - `HiddenGemMusic_log`
+  - Restored the backup over the existing local `HiddenGemMusic` database name so the app's existing local connection path could stay unchanged.
+  - Confirmed the restored schema uses `dbo.Country` rather than the older `DIM_Country` name for countries.
+
+- Database sanity checks after restore:
+  - `dbo.Country`: 246 rows
+  - `dbo.DIM_Song`: 240,848 rows
+  - `dbo.DIM_Artist`: 103,015 rows
+  - `dbo.HiddenGems`: 2,585,433 rows
+  - `dbo.IsolationScoreByCountry`: 546 rows
+
+- Browser/API smoke test completed against the restored DB:
+  - `GET /api/metadata/years` returned `2017, 2018, 2019, 2020, 2021, 2023, 2024, 2025`.
+  - `GET /api/discovery/countries?year=2025` returned the restored country list and country-level 2025 hidden-gem data where available.
+  - Dashboard endpoints returned JSON for:
+    - overlap rate
+    - discovery gap
+    - gap distribution
+    - isolation leader
+    - isolation ranking
+    - peak reach
+    - overlap trend
+  - Frontend smoke testing confirmed Dashboard, Discovery, Country 2025, Hidden Gems 2025, and Comparison 2025 could still load.
+
+- Post-restore observations recorded before Issue 128 work:
+  - Dashboard isolation ranking currently returns only 20 countries; this matches the upcoming issue scope and was not fixed in this verification pass.
+  - Dashboard overlap rate returned `songsIn2Plus: 0` while `overlapPct` was nonzero; this was flagged as a likely output-mapping or stored-procedure result issue for later approval-gated work.
+  - Hidden Gems loaded much faster after the DB/update work, but first-load Country/Comparison paths could still feel slower for uncached countries because those screens perform more profile/list/enrichment work before all sections settle.
+
+- Bug fixed: Discovery Map gradients disappeared after Dashboard-to-Discovery navigation:
+  - Symptom:
+    - Navigating from Dashboard to Discovery sometimes made countries with data lose their normal fill/gradient until a hard refresh.
+    - Hovered countries also lost the active gradient.
+  - Cause:
+    - The map SVG used fixed gradient IDs such as `map-country-data-fill` and `map-country-active-fill`.
+    - On web route transitions, SVG `url(#...)` references could resolve against stale/missing paint definitions.
+  - Fix:
+    - `GlobeView.tsx` now generates per-instance SVG gradient IDs with `useId`.
+    - Country fill references now point to those unique IDs so map fills survive route transitions.
+
+- Bug fixed: Hidden Gems art loading ended before CD/artist images appeared:
+  - Symptom:
+    - Favorite Artists CDs could sit as blank placeholder-color cases long after the glassy loading veil disappeared.
+    - The previous spinner behavior had disappeared for parts of the screen because page-level loading ended before individual images finished loading.
+  - Cause:
+    - Favorite Artists used the hidden-gems song-list loading boolean, but the artist section depends on the separate country-profile request.
+    - CD image loading was not tracked independently from API data loading.
+  - Fix:
+    - `HiddenGemsScreen.tsx` now tracks country-profile loading separately for the Favorite Artists section.
+    - Favorite Artists stay in the glassy/loading state until profile data arrives.
+    - Favorite Artists can reuse loaded hidden-gems song artist images when the profile row is missing the image URL.
+    - `CdCaseArt.tsx` and mini CD rendering now keep an individual spinner/dim overlay until each actual image finishes loading or errors.
+
+- Files updated in this follow-up:
+  - `hidden-gem-music-app/src/components/globe/GlobeView.tsx`
+  - `hidden-gem-music-app/src/components/CdCaseArt.tsx`
+  - `hidden-gem-music-app/src/screens/HiddenGemsScreen.tsx`
+  - `Documents/mp3li implementation timeline document.txt`
+  - `Documentation/QA-log.md`
+  - `hidden-gem-music-app/Documentation/interaction-loading-and-overlay-rules.md`
+  - `hidden-gem-music-app/Documentation/screen-data-flow.md`
+
+- Verification completed:
+  - Ran `npm run typecheck` after the Discovery Map gradient fix.
+  - Ran `npm run typecheck` after the Hidden Gems image-loading fixes.
+  - User verified the Discovery Map gradient issue was fixed.
+  - User verified the Hidden Gems favorite-artist/CD loading fix worked.
+
 Hidden Gems Direct Navigation, Code Review Fixes, and Documentation Follow-Up (May 15, 2026)
 - Objective:
   - Complete the Issue 125 follow-up after hands-on review confirmed the Hidden Gems country/year selection prompt now behaves correctly on reload and direct navigation.

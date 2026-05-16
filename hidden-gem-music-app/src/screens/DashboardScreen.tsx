@@ -52,7 +52,7 @@ export function DashboardScreen({ year, metrics, countries }: Props) {
     <ScreenScaffold>
       <View style={styles.screen}>
         <DiscoveryBlurb
-          heading="Global Overlap Dashboard"
+          heading="Discovery Dashboard"
           body={`This dashboard summarizes discovery behavior for ${year}, including overlap, isolation, and hidden gem concentration across countries.`}
         />
 

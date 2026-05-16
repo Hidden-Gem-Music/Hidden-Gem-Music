@@ -52,9 +52,11 @@ Key shared shell components:
   - breadcrumb trail
   - search trigger
   - search overlay host
+  - current web nav order: Discovery Map, Discovery Dashboard, Comparison Mode, Hidden Gems, Credits
 
 - `src/components/MobileBottomNav.tsx`
   - mobile-only bottom navigation behavior
+  - current mobile nav order mirrors web: Discovery Map, Discovery Dashboard, Compare, Hidden Gems, Credits
 
 - `src/components/ScreenScaffold.tsx`
   - shared background
@@ -93,6 +95,7 @@ Current ownership rule:
 Current exception:
 
 - Dashboard still has a web-specific file because the web dashboard uses `recharts`
+- The Dashboard user-facing label is `Discovery Dashboard`; the route key remains `dashboard`.
 
 ## Shared layout and visual language
 
@@ -192,6 +195,12 @@ This keeps:
 - persisted route state
 
 in one app-owned seam instead of scattering them across screens.
+
+Current naming/order rule:
+
+- `Discovery Dashboard` should appear directly after `Discovery Map` in both web and mobile navigation.
+- Welcome screen action buttons should follow the same order.
+- The team has discussed wanting a catchier dashboard name, but `Discovery Dashboard` is the current applied label until a replacement is chosen.
 
 ## Data layer ownership
 

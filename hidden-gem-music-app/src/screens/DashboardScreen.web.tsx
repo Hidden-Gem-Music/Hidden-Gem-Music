@@ -24,6 +24,9 @@ import {
 } from "recharts";
 
 import {
+  loadAvailableYears,
+} from "../data/countryApi";
+import {
   loadDiscoveryGap,
   loadGapDistribution,
   loadIsolationLeader,
@@ -32,6 +35,8 @@ import {
   loadOverlapTrend,
   loadPeakReach,
 } from "../data/dashboardApi";
+import { loadDiscoveryCountries } from "../data/discoveryApi";
+import { isCountryWithAppData } from "../data/countryDisplay";
 import type {
   ApiDiscoveryGap,
   ApiGapBucket,
@@ -41,6 +46,8 @@ import type {
   ApiPeakReach,
   ApiTrendPoint,
 } from "../types/api";
+import type { Country } from "../types/content";
+import { CdCaseArt } from "../components/CdCaseArt";
 import { GemIcon } from "../components/GemIcon";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { colors } from "../theme/colors";
@@ -78,6 +85,11 @@ const KPI_BAR = {
   green: "#4ade80",
 };
 
+const KNOWN_PEAK_REACH_ART: Record<string, string> = {
+  "stay (with justin bieber)|the kid laroi":
+    "https://coverartarchive.org/release/9edb549d-b9cd-47b8-8b33-523b0bf8e301/front-500",
+};
+
 // ---------------------------------------------------------------------------
 // Navigation helper (web only — avoids touching App.tsx)
 // ---------------------------------------------------------------------------
@@ -86,6 +98,11 @@ function navigateTo(path: string) {
   if (typeof window !== "undefined") {
     window.location.href = path;
   }
+}
+
+function getKnownPeakReachArtUrl(songTitle?: string | null, artistName?: string | null) {
+  const key = `${songTitle ?? ""}|${artistName ?? ""}`.trim().toLowerCase();
+  return KNOWN_PEAK_REACH_ART[key];
 }
 
 // ---------------------------------------------------------------------------
@@ -106,28 +123,58 @@ const tickStyle = { fill: colors.text, fontSize: 11, opacity: 0.7 };
 // Country Selector
 // ---------------------------------------------------------------------------
 
+type CountrySelectorOption = {
+  isoCode: string;
+  countryName: string;
+  isolationScore: number | null;
+  isolationTier: string | null;
+};
+
+async function loadDashboardCountriesWithAppData() {
+  const years = await loadAvailableYears().catch(() => [2025]);
+  const countrySets = await Promise.all(
+    years.map((year) => loadDiscoveryCountries(year, []).catch(() => []))
+  );
+  const countriesByCode = new Map<string, Country>();
+
+  countrySets.flat().forEach((country) => {
+    if (!isCountryWithAppData(country)) return;
+    const code = country.code.toUpperCase();
+    const existing = countriesByCode.get(code);
+    if (!existing || country.hiddenSongs > existing.hiddenSongs) {
+      countriesByCode.set(code, country);
+    }
+  });
+
+  return Array.from(countriesByCode.values());
+}
+
 function CountrySelector({
   data,
   selectedCountry,
   onSelect,
   onClear,
 }: {
-  data: ApiIsolationEntry[];
-  selectedCountry: ApiIsolationEntry | null;
-  onSelect: (entry: ApiIsolationEntry) => void;
+  data: CountrySelectorOption[];
+  selectedCountry: CountrySelectorOption | null;
+  onSelect: (entry: CountrySelectorOption) => void;
   onClear: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const tierLabel = (entry: ApiIsolationEntry) => {
+  const tierLabel = (entry: CountrySelectorOption) => {
+    if (entry.isolationScore === null) return null;
     if (entry.isolationScore > 65) return "highly isolated — most of your charts stay local";
     if (entry.isolationScore >= 40) return "moderately isolated — some crossover, a lot still stays home";
     return "well connected — your market overlaps heavily with global trends";
   };
 
   const rank = selectedCountry
-    ? data.findIndex((e) => e.isoCode === selectedCountry.isoCode) + 1
+    ? data
+        .filter((entry) => entry.isolationScore !== null)
+        .findIndex((e) => e.isoCode === selectedCountry.isoCode) + 1
     : null;
+  const selectedTierLabel = selectedCountry ? tierLabel(selectedCountry) : null;
 
   return (
     <View style={styles.countrySelectorWrap}>
@@ -138,7 +185,7 @@ function CountrySelector({
         <Text style={styles.countrySelectorText}>
           {selectedCountry
             ? `Viewing: ${selectedCountry.countryName}`
-            : "See where your country fits into this story"}
+            : "See where your country fits in"}
         </Text>
         <Text style={styles.countrySelectorChevron}>{isOpen ? "▲" : "▼"}</Text>
       </Pressable>
@@ -167,9 +214,14 @@ function CountrySelector({
               }}
             >
               <Text style={styles.countryDropdownName}>{entry.countryName}</Text>
-              <Text style={styles.countryDropdownScore}>
-                {Math.round(entry.isolationScore)}%
-              </Text>
+              {entry.isolationScore !== null ? (
+                <View style={styles.countryDropdownMeta}>
+                  <Text style={styles.countryDropdownScore}>
+                    {Math.round(entry.isolationScore)}%
+                  </Text>
+                  <Text style={styles.countryDropdownCaption}>isolation score</Text>
+                </View>
+              ) : null}
             </Pressable>
           ))}
         </View>
@@ -181,12 +233,20 @@ function CountrySelector({
             <View style={styles.countryBannerDot} />
             <Text style={styles.countryBannerText}>
               <Text style={styles.countryBannerName}>{selectedCountry.countryName}</Text>
-              {" "}has an isolation score of{" "}
-              <Text style={styles.countryBannerName}>
-                {Math.round(selectedCountry.isolationScore)}%
-              </Text>
-              {" — "}{tierLabel(selectedCountry)}.
-              {rank ? ` It's ranked #${rank} of ${data.length} countries in this dataset.` : ""}
+              {selectedCountry.isolationScore !== null && selectedTierLabel ? (
+                <>
+                  {" "}has an isolation score of{" "}
+                  <Text style={styles.countryBannerName}>
+                    {Math.round(selectedCountry.isolationScore)}%
+                  </Text>
+                  {" — "}{selectedTierLabel}.
+                  {rank
+                    ? ` It's ranked #${rank} of ${data.filter((entry) => entry.isolationScore !== null).length} countries in the current isolation ranking.`
+                    : ""}
+                </>
+              ) : (
+                " is available in the app data. Isolation ranking data was not returned for this country."
+              )}
             </Text>
           </View>
           <Pressable onPress={onClear} style={styles.countryBannerClear}>
@@ -217,22 +277,14 @@ function PullStat({
   number,
   unit,
   context,
-  stackedSign,
 }: {
   number: string;
   unit?: string;
   context: string;
-  stackedSign?: boolean;
 }) {
   return (
     <View style={styles.pullStat}>
       <View style={styles.pullStatDisplay}>
-        {stackedSign ? (
-          <View style={styles.pullStatSignStack}>
-            <Text style={styles.pullStatSign}>+</Text>
-            <Text style={styles.pullStatSign}>−</Text>
-          </View>
-        ) : null}
         <Text style={styles.pullStatNumber}>{number}</Text>
         {unit ? <Text style={styles.pullStatUnit}>{unit}</Text> : null}
       </View>
@@ -343,7 +395,7 @@ function KpiCard({
       <View style={[styles.kpiAccentBar, { backgroundColor: barColor }]} />
       <View style={styles.kpiContent}>
         {flipped ? back : (
-          <View>
+          <View style={styles.kpiFrontShell}>
             {front}
             <Text style={styles.kpiFlipHint}>flip ↻</Text>
           </View>
@@ -511,7 +563,7 @@ function IsolationBarChart({
   selectedCountry,
 }: {
   data: ApiIsolationEntry[];
-  selectedCountry: ApiIsolationEntry | null;
+  selectedCountry: CountrySelectorOption | null;
 }) {
   const chartHeight = Math.max(data.length * 28 + 40, 240);
 
@@ -835,10 +887,11 @@ function DashboardScreenContent() {
   const [peakReach, setPeakReach] = useState<ApiPeakReach | null>(null);
   const [trendData, setTrendData] = useState<ApiTrendPoint[]>([]);
   const [isolationRanking, setIsolationRanking] = useState<ApiIsolationEntry[]>([]);
+  const [dashboardCountries, setDashboardCountries] = useState<Country[]>([]);
   const [gapDistribution, setGapDistribution] = useState<ApiGapBucket[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [selectedCountry, setSelectedCountry] = useState<ApiIsolationEntry | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<CountrySelectorOption | null>(null);
 
   useEffect(() => {
     const start = "2017-01-01";
@@ -866,6 +919,10 @@ function DashboardScreenContent() {
         setFetchError(err instanceof Error ? err.message : "Failed to load dashboard data");
         setLoading(false);
       });
+
+    loadDashboardCountriesWithAppData()
+      .then(setDashboardCountries)
+      .catch(() => setDashboardCountries([]));
   }, []);
 
   // All pull-stat values derived from API data
@@ -879,6 +936,34 @@ function DashboardScreenContent() {
     const scores = isolationRanking.map((e) => e.isolationScore);
     return Math.round(Math.max(...scores) - Math.min(...scores));
   }, [isolationRanking]);
+
+  const countryOptions = useMemo<CountrySelectorOption[]>(() => {
+    const isolationByCode = new Map(
+      isolationRanking.map((entry) => [entry.isoCode.toUpperCase(), entry])
+    );
+
+    if (dashboardCountries.length === 0) {
+      return isolationRanking.map((entry) => ({
+        isoCode: entry.isoCode,
+        countryName: entry.countryName,
+        isolationScore: entry.isolationScore,
+        isolationTier: entry.isolationTier,
+      }));
+    }
+
+    return dashboardCountries
+      .filter(isCountryWithAppData)
+      .map((country) => {
+        const isolationEntry = isolationByCode.get(country.code.toUpperCase());
+        return {
+          isoCode: country.code,
+          countryName: country.name,
+          isolationScore: isolationEntry?.isolationScore ?? null,
+          isolationTier: isolationEntry?.isolationTier ?? null,
+        };
+      })
+      .sort((a, b) => a.countryName.localeCompare(b.countryName));
+  }, [dashboardCountries, isolationRanking]);
 
   const overlapChange = useMemo(() => {
     const nonGap = trendData.filter((p) => !p.isGap && p.overlapPct > 0);
@@ -894,26 +979,33 @@ function DashboardScreenContent() {
   }, [trendData]);
 
   // Card 3 personalization
+  const selectedCountryHasIsolation = selectedCountry?.isolationScore !== null && selectedCountry?.isolationScore !== undefined;
   const isolationCardScore = selectedCountry
-    ? Math.round(selectedCountry.isolationScore)
+    ? selectedCountryHasIsolation
+      ? Math.round(selectedCountry.isolationScore as number)
+      : null
     : isolationLeader
     ? Math.round(isolationLeader.isolationScore)
     : null;
   const isolationCardName =
     selectedCountry?.countryName ?? isolationLeader?.countryName ?? "";
-  const isolationCardTierLabel = selectedCountry
-    ? selectedCountry.isolationScore > 65
+  const isolationCardTierLabel = selectedCountryHasIsolation
+    ? (selectedCountry?.isolationScore as number) > 65
       ? "highly isolated market"
-      : selectedCountry.isolationScore >= 40
+      : (selectedCountry?.isolationScore as number) >= 40
       ? "moderately isolated"
       : "well connected"
+    : selectedCountry
+    ? "app data available"
     : "most isolated market";
-  const isolationCardBarColor = selectedCountry
-    ? selectedCountry.isolationScore > 65
+  const isolationCardBarColor = selectedCountryHasIsolation
+    ? (selectedCountry?.isolationScore as number) > 65
       ? KPI_BAR.red
-      : selectedCountry.isolationScore >= 40
+      : (selectedCountry?.isolationScore as number) >= 40
       ? "#fb923c"
       : KPI_BAR.green
+    : selectedCountry
+    ? KPI_BAR.blue
     : KPI_BAR.red;
 
   // Personalized CTA labels
@@ -938,6 +1030,8 @@ function DashboardScreenContent() {
         return `peak ${d.toLocaleString("default", { month: "short" })} ${d.getFullYear()}`;
       })()
     : null;
+  const peakReachArtUrl =
+    peakReach?.albumArtUrl ?? getKnownPeakReachArtUrl(peakReach?.songTitle, peakReach?.artistName);
 
   // Scrollbar state
   const pageScrollRef = useRef<ScrollView>(null);
@@ -1059,7 +1153,7 @@ function DashboardScreenContent() {
                   This isn't a taste difference — it's a structural gap in how music travels.
                 </Text>
                 <CountrySelector
-                  data={isolationRanking}
+                  data={countryOptions}
                   selectedCountry={selectedCountry}
                   onSelect={setSelectedCountry}
                   onClear={() => setSelectedCountry(null)}
@@ -1120,7 +1214,7 @@ function DashboardScreenContent() {
                   <ChapterCard label="DISCOVERY GAP DISTRIBUTION">
                     <DiscoveryGapHistogram data={gapDistribution} />
                   </ChapterCard>
-                  <Text style={styles.pullQuote}>
+                  <Text style={[styles.pullQuote, styles.histogramPullQuote]}>
                     Most songs that cross any border do so within two weeks. The long tail —
                     songs that took months or never arrived at all — is what the discovery gap
                     is made of.
@@ -1181,7 +1275,7 @@ function DashboardScreenContent() {
                   />
                 ) : null}
 
-                {isolationCardScore !== null ? (
+                {selectedCountry || isolationCardScore !== null ? (
                   <KpiCard
                     barColor={isolationCardBarColor}
                     front={
@@ -1189,7 +1283,9 @@ function DashboardScreenContent() {
                         <Text style={styles.kpiLabel}>
                           {selectedCountry ? "Your Country" : "Most Isolated Market"}
                         </Text>
-                        <Text style={styles.kpiNumber}>{isolationCardScore}%</Text>
+                        <Text style={styles.kpiNumber}>
+                          {isolationCardScore !== null ? `${isolationCardScore}%` : "—"}
+                        </Text>
                         <Text style={styles.kpiSublabel}>
                           {isolationCardName} — {isolationCardTierLabel}
                         </Text>
@@ -1202,7 +1298,9 @@ function DashboardScreenContent() {
                         </Text>
                         <Text style={styles.kpiBackBody}>
                           {selectedCountry
-                            ? selectedCountry.isolationScore > 65
+                            ? selectedCountry.isolationScore === null
+                              ? `${selectedCountry.countryName} is available in the app data, but the current isolation ranking response does not include a score for it.`
+                              : selectedCountry.isolationScore > 65
                               ? `${selectedCountry.countryName} has an isolation score of ${Math.round(selectedCountry.isolationScore)}%. Most of its chart stays local — it has some of the most to discover.`
                               : selectedCountry.isolationScore >= 40
                               ? `${selectedCountry.countryName} has an isolation score of ${Math.round(selectedCountry.isolationScore)}%. Some global crossover, but still plenty of undiscovered music.`
@@ -1310,10 +1408,9 @@ function DashboardScreenContent() {
                 <View style={styles.chapterLeft}>
                   {overlapChange !== null ? (
                     <PullStat
-                      number={String(overlapChange.delta)}
+                      number={`${overlapChange.direction === "rose" ? "+" : "-"}${overlapChange.delta}`}
                       unit="pts"
-                      context={`overlap ${overlapChange.direction} from ${overlapChange.pct2017}% to ${overlapChange.pct2021}% between 2017 and 2021 — then a 22-month silence.`}
-                      stackedSign
+                      context={`overlap ${overlapChange.direction} from ${overlapChange.pct2017}% to ${overlapChange.pct2021}% between 2017 and 2021.`}
                     />
                   ) : null}
                 </View>
@@ -1376,11 +1473,11 @@ function DashboardScreenContent() {
                         </Text>
                       </ArgumentText>
                       <View style={styles.songRefCard}>
-                        <View
-                          style={[
-                            styles.songRefSwatch,
-                            { backgroundColor: rowBackdropColors[0] },
-                          ]}
+                        <CdCaseArt
+                          size={74}
+                          placeholderColor={rowBackdropColors[0]}
+                          artImageUrl={peakReachArtUrl}
+                          loading={!peakReachArtUrl}
                         />
                         <View style={styles.songRefInfo}>
                           <Text style={styles.songRefTitle}>{peakReach.songTitle}</Text>
@@ -1694,6 +1791,7 @@ const styles = StyleSheet.create({
   countryDropdownItem: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 0.5,
@@ -1709,10 +1807,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   countryDropdownScore: {
-    color: colors.text,
+    color: colors.accent,
     fontFamily: typefaces.body,
     fontSize: 12,
-    opacity: 0.7,
+    fontWeight: "600",
+  },
+  countryDropdownMeta: {
+    alignItems: "flex-end",
+    gap: 1,
+  },
+  countryDropdownCaption: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 9,
+    opacity: 0.45,
   },
   countryBanner: {
     flexDirection: "row",
@@ -1769,13 +1877,13 @@ const styles = StyleSheet.create({
   chapterLabelRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 28,
+    gap: 14,
+    marginBottom: 52,
   },
   chapterCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     borderWidth: 1.5,
     borderColor: "rgba(117,82,107,0.6)",
     backgroundColor: "rgba(117,82,107,0.08)",
@@ -1785,14 +1893,14 @@ const styles = StyleSheet.create({
   chapterNumber: {
     color: colors.accent,
     fontFamily: typefaces.body,
-    fontSize: 13,
+    fontSize: 18,
     fontWeight: "700",
   },
   chapterTitle: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 13,
-    letterSpacing: 2,
+    fontSize: 18,
+    letterSpacing: 2.4,
     textTransform: "uppercase" as any,
     fontWeight: "500",
     opacity: 0.75,
@@ -1824,22 +1932,7 @@ const styles = StyleSheet.create({
   pullStatDisplay: {
     flexDirection: "row",
     alignItems: "baseline",
-    flexWrap: "wrap",
-  },
-  pullStatSignStack: {
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    marginRight: 2,
-    marginBottom: 6,
-  },
-  pullStatSign: {
-    color: colors.accent,
-    fontFamily: typefaces.display,
-    fontSize: 48,
-    fontWeight: "700",
-    lineHeight: 52,
-    letterSpacing: -2,
+    flexWrap: "nowrap",
   },
   pullStatNumber: {
     color: colors.accent,
@@ -1874,7 +1967,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     maxWidth: 220,
     opacity: 0.5,
-    marginTop: 12,
+    marginTop: 20,
     fontStyle: "italic",
   },
 
@@ -1984,22 +2077,26 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
     marginTop: 12,
   },
+  histogramPullQuote: {
+    marginBottom: 12,
+  },
 
   // —— KPI flip cards ——
   kpiGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 16,
   },
   kpiCard: {
     flex: 1,
-    minWidth: 180,
+    flexBasis: "45%",
+    minWidth: 300,
     flexDirection: "row",
     backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 0.5,
     borderColor: "rgba(255,255,255,0.08)",
     borderRadius: 10,
-    minHeight: 100,
+    minHeight: 140,
     overflow: "hidden",
     cursor: "pointer" as any,
   },
@@ -2013,10 +2110,15 @@ const styles = StyleSheet.create({
   },
   kpiContent: {
     flex: 1,
-    padding: 12,
+    padding: 16,
+  },
+  kpiFrontShell: {
+    flex: 1,
+    justifyContent: "space-between",
+    gap: 12,
   },
   kpiFront: {
-    gap: 4,
+    gap: 6,
   },
   kpiBack: {
     gap: 8,
@@ -2024,26 +2126,26 @@ const styles = StyleSheet.create({
   kpiLabel: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 12,
+    fontSize: 13,
     opacity: 0.6,
   },
   kpiNumber: {
     color: colors.textStrong,
     fontFamily: typefaces.display,
-    fontSize: 32,
+    fontSize: 38,
     fontWeight: "700",
-    lineHeight: 36,
+    lineHeight: 42,
   },
   kpiSublabel: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
   },
   kpiSecondary: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 11,
+    fontSize: 12,
     opacity: 0.5,
   },
   kpiFlipHint: {
@@ -2057,14 +2159,14 @@ const styles = StyleSheet.create({
   kpiBackTitle: {
     color: colors.textStrong,
     fontFamily: typefaces.display,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "600",
   },
   kpiBackBody: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     opacity: 0.75,
   },
   kpiCta: {
@@ -2182,7 +2284,9 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   conclusionRight: {
-    minWidth: 240,
+    width: 444,
+    minWidth: 444,
+    maxWidth: "100%",
     flex: 0,
   },
   conclusionHeadline: {
@@ -2213,30 +2317,34 @@ const styles = StyleSheet.create({
   statGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 12,
+    width: "100%",
   },
   statCard: {
-    flex: 1,
-    minWidth: 110,
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 216,
+    width: 216,
+    aspectRatio: 1,
     backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 0.5,
     borderColor: "rgba(255,255,255,0.08)",
     borderRadius: 10,
-    padding: 14,
-    gap: 4,
+    padding: 17,
+    gap: 6,
   },
   statNumber: {
     color: colors.accent,
     fontFamily: typefaces.display,
-    fontSize: 32,
+    fontSize: 46,
     fontWeight: "700",
-    lineHeight: 36,
+    lineHeight: 50,
   },
   statLabel: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 15,
+    lineHeight: 20,
     opacity: 0.65,
   },
 

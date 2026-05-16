@@ -141,11 +141,12 @@ export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
               The purpose of this app is to find and display the 'Discovery Gap' — What music is most loved in each
               country, and how much was that country's most loved music spread, shared, and loved by other countries?
               Explore the Discovery Gap multiple ways: the discovery map, country detail pages, comparison mode,
-              listen to 30 second previews of hidden gems, and the discovery dashboard (name TBD). Utilize filters in
+              listen to 30 second previews of hidden gems, and the Discovery Dashboard. Utilize filters in
               multiple areas of the app to fine tune your discovery.
             </Text>
             <View style={styles.buttonStack}>
               <ActionButton label="Discovery Map" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("discovery"))} />
+              <ActionButton label="Discovery Dashboard" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("dashboard"))} />
               <ActionButton
                 label="Comparison Mode"
                 size="compact"
@@ -156,7 +157,6 @@ export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
                 size="compact"
                 onPress={() => dismissWithAction(() => onSelectRoute("hiddenGems"))}
               />
-              <ActionButton label="Dashboard" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("dashboard"))} />
               <ActionButton label="Credits" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("credits"))} />
             </View>
           </View>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 
 import { colors } from "../theme/colors";
@@ -24,10 +25,16 @@ export function CdCaseArt({
   withArtBackdrop = true,
 }: Props) {
   const hasArtImage = typeof artImageUrl === "string" && artImageUrl.trim().length > 0;
+  const [artLoaded, setArtLoaded] = useState(false);
   const artSize = Math.round(size * ART_SIZE_RATIO);
   const left = Math.round(size * ART_LEFT_RATIO);
   const top = Math.round(size * ART_TOP_RATIO);
   const spinnerSize = Math.max(18, Math.round(size * 0.14));
+  const showLoadingOverlay = loading || (hasArtImage && !artLoaded);
+
+  useEffect(() => {
+    setArtLoaded(false);
+  }, [artImageUrl]);
 
   return (
     <View style={[styles.cdCaseFrame, { width: size, height: size }]}>
@@ -45,9 +52,15 @@ export function CdCaseArt({
           ]}
         >
           {hasArtImage ? (
-            <Image source={{ uri: artImageUrl }} style={styles.cdCaseBackdropImage} resizeMode="cover" />
+            <Image
+              source={{ uri: artImageUrl }}
+              style={[styles.cdCaseBackdropImage, !artLoaded ? styles.cdCaseBackdropImageLoading : null]}
+              resizeMode="cover"
+              onLoad={() => setArtLoaded(true)}
+              onError={() => setArtLoaded(true)}
+            />
           ) : null}
-          {loading ? (
+          {showLoadingOverlay ? (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size={spinnerSize} color={colors.textLight} />
             </View>
@@ -79,6 +92,9 @@ const styles = StyleSheet.create({
   cdCaseBackdropImage: {
     width: "100%",
     height: "100%",
+  },
+  cdCaseBackdropImageLoading: {
+    opacity: 0.28,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
