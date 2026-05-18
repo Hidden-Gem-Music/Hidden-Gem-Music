@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { ActionButton } from "../components/ActionButton";
 import { Panel } from "../components/Panel";
@@ -14,6 +14,7 @@ export type Props = {
 };
 
 const popupBottomDepthGradient = ["rgba(108,119,142,0)", "rgba(108,119,142,0.12)", "rgba(108,119,142,0.3)"] as const;
+const welcomeBackdropGradient = ["#181C2A", "#222639", "#3A3043", "#75526B"] as const;
 const welcomeTitleWebGradientStyle =
   Platform.OS === "web"
     ? ({
@@ -80,6 +81,9 @@ function WelcomeGradientTitle() {
 }
 
 export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
+  const { width } = useWindowDimensions();
+  const isCompactWelcome = width < 980;
+  const useFullScreenBackdrop = Platform.OS === "web" && !isCompactWelcome;
   const [isClosing, setIsClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isClosingRef = useRef(false);
@@ -112,20 +116,24 @@ export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
 
   return (
     <View
-      style={styles.overlay}
-      pointerEvents="auto"
-      onStartShouldSetResponder={() => true}
-      onMoveShouldSetResponder={() => true}
+      style={[styles.overlay, isCompactWelcome ? styles.overlayCompact : null]}
+      pointerEvents={useFullScreenBackdrop ? "auto" : "box-none"}
+      onStartShouldSetResponder={useFullScreenBackdrop ? () => true : undefined}
+      onMoveShouldSetResponder={useFullScreenBackdrop ? () => true : undefined}
     >
-      <Pressable
-        style={styles.overlayBackdropPressTarget}
-        onPress={(event) => {
-          event.stopPropagation();
-          dismissWithAction(onDismiss);
-        }}
-      >
-        <View style={styles.overlayBackdrop} />
-      </Pressable>
+      {useFullScreenBackdrop ? (
+        <Pressable
+          style={styles.overlayBackdropPressTarget}
+          onPress={(event) => {
+            event.stopPropagation();
+            dismissWithAction(onDismiss);
+          }}
+        >
+          <WelcomeBackdrop style={styles.overlayBackdrop} />
+        </Pressable>
+      ) : (
+        <WelcomeBackdrop style={styles.overlayBackdrop} pointerEvents="none" useGradient />
+      )}
       <Pressable style={styles.modalPressTarget} onPress={(event) => event.stopPropagation()}>
         <Panel style={styles.modal}>
           <LinearGradient
@@ -166,6 +174,22 @@ export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
   );
 }
 
+function WelcomeBackdrop({ style, pointerEvents, useGradient = false }: { style: any; pointerEvents?: "none"; useGradient?: boolean }) {
+  if (!useGradient) {
+    return <View style={[style, styles.webOverlayBackdrop]} pointerEvents={pointerEvents} />;
+  }
+
+  return (
+    <LinearGradient
+      colors={welcomeBackdropGradient}
+      start={{ x: 0.1, y: 0 }}
+      end={{ x: 0.9, y: 1 }}
+      style={style}
+      pointerEvents={pointerEvents}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   overlay: {
     position: "absolute",
@@ -175,6 +199,9 @@ const styles = StyleSheet.create({
     padding: 24,
     zIndex: 9999,
   },
+  overlayCompact: {
+    zIndex: 10,
+  },
   closedOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -183,6 +210,8 @@ const styles = StyleSheet.create({
   },
   overlayBackdrop: {
     ...StyleSheet.absoluteFillObject,
+  },
+  webOverlayBackdrop: {
     backgroundColor: "rgba(22,26,38,0.56)",
   },
   modalPressTarget: {

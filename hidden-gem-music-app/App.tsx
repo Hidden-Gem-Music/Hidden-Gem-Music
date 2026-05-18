@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { Component, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { AppHeader } from "./src/components/AppHeader";
 import { LoadingOverlay } from "./src/components/LoadingOverlay";
@@ -239,6 +239,8 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 }
 
 export default function App() {
+  const { width } = useWindowDimensions();
+  const shouldUseWelcomeModalPresentation = Platform.OS === "web" && width >= 980;
   const [fontsLoaded] = useFonts({
     "NyghtSerif-MediumItalic": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-MediumItalic.ttf"),
     "NyghtSerif-Regular": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-Regular.ttf"),
@@ -517,19 +519,82 @@ export default function App() {
       return;
     }
 
-    if (navigationRef.canGoBack()) {
-      navigationRef.goBack();
-    } else {
-      navigationRef.navigate("discovery", getRouteParams("discovery", selectedYear, selectedCountryId));
+    if (route === "hiddenGems") {
+      clearHiddenGemsHandoffMarker();
+      setShowHiddenGemsNavIntro(true);
+      setHiddenGemsFocusSelection(null);
     }
 
-    if (route === "discovery") {
-      return;
+    if (route === "comparisonSelect") {
+      setComparisonIds([]);
     }
 
-    globalThis.setTimeout(() => {
-      navigateToRoute(route);
-    }, 40);
+    switch (route) {
+      case "discovery":
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "discovery", params: getRouteParams("discovery", selectedYear, selectedCountryId) }],
+          })
+        );
+        break;
+      case "country":
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "country", params: getRouteParams("country", selectedYear, selectedCountryId) }],
+          })
+        );
+        break;
+      case "hiddenGems":
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "hiddenGems" }],
+          })
+        );
+        break;
+      case "comparisonSelect":
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "comparisonSelect", params: getRouteParams("comparisonSelect", selectedYear, selectedCountryId) }],
+          })
+        );
+        break;
+      case "comparisonResults":
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "comparisonResults", params: getRouteParams("comparisonResults", selectedYear, selectedCountryId) }],
+          })
+        );
+        break;
+      case "dashboard":
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "dashboard" }],
+          })
+        );
+        break;
+      case "credits":
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "credits" }],
+          })
+        );
+        break;
+      default:
+        navigationRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "discovery", params: getRouteParams("discovery", selectedYear, selectedCountryId) }],
+          })
+        );
+        break;
+    }
   };
 
   const openHiddenGems = (selection?: HiddenGemsFocusSelection) => {
@@ -1065,9 +1130,9 @@ export default function App() {
                 name="welcome"
                 options={{
                   title: "Welcome",
-                  presentation: "transparentModal",
-                  animation: "fade",
-                  contentStyle: { backgroundColor: "transparent" },
+                  presentation: shouldUseWelcomeModalPresentation ? "transparentModal" : "card",
+                  animation: shouldUseWelcomeModalPresentation ? "fade" : "none",
+                  contentStyle: { backgroundColor: shouldUseWelcomeModalPresentation ? "transparent" : colors.background },
                 }}
               >
                 {() => (
@@ -1183,7 +1248,27 @@ export default function App() {
               </Stack.Screen>
 
               <Stack.Screen name="dashboard" options={{ title: "Dashboard" }}>
-                {() => <DashboardScreen year={selectedYear} metrics={[]} countries={countries} />}
+                {() => (
+                  <DashboardScreen
+                    year={selectedYear}
+                    metrics={[]}
+                    countries={countries}
+                    onOpenDiscovery={(countryCode) => {
+                      if (countryCode) {
+                        setSelectedCountryId(countryCode);
+                      }
+                      navigateToRoute("discovery");
+                    }}
+                    onOpenHiddenGems={(countryCode) => {
+                      if (countryCode) {
+                        openHiddenGemsForCountry(countryCode);
+                        return;
+                      }
+                      openHiddenGems();
+                    }}
+                    onOpenComparison={() => navigateToRoute("comparisonSelect")}
+                  />
+                )}
               </Stack.Screen>
 
               <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />
