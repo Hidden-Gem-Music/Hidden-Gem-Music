@@ -96,6 +96,9 @@ Current exception:
 
 - Dashboard still has a web-specific file because the web dashboard uses `recharts`
 - The Dashboard user-facing label is `Discovery Dashboard`; the route key remains `dashboard`.
+- `src/screens/DashboardScreen.tsx` owns the native/mobile Dashboard implementation and uses app-owned React Native chart components instead of Recharts.
+- `src/screens/DashboardScreen.web.tsx` owns the desktop/web Dashboard implementation and still uses Recharts.
+- Compact web widths may share some mobile behavior expectations, such as stable KPI flip-card sizing and compact Welcome shell behavior, but the desktop web Dashboard file remains the web chart owner.
 
 ## Shared layout and visual language
 
@@ -201,6 +204,12 @@ Current naming/order rule:
 - `Discovery Dashboard` should appear directly after `Discovery Map` in both web and mobile navigation.
 - Welcome screen action buttons should follow the same order.
 - The team has discussed wanting a catchier dashboard name, but `Discovery Dashboard` is the current applied label until a replacement is chosen.
+
+Current Welcome presentation rule:
+
+- Wide web keeps the Welcome screen as a translucent modal over the Discovery Globe.
+- Native/mobile and compact widths use an in-screen Welcome presentation so the header, breadcrumb trail, and mobile bottom nav remain visible and usable.
+- Welcome route buttons should reset directly to the chosen route instead of briefly returning through Discovery first.
 
 ## Data layer ownership
 

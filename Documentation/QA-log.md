@@ -3,6 +3,49 @@
 
 ---
 
+## 2026-05-17 — Discovery Dashboard Mobile Adaptation Follow-Up
+
+**Tester:** mp3li / Codex-assisted verification
+**Fix owner:** mp3li / Codex-assisted implementation
+**Scope:** Native/mobile Discovery Dashboard, compact web Dashboard behavior, Welcome routing/presentation, KPI flip-card sizing, Dashboard loading text
+
+### What I noticed
+
+The native/mobile Dashboard needed to match the narrow web Dashboard experience more completely. During mobile testing, several follow-up issues appeared around Welcome routing, KPI flip-card sizing, clipped large numbers, and loading copy.
+
+### What was fixed
+
+- Rebuilt the native/mobile Dashboard path so it includes the full Dashboard story structure instead of a simplified placeholder.
+- Replaced web-only Recharts charts on native/mobile with app-owned React Native chart components.
+- Preserved API-backed Dashboard data for mobile chart values.
+- Added tap-selected chart states so mobile users can inspect values without hover.
+- Fixed Welcome route selection so tapping Discovery Dashboard from Welcome does not briefly show Discovery Map first.
+- Updated compact/native Welcome behavior so the header, breadcrumb trail, and mobile bottom nav stay visible and usable.
+- Preserved wide-web Welcome behavior with the translucent overlay above the Discovery Globe.
+- Added feature-specific animated loading text: `Loading Discovery Dashboard...`.
+- Added right-side breathing room for large numeric Dashboard values that were clipping on mobile.
+- Fixed KPI flip cards so they keep the same size before and after being flipped on native mobile and compact web widths.
+
+### How to test
+
+1. Open the app in Expo native mobile.
+2. Open Welcome and confirm the header, breadcrumb trail, and mobile bottom nav remain visible.
+3. Tap Discovery Dashboard from Welcome and confirm it does not flash Discovery Map first.
+4. Confirm every Dashboard section appears on mobile: hero, selector, KPI cards, Chapters 1-4, chart cards, conclusion, and About This Data.
+5. Tap KPI cards and confirm they flip without changing height.
+6. Tap chart bars/rows and confirm selected-value states work.
+7. Confirm large values such as percentages, point values, and ceiling country counts are not clipped.
+8. Resize web to mobile width and confirm compact web KPI flip cards also keep the same height.
+
+### Verification
+
+- User verified the native/mobile Welcome behavior worked after the compact/native presentation fix.
+- User verified the mobile Dashboard sections, chart values, selected states, and scrolling behavior.
+- User verified the KPI flip-card height fix on native mobile and then requested the same compact-web fix.
+- `npm run typecheck` passed after the final Dashboard/Welcome changes.
+
+---
+
 ## 2026-05-15 — Dashboard Issue 128 Frontend Fixes and Discovery Dashboard Rename
 
 **Tester:** mp3li / Codex-assisted verification

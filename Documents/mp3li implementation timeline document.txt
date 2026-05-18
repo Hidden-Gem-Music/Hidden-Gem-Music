@@ -1,6 +1,96 @@
 mp3li implementation timeline document
 
-Updated: May 15, 2026
+Updated: May 17, 2026
+
+Discovery Dashboard Mobile Adaptation and Welcome Routing Fixes (May 17, 2026)
+- Objective:
+  - Adapt the Discovery Dashboard for mobile/native use without changing the intended desktop web dashboard experience.
+  - Preserve the narrow-web dashboard structure on mobile while replacing web-only Recharts charts with mobile-native chart components.
+  - Fix mobile welcome/dashboard navigation issues found during hands-on Expo testing.
+
+- Mobile Discovery Dashboard implementation completed:
+  - Rebuilt the native `DashboardScreen.tsx` from the prior simplified mobile placeholder into a full mobile Discovery Dashboard experience.
+  - Matched the web dashboard's narrow layout structure, including hero, country selector, KPI cards, Chapters 1-4, chart cards, warning tags, CTA rows, Chapter 4 song/CD reference, conclusion cards, and About This Data.
+  - Implemented native chart components with React Native views and gradients instead of Recharts.
+  - Added vertical bar/histogram and horizontal ranking chart behavior for the mobile dashboard chapters.
+  - Added tap-based selected states and value panels so mobile users can inspect chart values without hover.
+  - Preserved real API-backed dashboard data instead of introducing fake mobile-only chart data.
+
+- Mobile interaction and layout fixes completed:
+  - Added Dashboard CTA callbacks so mobile dashboard buttons can open Discovery Map, Hidden Gems, and Comparison paths.
+  - Fixed Welcome button routing so choosing Discovery Dashboard no longer flashes through Discovery Map first.
+  - Updated compact/native Welcome presentation so the header, breadcrumbs, and mobile bottom nav remain visible and usable while the Welcome panel is active.
+  - Kept wide web Welcome behavior as the approved translucent modal over the Discovery Globe.
+  - Added animated `Loading Discovery Dashboard...` loading text for both native/mobile and web dashboard loading paths.
+  - Fixed clipped dashboard numbers by adding breathing room to large display-number styles.
+  - Fixed KPI flip-card resizing by giving KPI cards fixed heights on native mobile and resized/mobile-width web.
+
+- Documentation updated:
+  - Updated personal timeline with the mobile dashboard adaptation and follow-up testing fixes.
+  - Updated frontend architecture documentation to record the Dashboard web/native split and compact Welcome behavior.
+  - Updated screen data-flow documentation to describe native mobile Dashboard chart/data behavior.
+  - Updated interaction/loading documentation to record the compact/native Welcome rules and feature-specific Dashboard loading text.
+  - Updated the QA log with the mobile dashboard verification pass.
+
+- Verification completed:
+  - User tested on Expo native mobile.
+  - User tested resized-to-mobile web behavior.
+  - Ran frontend TypeScript checking after the final fixes.
+
+Language Data UI Integration, Discovery Sample Caching, and Presentation Prep Tool (May 17, 2026)
+- Objective:
+  - Complete the first presentation-ready app integration for the language dataset produced by `mp3li Additional Data Getter v2`.
+  - Keep the first iteration file-backed instead of adding a database table before presentation.
+  - Add local presentation-prep support so the demo can use warmed data for the highest-priority 2024 and 2025 flows while preserving the long-term plan to move stable data into the database.
+
+- Backend language integration completed:
+  - Added a compact file-backed language dataset under the backend `Data/` path.
+  - Added a language lookup service that loads the compact language file once and matches by normalized song title plus normalized artist name.
+  - Added backend language endpoints for visible song lookup and country/year language samples.
+  - Kept missing language matches, missing lyrics, failed Genius pages, and detection failures non-blocking.
+
+- Discovery Map language and loading behavior completed:
+  - Replaced coming-soon language copy with sampled country/year language summaries.
+  - Matched the existing genre sample behavior by using preferred title prefixes and skipping duplicate language values where possible.
+  - Removed detector-code display from the UI wording, so summaries display as language names.
+  - Added backend file-backed Discovery sample caching for genre/language/favorite-artist samples.
+  - Updated Discovery list loading so cached genre/language samples can populate visible rows quickly after a frontend restart instead of waiting for each row to be hovered.
+  - Kept hovered/selected countries prioritized so user interaction still resolves first.
+  - Preserved globe-to-list focus behavior while preventing list-hover auto-scroll loops.
+
+- Country Detail and Comparison View updates completed:
+  - Replaced language placeholder text with sample-based language copy.
+  - Updated wording so language sections describe languages featured in loved songs rather than claiming complete country-wide language averages.
+  - Changed loved-genre wording to use sample genres consistently.
+  - Decoupled stat squares and genre/language summary sections from slower downstream data so those sections render as soon as their own data is available.
+  - Added backend presentation-cache support for country profile, country song-list, and country hidden-gem preview payloads so warmed country/comparison demo data can be reused when present.
+
+- Hidden Gems updates completed:
+  - Enriched loaded Hidden Gems rows with language data.
+  - Added the Genius lyrics row as the last metadata item under the big CD when a valid lyrics URL exists.
+  - Hid the language and lyrics rows for failed/no-match language cases.
+  - Preserved instrumental handling by showing "This song is an instrumental" for both language and lyrics when the language output marks the song as instrumental.
+  - Adjusted the Hidden Gems list scrollbar so it no longer interferes with pagination controls.
+  - Added backend presentation-cache support for warmed Hidden Gems page payloads.
+
+- Presentation prep and local reliability work completed:
+  - Added `tools/presentation_data_prep.py` as an interactive presentation data prep tool.
+  - The tool supports Discovery Map, Country Pages, and Hidden Gems prep modes.
+  - The tool prompts for country ranges and years so it can be used for 2024/2025 presentation prep or broader future data pulls.
+  - Current presentation plan is to preload Discovery Map data for 2024 and 2025 and preload the first 20 countries for 2024 and 2025 for Country Detail / Comparison View demo paths.
+  - The local presentation setup will include three thumb-drive backups of the required project and local data files as a fallback for presentation setup issues.
+
+- Documentation and PR artifacts updated:
+  - Updated the personal timeline with this language-data and presentation-prep work.
+  - Updated frontend screen data-flow documentation to record language endpoints, frontend/backend cache behavior, Discovery prefetching, and the presentation prep tool.
+  - Updated backend project integration endpoint documentation to record language endpoints, local file-backed language data, Discovery sample caching, presentation response caching, and the prep tool.
+  - Updated the PR markdown in `my txts/PR_Implement_Language_Data_Across_the_App.md`.
+
+- Verification completed:
+  - Ran Python compile checks for the presentation/cache helper scripts.
+  - Ran backend `dotnet build`.
+  - Ran frontend TypeScript checking.
+  - Ran `git diff --check`.
 
 Dashboard Issue 128 Frontend Polish, Discovery Dashboard Rename, and PR Handoff (May 15, 2026)
 - Objective:

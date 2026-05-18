@@ -34,6 +34,10 @@ Current rules:
 - clicking outside the welcome modal should behave like the `Discovery Map` action, not like a dangerous bare click-through
 - welcome modal route buttons should close through the guarded route-transition path rather than bypassing the modal state
 - navigating to Welcome from the header or breadcrumbs should reset to the normal Welcome-over-Discovery stack, not layer the Welcome modal over the current active page
+- wide web should keep the translucent Welcome-over-Discovery behavior
+- native/mobile and compact widths should keep the header, breadcrumb trail, and mobile bottom nav visible and usable while Welcome is active
+- native/mobile and compact widths should use a gradient in the screen content area behind the Welcome panel instead of requiring the Discovery Globe to appear underneath
+- Welcome route buttons should navigate directly to the selected destination instead of briefly showing Discovery first
 - welcome route buttons should show visible pressed styling on mobile before route work begins
 - welcome dismissal must check whether navigation can go back before calling `goBack`
 - if there is no route to pop, welcome dismissal should navigate to Discovery instead of dispatching an unhandled back action
@@ -105,7 +109,22 @@ Current rules:
 - loading text should remain visually stable enough that sections do not jump excessively
 - shared loading text helpers should be reused instead of rebuilding one-off animated loading strings in many screens
 - shared/app-level loading copy should stay neutral as `Loading...` unless a feature-specific message is intentionally required
+- Discovery Dashboard is an intentional feature-specific exception and should use `Loading Discovery Dashboard...` with animated dots while its screen data is loading
 - Hidden Gems should not use a separate app-wide `Loading hidden gems...` message when the screen already has section-level loading treatment
+
+## Discovery Dashboard mobile interaction rules
+
+Main files:
+
+- `src/screens/DashboardScreen.tsx`
+- `src/screens/DashboardScreen.web.tsx`
+
+Current rules:
+
+- native/mobile Dashboard charts should use tap-selected details instead of hover-only tooltips
+- KPI flip cards should stay the same size before and after being tapped/flipped
+- large Dashboard numbers need enough right-side padding to avoid clipping on mobile display fonts
+- compact web Dashboard behavior should preserve the same no-shrink KPI flip-card behavior used on native mobile
 
 ## Discovery scroll and sidebar rules
 

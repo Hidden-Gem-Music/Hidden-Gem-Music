@@ -170,6 +170,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 4,
     position: "relative",
+    zIndex: 700,
   },
   activeGradientSlot: {
     position: "absolute",

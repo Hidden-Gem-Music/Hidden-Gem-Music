@@ -269,6 +269,9 @@ Current flow:
 3. Isolation scores are displayed only for countries included in the current `isolation-ranking` response.
 4. Countries with app data but no returned isolation score stay selectable and use honest no-score messaging rather than fake ranking values.
 5. Chapter 4 peak reach uses `albumArtUrl` from the Dashboard peak-reach response when available.
+6. The native/mobile Dashboard loads the same dashboard API data as the web Dashboard.
+7. Native/mobile charts are rendered with app-owned React Native views and gradients instead of Recharts.
+8. Mobile chart inspection uses tap-selected value states instead of hover tooltips.
 
 Important current rules:
 
@@ -277,6 +280,8 @@ Important current rules:
 - The country selector and isolation ranking chart do not currently have the same source: the selector uses app-data countries, while the chart uses `sp_GetIsolationRanking`.
 - `sp_GetIsolationRanking` currently returns the stored procedure result as-is; if the graph needs all isolation-score countries, the stored procedure/data-owner path needs to remove its `SELECT TOP 20` limit.
 - Peak reach art should come from backend enrichment when possible; the frontend can use a known fallback only to avoid a blank CD for the current peak song.
+- KPI flip cards should stay the same height when tapped/flipped on native mobile and compact web widths.
+- Dashboard loading copy intentionally uses the feature-specific `Loading Discovery Dashboard...` text with animated dots.
 
 ## Fetch timeout and retry behavior
 

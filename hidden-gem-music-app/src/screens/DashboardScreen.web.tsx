@@ -50,6 +50,7 @@ import type { Country } from "../types/content";
 import { CdCaseArt } from "../components/CdCaseArt";
 import { GemIcon } from "../components/GemIcon";
 import { ScreenScaffold } from "../components/ScreenScaffold";
+import { useLoadingText } from "../hooks/useLoadingText";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
@@ -891,6 +892,7 @@ function DashboardScreenContent() {
   const [gapDistribution, setGapDistribution] = useState<ApiGapBucket[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const loadingText = useLoadingText(loading, "Loading Discovery Dashboard");
   const [selectedCountry, setSelectedCountry] = useState<CountrySelectorOption | null>(null);
 
   useEffect(() => {
@@ -1108,7 +1110,7 @@ function DashboardScreenContent() {
         <View style={styles.pageScrollFrame}>
           <View style={styles.statusShell}>
             <Text style={[styles.statusText, fetchError ? styles.statusError : null]}>
-              {fetchError ?? "Loading…"}
+              {fetchError ?? loadingText}
             </Text>
           </View>
         </View>
@@ -2096,7 +2098,7 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: "rgba(255,255,255,0.08)",
     borderRadius: 10,
-    minHeight: 140,
+    height: 170,
     overflow: "hidden",
     cursor: "pointer" as any,
   },
@@ -2110,6 +2112,7 @@ const styles = StyleSheet.create({
   },
   kpiContent: {
     flex: 1,
+    height: 170,
     padding: 16,
   },
   kpiFrontShell: {
@@ -2121,7 +2124,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   kpiBack: {
+    flex: 1,
     gap: 8,
+    justifyContent: "space-between",
   },
   kpiLabel: {
     color: colors.text,
