@@ -86,6 +86,12 @@ Main screen files:
 - `src/screens/DashboardScreen.tsx`
 - `src/screens/DashboardScreen.web.tsx`
 
+Credits screen content rule:
+
+- `src/screens/CreditsScreen.tsx` uses structured per-person credit content rather than repeated placeholder rows.
+- mp3li's section is complete; Leena's contribution summary remains intentionally pending until they provide preferred wording or update the section directly.
+- Lower work/social link panels may be completed independently per person; missing links should read as intentional future content, not generic filler.
+
 Current ownership rule:
 
 - shared screens are preferred

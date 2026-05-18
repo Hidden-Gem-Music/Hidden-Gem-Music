@@ -1,9 +1,11 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import {
+  Linking,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,12 +20,75 @@ import { ScreenScaffold } from "../components/ScreenScaffold";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
-const creditSections = [
-  "Leena Komenski - Insert Role, Role.",
-  "mp3li - Insert role, insert role",
-] as const;
+type CreditSection = {
+  name: string;
+  role: string;
+  summary: string;
+  bullets: string[];
+  isPending?: boolean;
+};
 
-const memberLinkSections = ["Leena Komenski", "mp3li"] as const;
+type MemberLinkSection = {
+  name: string;
+  body: string;
+  links?: Array<{
+    label: string;
+    url: string;
+  }>;
+};
+
+const creditSections: CreditSection[] = [
+  {
+    name: "Leena Komenski",
+    role: "Contribution Summary Pending",
+    summary:
+      "Leena's credit section will be completed after they provide preferred wording or update this section directly.",
+    bullets: [],
+    isPending: true,
+  },
+  {
+    name: "mp3li",
+    role: "Frontend Lead, UX Implementation, Additional Data Integration, and Presentation Tooling",
+    summary:
+      "Owned the app-facing design and implementation work that turned Hidden Gem Music into a polished, data-connected web and mobile experience. This included visual design, screen flow, user experience direction, frontend architecture, screen builds, interaction systems, additional-data workflows, loading behavior, documentation, QA, and presentation-readiness support. The Discovery Dashboard was originally created by Leena; mp3li's Dashboard work focused on frontend polish, naming/navigation updates, and the native/mobile adaptation without Recharts.",
+    bullets: [
+      "Designed the app's visual direction, screen flow, interaction model, and overall user experience across the full Hidden Gem Music interface.",
+      "Established the frontend architecture and core screen scaffolding, including the shared app shell, screen ownership patterns, navigation structure, visual system, and responsive layout direction.",
+      "Built and maintained the React Native / React Native Web app shell, including routing, breadcrumbs, selected year/country state, Welcome behavior, search flow, and mobile bottom navigation.",
+      "Implemented and integrated the main user-facing screens across web and mobile, including Discovery Map, Country Detail, Comparison Mode, Comparison View, Hidden Gems, and Credits.",
+      "Adapted Leena's Discovery Dashboard for native/mobile use by matching the narrow web layout closely and replacing Recharts with custom React Native chart components, tap-selected value states, and mobile-safe card and loading behavior.",
+      "Implemented the app-owned interactive Discovery Map experience, including custom world-map rendering, country selection, hover/tap behavior, list/map synchronization, filters, zoom/reset controls, and responsive map behavior.",
+      "Built and refined Hidden Gems UI behavior, including song preview playback, paginated song lists, CD art handling, favorite-artist display, selected-song focus handoff, loading states, and metadata presentation.",
+      "Connected frontend screens to live backend data flows, including API client layers, mapper compatibility work, paged country song lists, comparison results, hidden-gem previews, and metadata-backed year handling.",
+      "Verified and hardened backend integration points where needed, including country/comparison endpoint validation, restored-database diagnostics, stored-procedure contract checks, SQL handoff notes, and local API smoke testing.",
+      "Integrated additional song data across the app, including Deezer-backed album art and metadata, explicit-content details, contributor/record information, Genius lyrics URLs, language display, and graceful missing-data handling.",
+      "Created and maintained mp3li Additional Data Getter v2 workflows for organized additional-data collection, Genius URL validation, lyrics/language preparation, synchronized outputs, and app-facing language data support.",
+      "Added presentation data prep tooling and cache-aware loading support for Discovery samples, country/comparison summary sections, and Hidden Gems demo paths while preserving fallback behavior.",
+      "Managed practical project workflow support, including branch movement, merge cleanup, local-only file hygiene, database restore verification, issue planning, PR preparation, and teammate handoff documentation.",
+      "Completed frontend polish and stabilization work across loading states, mobile responsiveness, route behavior, data fallbacks, copy wording, scrollbar behavior, and visual consistency.",
+      "Produced and maintained frontend documentation, QA logs, PR drafts, implementation timelines, issue handoff notes, and project workflow documentation.",
+      "Performed repeated browser and mobile testing, regression triage, UI polish, loading optimization, branch cleanup, and presentation-readiness verification across the frontend app.",
+    ],
+  },
+];
+
+const memberLinkSections: MemberLinkSection[] = [
+  {
+    name: "Leena Komenski",
+    body: "Follow Leena Komenski's work and connect with them here:",
+  },
+  {
+    name: "mp3li",
+    body: "Follow mp3li's work and connect with them here:",
+    links: [
+      { label: "Linktree", url: "https://linktr.ee/mp3li" },
+      { label: "Patreon", url: "https://www.patreon.com/mp3li" },
+      { label: "GitHub", url: "https://github.com/mp3li" },
+      { label: "TikTok", url: "https://www.tiktok.com/@mp3li.videos" },
+      { label: "Reddit", url: "https://www.reddit.com/u/jasperhooloop/s/qkgd8zrz4W" },
+    ],
+  },
+] as const;
 
 function CreditsSurface({
   children,
@@ -58,16 +123,56 @@ function CreditsSurface({
   );
 }
 
-function CreditBulletList() {
+function CreditBulletList({ bullets }: { bullets: string[] }) {
+  if (bullets.length === 0) {
+    return null;
+  }
+
   return (
     <View style={styles.bulletList}>
-      {Array.from({ length: 10 }).map((_, index) => (
-        <View key={index} style={styles.bulletRow}>
+      {bullets.map((bullet) => (
+        <View key={bullet} style={styles.bulletRow}>
           <GemIcon size={14} />
-          <Text style={styles.bulletText}>Insert name of thing this person did</Text>
+          <Text style={styles.bulletText}>{bullet}</Text>
         </View>
       ))}
     </View>
+  );
+}
+
+function MemberLinkButton({ label, url }: { label: string; url: string }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+
+  return (
+    <Pressable
+      style={[
+        styles.memberLinkRow,
+        isHovered ? styles.memberLinkRowHovered : null,
+        isPressed ? styles.memberLinkRowPressed : null,
+      ]}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      onPress={() => Linking.openURL(url)}
+    >
+      <LinearGradient
+        colors={
+          isPressed
+            ? ["rgba(22,26,38,0.46)", "rgba(22,26,38,0.3)", "rgba(22,26,38,0.2)"]
+            : isHovered
+              ? ["rgba(117,82,107,0.48)", "rgba(108,119,142,0.4)", "rgba(108,119,142,0.32)"]
+              : ["rgba(117,82,107,0.24)", "rgba(108,119,142,0.2)", "rgba(108,119,142,0.16)"]
+        }
+        locations={[0, 0.58, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.memberLinkRowFill}
+      />
+      <Text style={[styles.memberLinkLabel, isHovered || isPressed ? styles.memberLinkTextActive : null]}>{label}</Text>
+      <Text style={[styles.memberLinkUrl, isHovered || isPressed ? styles.memberLinkTextActive : null]}>{url}</Text>
+    </Pressable>
   );
 }
 
@@ -155,21 +260,21 @@ function CreditsPageContent() {
         >
           <DiscoveryBlurb
             heading="Hidden Gem Music Credits"
-            body="this is the text inside the blurb that will say things about the page you're on and will guide users through the experience. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+            body="This page recognizes the people who built Hidden Gem Music and summarizes the major work behind the app, data workflows, interface design, testing, and project documentation."
           />
 
           <CreditsSurface style={styles.creditsSummaryPanel}>
             <View style={styles.creditCardsColumn}>
-              {creditSections.map((title) => (
-                <View key={title} style={styles.creditCard}>
+              {creditSections.map((section) => (
+                <View key={section.name} style={styles.creditCard}>
                   <View style={styles.creditCardTitleWrap}>
-                    <Text style={styles.creditCardTitle}>{title}</Text>
+                    <Text style={styles.creditCardTitle}>{`${section.name} - ${section.role}`}</Text>
                     <View style={styles.creditCardUnderline} />
                   </View>
-                  <Text style={styles.creditBodyCopy}>
-                    Here is a short info section of all yadayada done by this team member:
+                  <Text style={[styles.creditBodyCopy, section.isPending ? styles.creditBodyPending : null]}>
+                    {section.summary}
                   </Text>
-                  <CreditBulletList />
+                  <CreditBulletList bullets={section.bullets} />
                 </View>
               ))}
             </View>
@@ -177,15 +282,22 @@ function CreditsPageContent() {
 
           <CreditsSurface style={styles.emptyLowerPanel} fillVariant="softBlue">
             <View style={styles.memberLinksRow}>
-              {memberLinkSections.map((name) => (
-                <View key={name} style={styles.memberLinkCard}>
+              {memberLinkSections.map((section) => (
+                <View key={section.name} style={styles.memberLinkCard}>
                   <View style={styles.memberLinkTitleWrap}>
-                    <Text style={styles.memberLinkHeader}>{name}</Text>
+                    <Text style={styles.memberLinkHeader}>{section.name}</Text>
                     <View style={styles.memberLinkUnderline} />
                   </View>
                   <Text style={styles.memberLinkBody}>
-                    This area is for links to more of this team member&apos;s work and socials.
+                    {section.body}
                   </Text>
+                  {section.links ? (
+                    <View style={styles.memberLinkList}>
+                      {section.links.map((link) => (
+                        <MemberLinkButton key={link.url} label={link.label} url={link.url} />
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
               ))}
             </View>
@@ -271,7 +383,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   creditsSummaryPanel: {
-    minHeight: 760,
+    minHeight: 0,
   },
   creditCardsColumn: {
     gap: 16,
@@ -292,8 +404,8 @@ const styles = StyleSheet.create({
   creditCardTitle: {
     color: colors.border,
     fontFamily: typefaces.display,
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 25,
+    lineHeight: 30,
   },
   creditCardUnderline: {
     width: "100%",
@@ -305,8 +417,12 @@ const styles = StyleSheet.create({
   creditBodyCopy: {
     color: colors.border,
     fontFamily: typefaces.body,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 17,
+    lineHeight: 26,
+  },
+  creditBodyPending: {
+    opacity: 0.82,
+    fontStyle: "italic",
   },
   bulletList: {
     gap: 8,
@@ -320,8 +436,8 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.border,
     fontFamily: typefaces.body,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 24,
   },
   emptyLowerPanel: {
     minHeight: 220,
@@ -350,8 +466,8 @@ const styles = StyleSheet.create({
   memberLinkHeader: {
     color: colors.border,
     fontFamily: typefaces.display,
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 25,
+    lineHeight: 30,
   },
   memberLinkUnderline: {
     width: "100%",
@@ -363,7 +479,47 @@ const styles = StyleSheet.create({
   memberLinkBody: {
     color: colors.border,
     fontFamily: typefaces.body,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  memberLinkList: {
+    gap: 8,
+    marginTop: 4,
+  },
+  memberLinkRow: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(117,82,107,0.72)",
+    backgroundColor: "rgba(22,26,38,0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    gap: 2,
+    overflow: "hidden",
+  },
+  memberLinkRowFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  memberLinkRowHovered: {
+    borderColor: "rgba(117,82,107,0.95)",
+  },
+  memberLinkRowPressed: {
+    borderColor: colors.accent,
+    transform: [{ scale: 0.99 }],
+  },
+  memberLinkLabel: {
+    color: colors.border,
+    fontFamily: typefaces.display,
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  memberLinkUrl: {
+    color: colors.border,
+    fontFamily: typefaces.body,
+    fontSize: 16,
+    lineHeight: 24,
+    opacity: 0.78,
+  },
+  memberLinkTextActive: {
+    opacity: 1,
   },
 });

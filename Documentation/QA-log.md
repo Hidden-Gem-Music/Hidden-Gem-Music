@@ -3,6 +3,40 @@
 
 ---
 
+## 2026-05-17 — Credits Screen Content Completion
+
+**Tester:** mp3li / Codex-assisted verification
+**Fix owner:** mp3li / Codex-assisted implementation
+**Scope:** Credits screen contribution content, pending Leena section, mp3li links, readability and link-button styling
+
+### What was fixed
+
+- Replaced the Credits page blurb placeholder with final page-purpose copy.
+- Reworked Credits contribution rendering into structured per-person content instead of hard-coded placeholder rows.
+- Completed mp3li's contribution section with detailed professional credit content.
+- Kept Leena's contribution section pending without guessing her scope or preferred wording.
+- Added mp3li work/social link rows.
+- Kept Leena's lower link panel as a future placeholder.
+- Increased Credits card and link text sizes for readability.
+- Changed link button borders and states to use the app's pink accent styling.
+- Removed the forced bottom whitespace in the main contribution panel.
+
+### How to test
+
+1. Open Credits on web.
+2. Confirm there is no main contribution placeholder text such as `Insert Role` or `Insert name of thing this person did`.
+3. Confirm mp3li's contribution section is detailed and readable.
+4. Confirm Leena's section reads as pending and does not invent Leena's contribution content.
+5. Confirm mp3li's links have resting accent styling, hover styling, press styling, and open externally.
+6. Resize web to mobile width and confirm the long credit text and link rows wrap cleanly.
+7. Open Credits on Expo/native mobile if available and confirm text remains readable.
+
+### Verification
+
+- `npm run typecheck` passed after the Credits changes.
+
+---
+
 ## 2026-05-17 — Discovery Dashboard Mobile Adaptation Follow-Up
 
 **Tester:** mp3li / Codex-assisted verification
