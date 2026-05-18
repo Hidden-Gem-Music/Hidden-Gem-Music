@@ -2,6 +2,30 @@ mp3li implementation timeline document
 
 Updated: May 17, 2026
 
+Credits Screen Content Completion for mp3li Portion (May 17, 2026)
+- Objective:
+  - Complete mp3li's portion of the premade Credits screen sections without guessing Leena's preferred wording.
+  - Keep the existing Credits screen layout and lower links/work panels while replacing the main placeholder contribution text.
+
+- Credits content updates completed:
+  - Replaced the placeholder Credits page blurb with final page-purpose copy.
+  - Refactored the Credits contribution content into structured per-person data with role, summary, bullets, pending state, and optional links.
+  - Completed mp3li's contribution section with detailed professional credit content covering visual design, UX flow, frontend architecture, screen implementation, additional-data integration, tooling, documentation, QA, backend integration verification, SQL handoff support, branch workflow support, and presentation-readiness work.
+  - Clarified that Leena originally created the Discovery Dashboard and mp3li's Dashboard work was frontend polish, naming/navigation updates, and the native/mobile adaptation without Recharts.
+  - Left Leena's contribution section as `Contribution Summary Pending` with neutral wording until they provide preferred copy or update the section directly.
+  - Added mp3li link rows for Linktree, Patreon, GitHub, TikTok, and Reddit.
+  - Kept Leena's lower links/work panel as a future placeholder.
+  - Increased Credits card and link text sizes for readability.
+  - Styled link rows with permanent accent treatment plus hover and press states.
+  - Removed the large forced empty space at the bottom of the contribution panel.
+
+- PR/documentation artifacts updated:
+  - Updated the PR markdown in `my txts/PR_Complete_Credits_Screen_Content.md`.
+  - Updated professional QA and frontend documentation for the Credits content behavior.
+
+- Verification completed:
+  - Ran frontend TypeScript checking after the final Credits changes.
+
 Discovery Dashboard Mobile Adaptation and Welcome Routing Fixes (May 17, 2026)
 - Objective:
   - Adapt the Discovery Dashboard for mobile/native use without changing the intended desktop web dashboard experience.
