@@ -38,6 +38,7 @@ export type Song = {
   tracklist?: string[];
   genres: string[];
   languages: string[];
+  lyricsUrl?: string;
   year: number;
   duration: string;
   description: string;

@@ -20,8 +20,9 @@ import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
-import { getCachedCountryGenreSamples, loadAvailableYears, loadCountryHiddenGemsPreview, loadCountryProfile, loadCountrySongsPage } from "../data/countryApi";
+import { getCachedCountryGenreSamples, getCachedCountryLanguageSamples, loadAvailableYears, loadCountryHiddenGemsPreview, loadCountryProfile, loadCountrySongsPage } from "../data/countryApi";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiSong } from "../data/apiMappers";
+import { collectUniqueLanguagesFromSongs, enrichSongsWithLanguage, formatLanguageAndMore } from "../data/languageApi";
 import { useLoadingText, useStableLoadingText } from "../hooks/useLoadingText";
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
@@ -55,6 +56,8 @@ type SongPreview = {
   explicitLyrics?: boolean;
   explicitContentCover?: boolean;
   albumExplicitLyrics?: boolean;
+  languages?: string[];
+  lyricsUrl?: string;
 };
 
 type FavoriteArtistPreview = {
@@ -298,6 +301,8 @@ function createSongPreview(
     explicitLyrics?: boolean;
     explicitContentCover?: boolean;
     albumExplicitLyrics?: boolean;
+    languages?: string[];
+    lyricsUrl?: string;
   }
 ): SongPreview {
   return {
@@ -317,6 +322,8 @@ function createSongPreview(
     explicitLyrics: options?.explicitLyrics,
     explicitContentCover: options?.explicitContentCover,
     albumExplicitLyrics: options?.albumExplicitLyrics,
+    languages: Array.isArray(options?.languages) ? options.languages.filter((language) => typeof language === "string" && language.trim().length > 0) : [],
+    lyricsUrl: options?.lyricsUrl?.trim() ? options.lyricsUrl : undefined,
   };
 }
 
@@ -330,6 +337,8 @@ function createLoadingSongPreviews(count: number, fallbackYear: number): SongPre
       explicitLyrics: undefined,
       explicitContentCover: undefined,
       albumExplicitLyrics: undefined,
+      languages: ["Loading..."],
+      lyricsUrl: undefined,
     })
   );
 }
@@ -347,6 +356,8 @@ function toSongPreview(
     explicitLyrics?: boolean;
     explicitContentCover?: boolean;
     albumExplicitLyrics?: boolean;
+    languages?: string[];
+    lyricsUrl?: string;
   },
   detail: string,
   score: number,
@@ -365,6 +376,8 @@ function toSongPreview(
     explicitLyrics: song.explicitLyrics,
     explicitContentCover: song.explicitContentCover,
     albumExplicitLyrics: song.albumExplicitLyrics,
+    languages: song.languages,
+    lyricsUrl: song.lyricsUrl,
   });
 }
 
@@ -1686,35 +1699,40 @@ export function CountryScreen({
     setPreviewSongs(createLoadingSongPreviews(13, selectedYear));
 
     loadCountryProfile(country.code, selectedYear, profileController.signal)
-      .then((profilePayload) => {
+      .then(async (profilePayload) => {
         if (latestRequestRef.current !== requestId) {
           return;
         }
 
         const mappedProfile = mapApiCountryProfile(profilePayload);
         setApiProfile(mappedProfile);
-        setUniqueSongs(
-          mappedProfile.topUniqueSongs
-            .map((song, index) => toDisplaySongPreview(song, `Feels especially loved in ${country.name}`, clamp(95 - index * 2, 34, 95), selectedYear))
-            .filter((song): song is SongPreview => song != null)
-        );
-        setSharedSongs(
-          mappedProfile.topSharedSongs
-            .map((song, index) =>
-              toDisplaySongPreview(
-                song,
-                "Loved in this country and echoed across other countries",
-                clamp(95 - index * 2, 34, 95),
-                selectedYear
-              )
-            )
-            .filter((song): song is SongPreview => song != null)
-        );
-        setUniquePage(1);
-        setSharedPage(1);
         setUniqueHasMore(mappedProfile.uniqueCount > mappedProfile.topUniqueSongs.length);
         setSharedHasMore(mappedProfile.sharedCount > mappedProfile.topSharedSongs.length);
         setInitialLoadingProfile(false);
+        const nextUniqueSongs = mappedProfile.topUniqueSongs
+          .map((song, index) => toDisplaySongPreview(song, `Feels especially loved in ${country.name}`, clamp(95 - index * 2, 34, 95), selectedYear))
+          .filter((song): song is SongPreview => song != null);
+        const nextSharedSongs = mappedProfile.topSharedSongs
+          .map((song, index) =>
+            toDisplaySongPreview(
+              song,
+              "Loved in this country and echoed across other countries",
+              clamp(95 - index * 2, 34, 95),
+              selectedYear
+            )
+          )
+          .filter((song): song is SongPreview => song != null);
+        const [enrichedUniqueSongs, enrichedSharedSongs] = await Promise.all([
+          enrichSongsWithLanguage(nextUniqueSongs, profileController.signal),
+          enrichSongsWithLanguage(nextSharedSongs, profileController.signal),
+        ]);
+        if (latestRequestRef.current !== requestId || profileController.signal.aborted) {
+          return;
+        }
+        setUniqueSongs(enrichedUniqueSongs);
+        setSharedSongs(enrichedSharedSongs);
+        setUniquePage(1);
+        setSharedPage(1);
         setInitialLoadingUnique(false);
         setInitialLoadingShared(false);
       })
@@ -1737,18 +1755,17 @@ export function CountryScreen({
       });
 
     loadCountryHiddenGemsPreview(country.code, selectedYear, 13, previewController.signal)
-      .then((hiddenGemsPayload) => {
+      .then(async (hiddenGemsPayload) => {
         if (latestRequestRef.current !== requestId) {
           return;
         }
 
-        setPreviewSongs(
-          dedupeSongPreviews(
-            hiddenGemsPayload
-              .map((item) =>
-                createSongPreview(
-                  item.songName?.trim() ? item.songName : "Unknown Song",
-                  item.artistName?.trim() ? item.artistName : "Unknown Artist",
+        const nextPreviewSongs = dedupeSongPreviews(
+          hiddenGemsPayload
+            .map((item) =>
+              createSongPreview(
+                item.songName?.trim() ? item.songName : "Unknown Song",
+                item.artistName?.trim() ? item.artistName : "Unknown Artist",
                 "TrendScore preview",
                 Math.round(item.trendScore),
                 {
@@ -1766,10 +1783,14 @@ export function CountryScreen({
                   albumExplicitLyrics: item.albumExplicitLyrics ?? undefined,
                 }
               )
-              )
-              .filter((song) => hasKnownSongTitle(song.title))
-          )
+            )
+            .filter((song) => hasKnownSongTitle(song.title))
         );
+        const enrichedPreviewSongs = await enrichSongsWithLanguage(nextPreviewSongs, previewController.signal);
+        if (latestRequestRef.current !== requestId || previewController.signal.aborted) {
+          return;
+        }
+        setPreviewSongs(enrichedPreviewSongs);
         setInitialLoadingPreview(false);
       })
       .catch((error) => {
@@ -1825,25 +1846,28 @@ export function CountryScreen({
     setLoadingMoreUnique(true);
 
     loadCountrySongsPage(country.code, selectedYear, "unique", nextPage, songPageSize, controller.signal)
-      .then((payload) => {
+      .then(async (payload) => {
         if (latestRequestRef.current !== requestId || controller.signal.aborted || !isActiveRef.current) {
           return;
         }
 
-        setUniqueSongs((current) => {
-          const nextItems = payload.items
-            .map((song: ApiSongInput, index: number) => {
-              const mappedSong = mapApiSong(song);
-              return toDisplaySongPreview(
-                mappedSong,
-                `Feels especially loved in ${country.name}`,
-                clamp(95 - (current.length + index) * 2, 34, 95),
-                selectedYear
-              );
-            })
-            .filter((song: SongPreview | null): song is SongPreview => song != null);
-          return [...current, ...nextItems];
-        });
+        const currentLength = uniqueSongs.length;
+        const nextItems = payload.items
+          .map((song: ApiSongInput, index: number) => {
+            const mappedSong = mapApiSong(song);
+            return toDisplaySongPreview(
+              mappedSong,
+              `Feels especially loved in ${country.name}`,
+              clamp(95 - (currentLength + index) * 2, 34, 95),
+              selectedYear
+            );
+          })
+          .filter((song: SongPreview | null): song is SongPreview => song != null);
+        const enrichedItems = await enrichSongsWithLanguage(nextItems, controller.signal);
+        if (latestRequestRef.current !== requestId || controller.signal.aborted || !isActiveRef.current) {
+          return;
+        }
+        setUniqueSongs((current) => [...current, ...enrichedItems]);
         setUniquePage(nextPage);
         setUniqueHasMore(payload.hasMore);
       })
@@ -1879,25 +1903,28 @@ export function CountryScreen({
     setLoadingMoreShared(true);
 
     loadCountrySongsPage(country.code, selectedYear, "shared", nextPage, songPageSize, controller.signal)
-      .then((payload) => {
+      .then(async (payload) => {
         if (latestRequestRef.current !== requestId || controller.signal.aborted || !isActiveRef.current) {
           return;
         }
 
-        setSharedSongs((current) => {
-          const nextItems = payload.items
-            .map((song: ApiSongInput, index: number) => {
-              const mappedSong = mapApiSong(song);
-              return toDisplaySongPreview(
-                mappedSong,
-                "Loved in this country and echoed across other countries",
-                clamp(95 - (current.length + index) * 2, 34, 95),
-                selectedYear
-              );
-            })
-            .filter((song: SongPreview | null): song is SongPreview => song != null);
-          return [...current, ...nextItems];
-        });
+        const currentLength = sharedSongs.length;
+        const nextItems = payload.items
+          .map((song: ApiSongInput, index: number) => {
+            const mappedSong = mapApiSong(song);
+            return toDisplaySongPreview(
+              mappedSong,
+              "Loved in this country and echoed across other countries",
+              clamp(95 - (currentLength + index) * 2, 34, 95),
+              selectedYear
+            );
+          })
+          .filter((song: SongPreview | null): song is SongPreview => song != null);
+        const enrichedItems = await enrichSongsWithLanguage(nextItems, controller.signal);
+        if (latestRequestRef.current !== requestId || controller.signal.aborted || !isActiveRef.current) {
+          return;
+        }
+        setSharedSongs((current) => [...current, ...enrichedItems]);
         setSharedPage(nextPage);
         setSharedHasMore(payload.hasMore);
       })
@@ -1974,15 +2001,20 @@ export function CountryScreen({
         ? []
         : country.genres.filter((genre) => genre.trim().length > 0 && genre.trim().toLowerCase() !== "unknown");
   const isCoreLoading = initialLoadingProfile || initialLoadingUnique || initialLoadingShared;
+  const areProfileStatsLoading = initialLoadingProfile;
   const loadingText = useLoadingText(isCoreLoading || initialLoadingPreview);
   const sectionLoadingText = useStableLoadingText(isCoreLoading || initialLoadingPreview);
-  const lovedGenres = useMemo(
+  const lovedLanguages = useMemo(
     () => [
-      ...collectUniqueGenresFromSongs(profileStats.uniqueSongs, 5),
-      ...collectUniqueGenresFromSongs(profileStats.sharedSongs, 5),
-    ].filter((genre, index, source) => source.indexOf(genre) === index),
-    [profileStats.sharedSongs, profileStats.uniqueSongs]
+      ...getCachedCountryLanguageSamples(country.code, selectedYear),
+      ...collectUniqueLanguagesFromSongs(profileStats.uniqueSongs, 8),
+      ...collectUniqueLanguagesFromSongs(profileStats.sharedSongs, 8),
+      ...collectUniqueLanguagesFromSongs(hiddenGemSongs, 8),
+    ].filter((language, index, source) => source.indexOf(language) === index),
+    [country.code, hiddenGemSongs, profileStats.sharedSongs, profileStats.uniqueSongs, selectedYear]
   );
+  const languageSampleText = formatLanguageAndMore(lovedLanguages);
+  const areInsightSectionsLoading = initialLoadingProfile && !languageSampleText && sampleGenres.length === 0;
 
   const generalDescriptionText = useMemo(() => {
     const genreA = sampleGenres[0] ?? "Unknown Genre";
@@ -2001,19 +2033,20 @@ export function CountryScreen({
   }, [country.name, favoriteArtists, profileStats.sharedSongs, profileStats.uniqueSongs, sampleGenres, sectionLoadingText, selectedYear]);
 
   const genreLanguageMixText = useMemo(() => {
-    const genreSummary = formatGenreSummary(lovedGenres.length > 0 ? lovedGenres : sampleGenres);
+    const genreSummary = formatGenreSummary(sampleGenres);
+    const languageSummary = languageSampleText || sectionLoadingText;
     if (!genreSummary) {
-      return `Some of ${country.name}'s loved genres include ${sectionLoadingText}. Languages in lyrics of songs loved in ${country.name} are coming soon.`;
+      return `Some of ${country.name}'s loved genres include ${sectionLoadingText}. Some languages featured in ${country.name}'s loved songs include ${languageSummary}`;
     }
 
-    return `Some of ${country.name}'s loved genres include ${genreSummary}. Languages in lyrics of songs loved in ${country.name} are coming soon.`;
-  }, [country.name, lovedGenres, sampleGenres, sectionLoadingText]);
+    return `Some of ${country.name}'s loved genres include ${genreSummary}. Some languages featured in ${country.name}'s loved songs include ${languageSummary}`;
+  }, [country.name, languageSampleText, sampleGenres, sectionLoadingText]);
   const lovedGenresSectionText = useMemo(() => {
-    if (lovedGenres.length > 0) {
-      return `Some of the loved genres in ${country.name} include ${formatListWithAnd(lovedGenres)}.`;
+    if (sampleGenres.length > 0) {
+      return `Some of the loved genres in ${country.name} include ${formatListWithAnd(sampleGenres)}.`;
     }
     return `Some of the loved genres in ${country.name} include ${sectionLoadingText}.`;
-  }, [country.name, lovedGenres, sectionLoadingText]);
+  }, [country.name, sampleGenres, sectionLoadingText]);
 
   const handlePageScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     setPageScrollY(event.nativeEvent.contentOffset.y);
@@ -2134,30 +2167,30 @@ export function CountryScreen({
             <View style={[styles.statSquaresGrid, statsTwoByTwo ? styles.statSquaresGridTwoByTwo : styles.statSquaresGridSingleRow]}>
               <StatSquare
                 label="Songs in This View"
-                value={isCoreLoading ? loadingText : `${profileStats.totalCharted}`}
+                value={areProfileStatsLoading ? loadingText : `${profileStats.totalCharted}`}
                 note="songs"
                 valueOffsetY={6}
-                useLoadingStyle={isCoreLoading}
+                useLoadingStyle={areProfileStatsLoading}
                 style={splitStatsAndInsights && !statsTwoByTwo ? styles.statSquareWide : statsTwoByTwo ? styles.statSquareHalf : null}
               />
               <StatSquare
                 label="Loved in This Country"
-                value={isCoreLoading ? loadingText : `${profileStats.uniqueCount}`}
+                value={areProfileStatsLoading ? loadingText : `${profileStats.uniqueCount}`}
                 note="songs"
                 valueOffsetY={6}
-                useLoadingStyle={isCoreLoading}
+                useLoadingStyle={areProfileStatsLoading}
                 style={splitStatsAndInsights && !statsTwoByTwo ? styles.statSquareWide : statsTwoByTwo ? styles.statSquareHalf : null}
               />
               <StatSquare
                 label="Loved Here and Elsewhere"
-                value={isCoreLoading ? loadingText : `${profileStats.sharedCount}`}
+                value={areProfileStatsLoading ? loadingText : `${profileStats.sharedCount}`}
                 note="songs"
-                useLoadingStyle={isCoreLoading}
+                useLoadingStyle={areProfileStatsLoading}
                 style={splitStatsAndInsights && !statsTwoByTwo ? styles.statSquareWide : statsTwoByTwo ? styles.statSquareHalf : null}
               />
               <StatSquare
                 label="Loved Here and Elsewhere"
-                value={isCoreLoading ? (
+                value={areProfileStatsLoading ? (
                   loadingText
                 ) : (
                   <>
@@ -2166,10 +2199,10 @@ export function CountryScreen({
                   </>
                 )}
                 note="% of this view"
-                useLoadingStyle={isCoreLoading}
+                useLoadingStyle={areProfileStatsLoading}
                 style={splitStatsAndInsights && !statsTwoByTwo ? styles.statSquareWide : statsTwoByTwo ? styles.statSquareHalf : null}
               />
-              <SectionLoadingVeil visible={isCoreLoading} />
+              <SectionLoadingVeil visible={areProfileStatsLoading} />
             </View>
           </View>
           <View
@@ -2185,9 +2218,9 @@ export function CountryScreen({
             />
             <LanguageSection
               title={`${country.name}'s Language(s) in Music`}
-              bodyText="Language information coming soon."
+              bodyText={languageSampleText ? `Languages in songs loved in ${country.name} include ${languageSampleText}` : "Loading..."}
             />
-            <SectionLoadingVeil visible={isCoreLoading} />
+            <SectionLoadingVeil visible={areInsightSectionsLoading} />
           </View>
         </View>
 

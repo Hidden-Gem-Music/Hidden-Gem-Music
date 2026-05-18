@@ -63,6 +63,8 @@ Generated\ Files/
 
 # Local live song enrichment cache
 backend/Capstone.API/live_song_enrichment_cache/
+backend/Capstone.API/Data/discovery_samples_cache.json
+backend/Capstone.API/Data/presentation_data_cache.json
 
 # Local additional-data getter runtime/output artifacts
 tools/mp3li_additional_data_getter_v2/output*/

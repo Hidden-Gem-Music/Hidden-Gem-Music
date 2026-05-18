@@ -138,6 +138,23 @@ export type ApiCountryGenreSample = {
   genres: string[];
 };
 
+export type ApiCountryLanguageSample = {
+  countryCode: string;
+  languages: string[];
+};
+
+export type ApiLanguageSongLookupItem = {
+  songName: string;
+  artistName: string;
+};
+
+export type ApiLanguageSongMatch = {
+  songName: string;
+  artistName: string;
+  lyricsUrl: string;
+  languages: string[];
+};
+
 export type ApiOverlapRate = {
   overlapPct: number;
   totalUniqueSongs: number;

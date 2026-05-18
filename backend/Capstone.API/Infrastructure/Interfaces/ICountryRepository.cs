@@ -39,5 +39,10 @@ namespace Capstone.API.Infrastructure.Interfaces
         /// Returns a small set of sampled distinct genres for a country-year view.
         /// </summary>
         Task<IReadOnlyList<string>> GetCountryGenreSampleAsync(string countryCode, int year, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Returns a small set of sampled distinct lyric languages for a country-year view.
+        /// </summary>
+        Task<IReadOnlyList<string>> GetCountryLanguageSampleAsync(string countryCode, int year, CancellationToken cancellationToken = default);
     }
 }

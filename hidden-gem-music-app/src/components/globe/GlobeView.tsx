@@ -30,6 +30,7 @@ type Props = {
   genreLoadingByCountryCode?: Record<string, boolean | undefined>;
   loadingText?: string;
   onEnsureGenreSample?: (countryCode: string) => void;
+  onEnsureLanguageSample?: (countryCode: string) => void;
   isActive?: boolean;
 };
 
@@ -177,6 +178,7 @@ export function GlobeView({
   genreLoadingByCountryCode,
   loadingText = "Loading...",
   onEnsureGenreSample,
+  onEnsureLanguageSample,
   isActive = true,
 }: Props) {
   const { width } = useWindowDimensions();
@@ -428,6 +430,8 @@ export function GlobeView({
     }
 
     setHoveredCountryId(country.id);
+    onEnsureGenreSample?.(country.code);
+    onEnsureLanguageSample?.(country.code);
     if (selectOnHover) {
       hoverSelectTimeoutRef.current = setTimeout(() => {
         if (hoveredCountryIdRef.current !== country.id) {
