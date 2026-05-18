@@ -29,6 +29,8 @@ export type UiSongPreview = {
   contributors?: string[];
   artistAlbumCount?: number;
   tracklist?: string[];
+  languages?: string[];
+  lyricsUrl?: string;
 };
 
 export type UiSharedSongPreview = UiSongPreview & {
@@ -126,6 +128,8 @@ export const mapApiSong = (song: ApiSong): UiSongPreview => ({
   tracklist: Array.isArray(song.tracklist)
     ? song.tracklist.filter((track): track is string => typeof track === "string" && track.trim().length > 0)
     : [],
+  languages: [],
+  lyricsUrl: "",
 });
 
 export const mapApiSharedSong = (song: ApiSharedSong): UiSharedSongPreview => ({

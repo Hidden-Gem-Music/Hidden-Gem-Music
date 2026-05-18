@@ -14,19 +14,23 @@ namespace Capstone.API.Infrastructure.Repositories
         private static readonly string[] PreferredGenrePrefixes = ["B", "I", "Y"];
         private const int RawSongBatchSize = 100;
         private const int GenreSampleScanCapPerList = 200;
+        private const int LanguageDuplicateSkipLimit = 12;
 
         private readonly IDataRepository _db;
         private readonly IDeezerSongEnrichmentService _deezerSongEnrichmentService;
+        private readonly ILanguageLookupService _languageLookupService;
 
         /// <summary>
         /// Initializes a new instance of CountryRepository using the default connection.
         /// </summary>
         public CountryRepository(
             IDataRepositoryFactory factory,
-            IDeezerSongEnrichmentService deezerSongEnrichmentService)
+            IDeezerSongEnrichmentService deezerSongEnrichmentService,
+            ILanguageLookupService languageLookupService)
         {
             _db = factory.Create("DefaultConnection");
             _deezerSongEnrichmentService = deezerSongEnrichmentService;
+            _languageLookupService = languageLookupService;
         }
 
         /// <inheritdoc/>
@@ -208,6 +212,115 @@ namespace Capstone.API.Infrastructure.Repositories
             }
 
             return selectedGenres;
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<string>> GetCountryLanguageSampleAsync(string countryCode, int year, CancellationToken cancellationToken = default)
+        {
+            var selectedLanguages = new List<string>(3);
+            var seenLanguages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var candidateSongs = await LoadLanguageCandidateSongsAsync(countryCode, year, cancellationToken);
+
+            foreach (var prefix in PreferredGenrePrefixes)
+            {
+                var language = FindDistinctLanguageForPrefix(candidateSongs, prefix, seenLanguages);
+                if (string.IsNullOrWhiteSpace(language))
+                {
+                    continue;
+                }
+
+                seenLanguages.Add(language);
+                selectedLanguages.Add(language);
+            }
+
+            if (selectedLanguages.Count < 3)
+            {
+                FillRemainingDistinctLanguages(candidateSongs, selectedLanguages, seenLanguages);
+            }
+
+            return selectedLanguages;
+        }
+
+        private async Task<List<Song>> LoadLanguageCandidateSongsAsync(string countryCode, int year, CancellationToken cancellationToken)
+        {
+            var candidates = new List<Song>(RawSongBatchSize * 2);
+            foreach (var listType in new[] { "shared", "unique" })
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var rows = await _db.GetDataAsync("sp_GetCountrySongsPaged", new Dictionary<string, object?>
+                {
+                    { "@CountryCode", countryCode },
+                    { "@Year", year },
+                    { "@ListType", listType },
+                    { "@Offset", 0 },
+                    { "@PageSize", RawSongBatchSize }
+                }, cancellationToken);
+
+                candidates.AddRange(rows.Select(MapSong));
+            }
+
+            return candidates;
+        }
+
+        private string? FindDistinctLanguageForPrefix(IEnumerable<Song> songs, string prefix, HashSet<string> seenLanguages)
+        {
+            foreach (var song in songs)
+            {
+                if (!SongStartsWithPrefix(song.SongName, prefix))
+                {
+                    continue;
+                }
+
+                var language = FindFirstDistinctLanguage(song, seenLanguages);
+                if (!string.IsNullOrWhiteSpace(language))
+                {
+                    return language;
+                }
+            }
+
+            return null;
+        }
+
+        private void FillRemainingDistinctLanguages(IEnumerable<Song> songs, List<string> selectedLanguages, HashSet<string> seenLanguages)
+        {
+            foreach (var song in songs)
+            {
+                if (selectedLanguages.Count >= 3)
+                {
+                    return;
+                }
+
+                var language = FindFirstDistinctLanguage(song, seenLanguages);
+                if (string.IsNullOrWhiteSpace(language))
+                {
+                    continue;
+                }
+
+                seenLanguages.Add(language);
+                selectedLanguages.Add(language);
+            }
+        }
+
+        private string? FindFirstDistinctLanguage(Song song, HashSet<string> seenLanguages)
+        {
+            var match = _languageLookupService.FindMatch(song);
+            if (match is null)
+            {
+                return null;
+            }
+
+            foreach (var language in match.Languages)
+            {
+                var trimmed = language.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed) || seenLanguages.Contains(trimmed))
+                {
+                    continue;
+                }
+
+                return trimmed;
+            }
+
+            return null;
         }
 
         private async Task<List<Song>> EnrichSongRowsAsync(IEnumerable<Song> songs, int limit, CancellationToken cancellationToken)
@@ -409,6 +522,160 @@ namespace Capstone.API.Infrastructure.Repositories
                         seenGenres.Add(primaryGenre);
                         selectedGenres.Add(primaryGenre);
                         if (selectedGenres.Count >= 3)
+                        {
+                            return;
+                        }
+                    }
+
+                    scanOffset += rows.Count;
+                    if (scanOffset >= totalRawCount)
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+
+        private async Task<string?> FindDistinctLanguageForPrefixAsync(
+            string countryCode,
+            int year,
+            string prefix,
+            HashSet<string> seenLanguages,
+            CancellationToken cancellationToken)
+        {
+            var duplicateSkips = 0;
+            foreach (var listType in new[] { "shared", "unique" })
+            {
+                var inspectedRows = 0;
+                var scanOffset = 0;
+
+                while (inspectedRows < GenreSampleScanCapPerList && duplicateSkips < LanguageDuplicateSkipLimit)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var rows = (await _db.GetDataAsync("sp_GetCountrySongsPaged", new Dictionary<string, object?>
+                    {
+                        { "@CountryCode", countryCode },
+                        { "@Year", year },
+                        { "@ListType", listType },
+                        { "@Offset", scanOffset },
+                        { "@PageSize", RawSongBatchSize }
+                    }, cancellationToken)).ToList();
+
+                    if (rows.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var totalRawCount = RowValueReader.AsIntAny(rows[0], "total_count", "TotalCount");
+                    foreach (var row in rows)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        inspectedRows++;
+                        var mapped = MapSong(row);
+                        if (!SongStartsWithPrefix(mapped.SongName, prefix))
+                        {
+                            continue;
+                        }
+
+                        var match = _languageLookupService.FindMatch(mapped);
+                        if (match is null)
+                        {
+                            continue;
+                        }
+
+                        foreach (var language in match.Languages)
+                        {
+                            var trimmed = language.Trim();
+                            if (string.IsNullOrWhiteSpace(trimmed))
+                            {
+                                continue;
+                            }
+
+                            if (seenLanguages.Contains(trimmed))
+                            {
+                                duplicateSkips++;
+                                continue;
+                            }
+
+                            return trimmed;
+                        }
+                    }
+
+                    scanOffset += rows.Count;
+                    if (scanOffset >= totalRawCount)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private async Task FillRemainingDistinctLanguagesAsync(
+            string countryCode,
+            int year,
+            List<string> selectedLanguages,
+            HashSet<string> seenLanguages,
+            CancellationToken cancellationToken)
+        {
+            var duplicateSkips = 0;
+            foreach (var listType in new[] { "shared", "unique" })
+            {
+                var inspectedRows = 0;
+                var scanOffset = 0;
+
+                while (selectedLanguages.Count < 3 && inspectedRows < GenreSampleScanCapPerList && duplicateSkips < LanguageDuplicateSkipLimit)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var rows = (await _db.GetDataAsync("sp_GetCountrySongsPaged", new Dictionary<string, object?>
+                    {
+                        { "@CountryCode", countryCode },
+                        { "@Year", year },
+                        { "@ListType", listType },
+                        { "@Offset", scanOffset },
+                        { "@PageSize", RawSongBatchSize }
+                    }, cancellationToken)).ToList();
+
+                    if (rows.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var totalRawCount = RowValueReader.AsIntAny(rows[0], "total_count", "TotalCount");
+                    foreach (var row in rows)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        inspectedRows++;
+                        var match = _languageLookupService.FindMatch(MapSong(row));
+                        if (match is null)
+                        {
+                            continue;
+                        }
+
+                        foreach (var language in match.Languages)
+                        {
+                            var trimmed = language.Trim();
+                            if (string.IsNullOrWhiteSpace(trimmed))
+                            {
+                                continue;
+                            }
+
+                            if (seenLanguages.Contains(trimmed))
+                            {
+                                duplicateSkips++;
+                                continue;
+                            }
+
+                            seenLanguages.Add(trimmed);
+                            selectedLanguages.Add(trimmed);
+                            if (selectedLanguages.Count >= 3)
+                            {
+                                return;
+                            }
+                        }
+
+                        if (duplicateSkips >= LanguageDuplicateSkipLimit)
                         {
                             return;
                         }

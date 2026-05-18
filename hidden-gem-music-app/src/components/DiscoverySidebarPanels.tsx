@@ -21,8 +21,11 @@ type Props = {
   selectedYear?: number;
   genreSummaryByCountryCode?: Record<string, string | undefined>;
   genreLoadingByCountryCode?: Record<string, boolean | undefined>;
+  languageSummaryByCountryCode?: Record<string, string | undefined>;
+  languageLoadingByCountryCode?: Record<string, boolean | undefined>;
   loadingText?: string;
   onEnsureGenreSample?: (countryCode: string) => void;
+  onEnsureLanguageSample?: (countryCode: string) => void;
   onNearListEnd?: () => void;
 };
 
@@ -41,8 +44,11 @@ export function DiscoverySidebarPanels({
   selectedYear,
   genreSummaryByCountryCode,
   genreLoadingByCountryCode,
+  languageSummaryByCountryCode,
+  languageLoadingByCountryCode,
   loadingText = "Loading...",
   onEnsureGenreSample,
+  onEnsureLanguageSample,
   onNearListEnd,
 }: Props) {
   const { width } = useWindowDimensions();
@@ -66,6 +72,7 @@ export function DiscoverySidebarPanels({
   const [listScrollY, setListScrollY] = useState(0);
   const [isDraggingListScrollbar, setIsDraggingListScrollbar] = useState(false);
   const nearListEndTriggeredRef = useRef(false);
+  const lastAutoScrollSignalRef = useRef<number | null>(null);
 
   const showFilterScrollbar = isWeb && expandedPanel === "filters" && filterViewportHeight > 0;
   const filterHasOverflow = showFilterScrollbar && filterContentHeight > filterViewportHeight;
@@ -221,6 +228,11 @@ export function DiscoverySidebarPanels({
     if (expandedPanel !== "list" || !selectedCountryId || autoScrollSignal == null) {
       return;
     }
+
+    if (lastAutoScrollSignalRef.current === autoScrollSignal) {
+      return;
+    }
+    lastAutoScrollSignalRef.current = autoScrollSignal;
 
     const scrollToSelectedCountry = () => {
       const y = positionsRef.current[selectedCountryId];
@@ -385,23 +397,27 @@ export function DiscoverySidebarPanels({
                     selected={country.id === selectedCountryId}
                     onHover={() => {
                       onEnsureGenreSample?.(country.code);
+                      onEnsureLanguageSample?.(country.code);
                       onSelectCountry(country.id);
                       onHoverCountryChange?.(country.id);
                     }}
                     onHoverOut={() => onHoverCountryChange?.(null)}
                     onTitlePress={() => {
                       onEnsureGenreSample?.(country.code);
+                      onEnsureLanguageSample?.(country.code);
                       onOpenCountry(country.id);
                     }}
-                    genreLine={genreSummaryByCountryCode?.[country.code] ?? (genreLoadingByCountryCode?.[country.code] ? loadingText : "Loading...")}
-                    languageLine="Coming Soon"
+                    genreLine={genreSummaryByCountryCode?.[country.code] ?? loadingText}
+                    languageLine={languageSummaryByCountryCode?.[country.code] ?? loadingText}
                     onPress={() => {
                       onEnsureGenreSample?.(country.code);
+                      onEnsureLanguageSample?.(country.code);
                       onSelectCountry(country.id);
                       onOpenCountry(country.id);
                     }}
                     onPressIn={() => {
                       onEnsureGenreSample?.(country.code);
+                      onEnsureLanguageSample?.(country.code);
                       onSelectCountry(country.id);
                     }}
                   />

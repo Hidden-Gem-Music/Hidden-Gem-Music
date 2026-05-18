@@ -33,6 +33,9 @@ builder.Services.AddCors(options =>
 // Infrastructure — generic SP execution layer
 builder.Services.AddSingleton<IDataRepositoryFactory, DataRepositoryFactory>();
 builder.Services.AddSingleton<IDeezerSongEnrichmentService, DeezerSongEnrichmentService>();
+builder.Services.AddSingleton<ILanguageLookupService, FileBackedLanguageLookupService>();
+builder.Services.AddSingleton<IDiscoverySampleCacheService, FileBackedDiscoverySampleCacheService>();
+builder.Services.AddSingleton<IPresentationDataCacheService, FileBackedPresentationDataCacheService>();
 
 // Domain repositories — one per screen area
 builder.Services.AddScoped<IGlobeRepository, GlobeRepository>();

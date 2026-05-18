@@ -59,6 +59,11 @@ Country:
 - `GET /api/country/{countryCode}?year={year}`
 - `GET /api/country/{countryCode}/songs?year={year}&listType={shared|unique}&page={page}&pageSize={pageSize}`
 - `GET /api/country/genre-samples?year={year}&codes={comma-separated-codes}`
+- `GET /api/country/language-samples?year={year}&codes={comma-separated-codes}`
+
+Language:
+
+- `POST /api/language/songs`
 
 Hidden Gems:
 
@@ -83,6 +88,7 @@ Current frontend cache maps include:
 - `hiddenGemsPageCache`
 - `countrySongsPageCache`
 - `countryGenreSampleCache`
+- `countryLanguageSampleCache`
 
 Discovery year reuse is also kept in app state through:
 
@@ -95,6 +101,17 @@ Important note:
 - these caches are frontend session-memory reuse
 - they improve the active running session
 - they do not replace backend/local persisted enrichment data
+
+Backend/local persisted data now exists for two presentation-oriented paths:
+
+- `backend/Capstone.API/Data/discovery_samples_cache.json`
+  - stores Discovery genre/language/favorite-artist samples keyed by country and year
+  - the backend reads this before recomputing Discovery samples
+- `backend/Capstone.API/Data/presentation_data_cache.json`
+  - stores warmed endpoint payloads for country profile, country song lists, country hidden-gem previews, and Hidden Gems pages
+  - the backend reads this when available and falls back to the normal repository/provider path when no cached payload exists
+
+Both files are local runtime data and are ignored by git.
 
 ## Discovery screen flow
 
@@ -119,6 +136,8 @@ Current flow:
    - the active filtered country set
    - and the broader current Discovery country pool for dimmed-but-visible context
 7. Genre samples are prefetched in smaller batches through `loadCountryGenreSamples`.
+8. Language samples are prefetched through `loadCountryLanguageSamples`.
+9. The currently selected or hovered country is prioritized, while the visible list rows are preloaded in backend-safe chunks.
 
 Important current rule:
 
@@ -126,6 +145,7 @@ Important current rule:
 - the custom map does not call an external map service at runtime; it renders from the app-owned geometry asset
 - the map and list should use the same song-data quality rules so "No song data" states do not conflict with misleading "Unknown" album/song labels
 - changing year should update the active country data without resetting the user's current map viewport
+- Discovery language and genre summaries should show loading text until their specific sample result is available, then use cached/backend sample text without requiring each row to be hovered first
 
 ## Country screen flow
 
@@ -139,11 +159,14 @@ Current flow:
 1. Country profile loads through `loadCountryProfile`.
 2. Shared and unique song lists load through `loadCountrySongsPage`.
 3. Hidden-gem preview data is derived from page 1 of the real Hidden Gems endpoint.
-4. Favorite artists, album art, song metadata, and additional-data fields are mapped into the UI from the backend response path.
+4. Loaded song rows are enriched with language data when a language match exists.
+5. Favorite artists, album art, song metadata, and additional-data fields are mapped into the UI from the backend response path.
+6. Stat squares and genre/language summary sections render as soon as their own data is ready instead of waiting for every downstream section.
 
 Important current rule:
 
 - hidden-gem preview behavior should stay aligned to the real Hidden Gems data path, not a fake/mock-only preview flow
+- country page API calls can reuse backend presentation-cache payloads when they exist, but must fall back to normal live loading when they do not
 
 ## Comparison Results flow
 
@@ -156,11 +179,29 @@ Current flow:
 
 1. The app chooses the active comparison countries through `comparisonIds`.
 2. The screen loads country profile and song-list data for each selected country.
-3. Hidden-gem preview behavior is kept parallel to the Country Detail behavior where possible.
+3. Language and genre sample text follows the same sample-based behavior as Country Detail.
+4. Hidden-gem preview behavior is kept parallel to the Country Detail behavior where possible.
 
 Important current rule:
 
 - comparison should use the app-provided available country pool rather than depending on Discovery being the currently visible screen
+- comparison benefits from the same backend presentation-cache payloads as Country Detail because it uses the same country profile and song-list endpoints
+
+## Presentation data prep flow
+
+Main file:
+
+- `tools/presentation_data_prep.py`
+
+Current role:
+
+- warms selected app endpoints before a live presentation
+- supports Discovery Map, Country Pages, and Hidden Gems prep modes
+- lets the user choose all countries or 10-country ranges
+- lets the user choose all supported demo years or one target year
+- writes warmed backend responses to local ignored cache files through the normal backend endpoints
+
+This tool is for presentation reliability and future data-prep support. It is not the long-term replacement for moving finalized language/sample data into the database.
 
 ## Comparison Select map flow
 

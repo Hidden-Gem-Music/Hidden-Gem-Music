@@ -21,10 +21,13 @@ namespace Capstone.API.Controllers
         private const int DefaultSongsPageSize = 50;
         private const int MaxSongsPageSize = 100;
         private const int MaxGenreSampleCodes = 16;
+        private const int MaxLanguageSampleCodes = 16;
         private const string AvailableYearsCacheKey = "country-controller-available-years";
 
         private readonly ICountryRepository _repo;
         private readonly IMetadataRepository _metadataRepo;
+        private readonly IDiscoverySampleCacheService _discoverySampleCache;
+        private readonly IPresentationDataCacheService _presentationDataCache;
         private readonly ILogger<CountryController> _logger;
         private readonly IMemoryCache _memoryCache;
 
@@ -34,11 +37,15 @@ namespace Capstone.API.Controllers
         public CountryController(
             ICountryRepository repo,
             IMetadataRepository metadataRepo,
+            IDiscoverySampleCacheService discoverySampleCache,
+            IPresentationDataCacheService presentationDataCache,
             IMemoryCache memoryCache,
             ILogger<CountryController> logger)
         {
             _repo = repo;
             _metadataRepo = metadataRepo;
+            _discoverySampleCache = discoverySampleCache;
+            _presentationDataCache = presentationDataCache;
             _memoryCache = memoryCache;
             _logger = logger;
         }
@@ -59,10 +66,24 @@ namespace Capstone.API.Controllers
             try
             {
                 var normalizedCode = code.ToUpperInvariant();
+                var cacheKey = BuildPresentationCacheKey("country-profile", normalizedCode, year);
+                var cached = await _presentationDataCache.GetAsync(cacheKey, cancellationToken);
+                if (cached.HasValue)
+                {
+                    return Ok(cached.Value);
+                }
+
                 var result = await _repo.GetCountryProfileAsync(normalizedCode, year, cancellationToken);
                 if (result == null)
                     return NotFound();
 
+                var favoriteArtists = BuildFavoriteArtists(result);
+                if (favoriteArtists.Count > 0)
+                {
+                    await _discoverySampleCache.SaveFavoriteArtistsAsync(normalizedCode, year, favoriteArtists, cancellationToken);
+                }
+
+                await _presentationDataCache.SaveAsync(cacheKey, result, cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -99,7 +120,15 @@ namespace Capstone.API.Controllers
             try
             {
                 var normalizedCode = code.ToUpperInvariant();
+                var cacheKey = BuildPresentationCacheKey("country-hidden-gems-preview", normalizedCode, year, normalizedLimit);
+                var cached = await _presentationDataCache.GetAsync(cacheKey, cancellationToken);
+                if (cached.HasValue)
+                {
+                    return Ok(cached.Value);
+                }
+
                 var result = await _repo.GetHiddenGemsPreviewAsync(normalizedCode, year, normalizedLimit, cancellationToken);
+                await _presentationDataCache.SaveAsync(cacheKey, result, cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -150,6 +179,13 @@ namespace Capstone.API.Controllers
             try
             {
                 var normalizedCode = code.ToUpperInvariant();
+                var cacheKey = BuildPresentationCacheKey("country-songs", normalizedCode, year, normalizedListType, normalizedPage, normalizedPageSize);
+                var cached = await _presentationDataCache.GetAsync(cacheKey, cancellationToken);
+                if (cached.HasValue)
+                {
+                    return Ok(cached.Value);
+                }
+
                 var result = await _repo.GetCountrySongsPageAsync(
                     normalizedCode,
                     year,
@@ -157,6 +193,7 @@ namespace Capstone.API.Controllers
                     normalizedPage,
                     normalizedPageSize,
                     cancellationToken);
+                await _presentationDataCache.SaveAsync(cacheKey, result, cancellationToken);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -218,7 +255,14 @@ namespace Capstone.API.Controllers
                     return await _memoryCache.GetOrCreateAsync(cacheKey, async (entry) =>
                     {
                         entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
-                        var genres = await _repo.GetCountryGenreSampleAsync(countryCode, year, cancellationToken);
+                        var cachedGenres = await _discoverySampleCache.GetGenresAsync(countryCode, year, cancellationToken);
+                        var genres = cachedGenres.Count > 0
+                            ? cachedGenres
+                            : await _repo.GetCountryGenreSampleAsync(countryCode, year, cancellationToken);
+                        if (genres.Count > 0 && cachedGenres.Count == 0)
+                        {
+                            await _discoverySampleCache.SaveGenresAsync(countryCode, year, genres, cancellationToken);
+                        }
                         return new Capstone.API.Models.Country.CountryGenreSample
                         {
                             CountryCode = countryCode,
@@ -249,6 +293,87 @@ namespace Capstone.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Returns small file-backed language samples for one or more countries in a selected year.
+        /// GET /api/country/language-samples?year={year}&amp;codes=US,CA,JP
+        /// </summary>
+        [HttpGet("language-samples")]
+        public async Task<IActionResult> GetCountryLanguageSamples(
+            [FromQuery] int year = 2021,
+            [FromQuery] string codes = "",
+            CancellationToken cancellationToken = default)
+        {
+            var availableYears = await _memoryCache.GetOrCreateAsync(AvailableYearsCacheKey, async (entry) =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+                return (await _metadataRepo.GetAvailableYearsAsync()).ToHashSet();
+            }) ?? new HashSet<int>();
+
+            if (!availableYears.Contains(year))
+            {
+                return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
+            }
+
+            var normalizedCodes = codes
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select((value) => value.ToUpperInvariant())
+                .Where((value) => CountryCodeRegex.IsMatch(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxLanguageSampleCodes)
+                .ToList();
+
+            if (normalizedCodes.Count == 0)
+            {
+                return BadRequest(new { message = "At least one valid 2-letter country code is required." });
+            }
+
+            try
+            {
+                var tasks = normalizedCodes.Select(async (countryCode) =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var cacheKey = $"country-language-sample::{year}::{countryCode}";
+                    return await _memoryCache.GetOrCreateAsync(cacheKey, async (entry) =>
+                    {
+                        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
+                        var cachedLanguages = await _discoverySampleCache.GetLanguagesAsync(countryCode, year, cancellationToken);
+                        var languages = cachedLanguages.Count > 0
+                            ? cachedLanguages
+                            : await _repo.GetCountryLanguageSampleAsync(countryCode, year, cancellationToken);
+                        if (languages.Count > 0 && cachedLanguages.Count == 0)
+                        {
+                            await _discoverySampleCache.SaveLanguagesAsync(countryCode, year, languages, cancellationToken);
+                        }
+                        return new Capstone.API.Models.Country.CountryLanguageSample
+                        {
+                            CountryCode = countryCode,
+                            Languages = languages.ToList()
+                        };
+                    });
+                });
+
+                var results = (await Task.WhenAll(tasks))
+                    .Where(sample => sample is not null)
+                    .ToList();
+
+                return Ok(results);
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "SQL error getting country language samples for year {Year} codes {Codes}", year, codes);
+                return StatusCode(503, new { message = "Database temporarily unavailable while retrieving country language samples." });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new EmptyResult();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting country language samples for year {Year} codes {Codes}", year, codes);
+                return StatusCode(500, new { message = "An unexpected error occurred while retrieving country language samples." });
+            }
+        }
+
         private async Task<string?> ValidateInputsAsync(string code, int year)
         {
             if (string.IsNullOrWhiteSpace(code) || !CountryCodeRegex.IsMatch(code))
@@ -268,6 +393,45 @@ namespace Capstone.API.Controllers
             }
 
             return null;
+        }
+
+        private static List<Capstone.API.Models.Country.FavoriteArtistSample> BuildFavoriteArtists(Capstone.API.Models.Country.CountryProfile profile)
+        {
+            var favoriteArtists = new List<Capstone.API.Models.Country.FavoriteArtistSample>(8);
+            var seenArtists = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddArtist(Capstone.API.Models.Shared.Song song)
+            {
+                var artist = song.ArtistName?.Trim();
+                if (string.IsNullOrWhiteSpace(artist) || !seenArtists.Add(artist) || favoriteArtists.Count >= 8)
+                {
+                    return;
+                }
+
+                favoriteArtists.Add(new Capstone.API.Models.Country.FavoriteArtistSample
+                {
+                    Artist = artist,
+                    SongTitle = song.SongName?.Trim() ?? string.Empty,
+                    ArtistImageUrl = string.IsNullOrWhiteSpace(song.ArtistImageUrl) ? null : song.ArtistImageUrl.Trim()
+                });
+            }
+
+            foreach (var song in profile.TopUniqueSongs)
+            {
+                AddArtist(song);
+            }
+
+            foreach (var song in profile.TopSharedSongs)
+            {
+                AddArtist(song);
+            }
+
+            return favoriteArtists;
+        }
+
+        private static string BuildPresentationCacheKey(string endpoint, params object[] parts)
+        {
+            return string.Join("::", new[] { endpoint }.Concat(parts.Select(part => part.ToString() ?? ""))).ToUpperInvariant();
         }
     }
 }

@@ -11,7 +11,8 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { YearSlider } from "../components/YearSlider";
-import { loadCountryGenreSamples } from "../data/countryApi";
+import { loadCountryGenreSamples, loadCountryLanguageSamples } from "../data/countryApi";
+import { formatLanguageAndMore } from "../data/languageApi";
 import { useLoadingText } from "../hooks/useLoadingText";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -30,6 +31,7 @@ export type Props = {
 };
 
 type SortOption = "a-z" | "z-a" | "gems-desc" | "gems-asc";
+const initialDiscoverySamplePrefetchCount = 24;
 const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
 const popupBottomDepthGradient = ["rgba(108,119,142,0)", "rgba(108,119,142,0.12)", "rgba(108,119,142,0.3)"] as const;
 const normalizeContinent = (region: string) => {
@@ -43,7 +45,9 @@ const normalizeContinent = (region: string) => {
 };
 
 function formatGenreSummary(genres: string[]) {
-  const cleaned = genres.map((genre) => genre.trim()).filter((genre) => genre.length > 0);
+  const cleaned = genres
+    .map((genre) => genre.trim())
+    .filter((genre) => genre.length > 0 && genre.toLowerCase() !== "unknown" && genre.toLowerCase() !== "loading...");
   if (cleaned.length >= 3) {
     return `${cleaned[0]}, ${cleaned[1]}, ${cleaned[2]}, and others`;
   }
@@ -194,11 +198,15 @@ export function DiscoveryScreen({
   const [isClearHovered, setIsClearHovered] = useState(false);
   const [isClearPressed, setIsClearPressed] = useState(false);
   const [selectedFilterYears, setSelectedFilterYears] = useState<number[]>([selectedYear]);
-  const [genrePrefetchCount, setGenrePrefetchCount] = useState(8);
+  const [genrePrefetchCount, setGenrePrefetchCount] = useState(initialDiscoverySamplePrefetchCount);
   const [genreSummaryByCountryCode, setGenreSummaryByCountryCode] = useState<Record<string, string>>({});
   const [genreLoadingByCountryCode, setGenreLoadingByCountryCode] = useState<Record<string, boolean>>({});
+  const [languageSummaryByCountryCode, setLanguageSummaryByCountryCode] = useState<Record<string, string>>({});
+  const [languageLoadingByCountryCode, setLanguageLoadingByCountryCode] = useState<Record<string, boolean>>({});
   const genreRequestControllersRef = useRef<AbortController[]>([]);
   const requestedGenreCodesRef = useRef<Set<string>>(new Set());
+  const languageRequestControllersRef = useRef<AbortController[]>([]);
+  const requestedLanguageCodesRef = useRef<Set<string>>(new Set());
   const timelineYears =
     availableYears && availableYears.length > 0
       ? Array.from(new Set([...availableYears, selectedYear])).sort((a, b) => a - b)
@@ -281,7 +289,27 @@ export function DiscoveryScreen({
     ? selectedCountryId
     : filteredCountries[0]?.id ?? selectedCountryId;
   const anyDiscoveryGenreLoading = Object.values(genreLoadingByCountryCode).some(Boolean);
-  const discoveryLoadingText = useLoadingText(anyDiscoveryGenreLoading);
+  const anyDiscoveryLanguageLoading = Object.values(languageLoadingByCountryCode).some(Boolean);
+  const discoveryLoadingText = useLoadingText(anyDiscoveryGenreLoading || anyDiscoveryLanguageLoading);
+  const discoveryLanguageLoadingText = useLoadingText(anyDiscoveryLanguageLoading);
+  const visibleSelectedCountryCode = filteredCountries.find((country) => country.id === visibleSelectedCountryId)?.code;
+  const selectedLanguageSummary =
+    visibleSelectedCountryCode && languageSummaryByCountryCode[visibleSelectedCountryCode]
+      ? languageSummaryByCountryCode[visibleSelectedCountryCode]
+      : visibleSelectedCountryCode && languageLoadingByCountryCode[visibleSelectedCountryCode]
+        ? discoveryLanguageLoadingText
+        : "Loading...";
+  const displayGenreSummaryByCountryCode = useMemo(() => {
+    const next: Record<string, string> = {};
+    filteredCountries.forEach((country) => {
+      const loadedSummary = genreSummaryByCountryCode[country.code];
+      const localSummary = formatGenreSummary(country.genres ?? []);
+      if (loadedSummary || localSummary) {
+        next[country.code] = loadedSummary || localSummary;
+      }
+    });
+    return next;
+  }, [filteredCountries, genreSummaryByCountryCode]);
 
   const ensureCountryGenreSamples = useCallback(
     (countryCodes: string[]) => {
@@ -294,6 +322,7 @@ export function DiscoveryScreen({
           countryCodes
             .map((code) => code.trim().toUpperCase())
             .filter((code) => code.length === 2)
+            .filter((code) => !displayGenreSummaryByCountryCode[code])
             .filter((code) => !requestedGenreCodesRef.current.has(code))
         )
       );
@@ -333,6 +362,7 @@ export function DiscoveryScreen({
           if (error instanceof Error && error.name === "AbortError") {
             return;
           }
+          nextCodes.forEach((code) => requestedGenreCodesRef.current.delete(code));
           console.warn(`Failed loading discovery genre samples for ${selectedYear}.`, error);
         })
         .finally(() => {
@@ -351,7 +381,82 @@ export function DiscoveryScreen({
           genreRequestControllersRef.current = genreRequestControllersRef.current.filter((entry) => entry !== controller);
         });
     },
-    [isActive, selectedYear]
+    [displayGenreSummaryByCountryCode, isActive, selectedYear]
+  );
+
+  const ensureCountryLanguageSamples = useCallback(
+    (countryCodes: string[]) => {
+      if (!isActive) {
+        return;
+      }
+
+      const nextCodes = Array.from(
+        new Set(
+          countryCodes
+            .map((code) => code.trim().toUpperCase())
+            .filter((code) => code.length === 2)
+            .filter((code) => !languageSummaryByCountryCode[code])
+            .filter((code) => !requestedLanguageCodesRef.current.has(code))
+        )
+      );
+
+      if (nextCodes.length === 0) {
+        return;
+      }
+
+      nextCodes.forEach((code) => requestedLanguageCodesRef.current.add(code));
+      setLanguageLoadingByCountryCode((current) => {
+        const next = { ...current };
+        nextCodes.forEach((code) => {
+          next[code] = true;
+        });
+        return next;
+      });
+
+      const controller = new AbortController();
+      languageRequestControllersRef.current.push(controller);
+
+      loadCountryLanguageSamples(nextCodes, selectedYear, controller.signal)
+        .then((payload) => {
+          if (controller.signal.aborted || !isActive) {
+            return;
+          }
+
+          setLanguageSummaryByCountryCode((current) => {
+            const next = { ...current };
+            payload.forEach((item) => {
+              const summary = formatLanguageAndMore(Array.isArray(item.languages) ? item.languages : []);
+              if (summary) {
+                next[item.countryCode] = summary;
+              }
+            });
+            return next;
+          });
+        })
+        .catch((error) => {
+          if (error instanceof Error && error.name === "AbortError") {
+            return;
+          }
+          nextCodes.forEach((code) => requestedLanguageCodesRef.current.delete(code));
+          console.warn(`Failed loading discovery language samples for ${selectedYear}.`, error);
+        })
+        .finally(() => {
+          if (controller.signal.aborted || !isActive) {
+            languageRequestControllersRef.current = languageRequestControllersRef.current.filter((entry) => entry !== controller);
+            return;
+          }
+
+          setLanguageLoadingByCountryCode((current) => {
+            const next = { ...current };
+            nextCodes.forEach((code) => {
+              delete next[code];
+            });
+            return next;
+          });
+          languageRequestControllersRef.current = languageRequestControllersRef.current.filter((entry) => entry !== controller);
+        });
+    },
+    [isActive, languageSummaryByCountryCode, selectedYear]
   );
 
   useEffect(() => {
@@ -360,7 +465,12 @@ export function DiscoveryScreen({
     requestedGenreCodesRef.current = new Set();
     setGenreSummaryByCountryCode({});
     setGenreLoadingByCountryCode({});
-    setGenrePrefetchCount(8);
+    languageRequestControllersRef.current.forEach((controller) => controller.abort());
+    languageRequestControllersRef.current = [];
+    requestedLanguageCodesRef.current = new Set();
+    setLanguageSummaryByCountryCode({});
+    setLanguageLoadingByCountryCode({});
+    setGenrePrefetchCount(initialDiscoverySamplePrefetchCount);
   }, [selectedYear]);
 
   useEffect(() => {
@@ -371,12 +481,17 @@ export function DiscoveryScreen({
     genreRequestControllersRef.current.forEach((controller) => controller.abort());
     genreRequestControllersRef.current = [];
     setGenreLoadingByCountryCode({});
+    languageRequestControllersRef.current.forEach((controller) => controller.abort());
+    languageRequestControllersRef.current = [];
+    setLanguageLoadingByCountryCode({});
   }, [isActive]);
 
   useEffect(() => {
     return () => {
       genreRequestControllersRef.current.forEach((controller) => controller.abort());
       genreRequestControllersRef.current = [];
+      languageRequestControllersRef.current.forEach((controller) => controller.abort());
+      languageRequestControllersRef.current = [];
     };
   }, []);
 
@@ -386,9 +501,9 @@ export function DiscoveryScreen({
     }
 
     const starterCodes = filteredCountries.slice(0, genrePrefetchCount).map((country) => country.code);
-    const selectedCountryCode = filteredCountries.find((country) => country.id === visibleSelectedCountryId)?.code;
-    ensureCountryGenreSamples(selectedCountryCode ? [...starterCodes, selectedCountryCode] : starterCodes);
-  }, [ensureCountryGenreSamples, filteredCountries, genrePrefetchCount, isActive, visibleSelectedCountryId]);
+    ensureCountryGenreSamples(visibleSelectedCountryCode ? [visibleSelectedCountryCode, ...starterCodes] : starterCodes);
+    ensureCountryLanguageSamples(visibleSelectedCountryCode ? [visibleSelectedCountryCode, ...starterCodes] : starterCodes);
+  }, [ensureCountryGenreSamples, ensureCountryLanguageSamples, filteredCountries, genrePrefetchCount, isActive, visibleSelectedCountryCode]);
 
   const handleGlobeFocus = (countryId: string) => {
     if (countryId === visibleSelectedCountryId) {
@@ -411,11 +526,14 @@ export function DiscoveryScreen({
         onOpenCountry={onOpenCountry}
         onHoverCountryChange={Platform.OS === "web" ? setHoveredListCountryId : undefined}
         autoScrollSignal={listAutoScrollSignal}
-        genreSummaryByCountryCode={genreSummaryByCountryCode}
+        genreSummaryByCountryCode={displayGenreSummaryByCountryCode}
         genreLoadingByCountryCode={genreLoadingByCountryCode}
-        loadingText={discoveryLoadingText}
+        languageSummaryByCountryCode={languageSummaryByCountryCode}
+        languageLoadingByCountryCode={languageLoadingByCountryCode}
+        loadingText="Loading..."
         onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
-        onNearListEnd={() => setGenrePrefetchCount((current) => Math.min(filteredCountries.length, current + 6))}
+        onEnsureLanguageSample={(countryCode) => ensureCountryLanguageSamples([countryCode])}
+        onNearListEnd={() => setGenrePrefetchCount((current) => Math.min(filteredCountries.length, current + 12))}
       />
     </View>
   );
@@ -437,10 +555,11 @@ export function DiscoveryScreen({
           title="Discovery Map"
           onRightAction={() => setAllFiltersOpen(true)}
           showHeader={false}
-          genreSummaryByCountryCode={genreSummaryByCountryCode}
+          genreSummaryByCountryCode={displayGenreSummaryByCountryCode}
           genreLoadingByCountryCode={genreLoadingByCountryCode}
           loadingText={discoveryLoadingText}
           onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
+          onEnsureLanguageSample={(countryCode) => ensureCountryLanguageSamples([countryCode])}
           isActive={isActive}
         />
       </View>
@@ -792,7 +911,7 @@ export function DiscoveryScreen({
                       <View style={styles.filterButtonContent}>
                         <View style={styles.filterButtonLead}>
                           <GemIcon size={16} />
-                          <Text style={styles.filterButtonText}>Coming Soon</Text>
+                          <Text style={styles.filterButtonText}>{selectedLanguageSummary}</Text>
                         </View>
                       </View>
                     </View>
@@ -809,7 +928,7 @@ export function DiscoveryScreen({
                       <View style={styles.filterButtonContent}>
                         <View style={styles.filterButtonLead}>
                           <GemIcon size={16} />
-                          <Text style={styles.filterButtonText}>Coming Soon</Text>
+                          <Text style={styles.filterButtonText}>{selectedLanguageSummary}</Text>
                         </View>
                       </View>
                     </View>

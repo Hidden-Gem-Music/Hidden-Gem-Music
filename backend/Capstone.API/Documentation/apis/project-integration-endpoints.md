@@ -38,6 +38,7 @@ These are the app endpoints the frontend calls.
   - enriched top shared songs
   - enriched top unique songs
   - sampled genres used in summary text
+  - cached by the local presentation-data cache when the response has been warmed
 
 ### 2. Country hidden-gems preview
 
@@ -48,6 +49,7 @@ These are the app endpoints the frontend calls.
 - Current role:
   - preview carousel songs for country and comparison screens
   - live Deezer enrichment applied on backend
+  - cached by the local presentation-data cache when the response has been warmed
 
 ### 3. Country songs paged list
 
@@ -59,6 +61,7 @@ These are the app endpoints the frontend calls.
   - `Most Loved in This Country`
   - `Loved Here and Elsewhere`
   - live Deezer enrichment applied on backend
+  - cached by the local presentation-data cache when the response has been warmed
 
 ### 4. Country genre samples
 
@@ -70,8 +73,32 @@ These are the app endpoints the frontend calls.
   - Discovery Map country-list genre line
   - Discovery Map hover/detail genre line
   - uses the current repo’s `B / I / Y` sampling logic on the backend
+  - reads local `Data/discovery_samples_cache.json` before recomputing sample data
 
-### 5. Hidden Gems page
+### 5. Country language samples
+
+- Endpoint:
+  - `GET /api/country/language-samples?year={year}&codes={comma_separated_country_codes}`
+- Frontend wrapper:
+  - `loadCountryLanguageSamples`
+- Current role:
+  - Discovery Map country-list language line
+  - Discovery Map hover/detail language line
+  - sample-based language display for the selected country/year
+  - reads local `Data/discovery_samples_cache.json` before recomputing sample data
+
+### 6. Song language lookup
+
+- Endpoint:
+  - `POST /api/language/songs`
+- Frontend wrapper:
+  - `loadLanguageMatchesForSongs`
+- Current role:
+  - enriches visible/paged song rows with detected language values and Genius lyrics URLs
+  - uses the compact file-backed language match dataset generated from the finished language output
+  - returns no match safely when a song is not in the language dataset
+
+### 7. Hidden Gems page
 
 - Endpoint:
   - `GET /api/hidden-gems/{countryCode}?year={year}&minCountries={minCountries}&page={page}&pageSize={pageSize}`
@@ -80,8 +107,9 @@ These are the app endpoints the frontend calls.
 - Current role:
   - main Hidden Gems screen song list
   - live Deezer enrichment applied on backend
+  - cached by the local presentation-data cache when the response has been warmed
 
-### 6. Metadata years
+### 8. Metadata years
 
 - Endpoint:
   - `GET /api/metadata/years`
@@ -91,7 +119,7 @@ These are the app endpoints the frontend calls.
   - shared selected-year options for screen flows that depend on year-specific enrichment
   - source of truth for Discovery and Comparison year availability, including 2025 when present in the dataset
 
-### 7. Comparison
+### 9. Comparison
 
 - Endpoint:
   - `GET /api/comparison?countryA={countryCode}&countryB={countryCode}&year={year}`
@@ -101,6 +129,59 @@ These are the app endpoints the frontend calls.
 - Current behavior:
   - country codes must be two different 2-letter ISO codes
   - year validation follows the metadata-years source of truth instead of the older hard-coded 2021 maximum
+
+## Local file-backed data and presentation prep
+
+### Compact language match data
+
+- File:
+  - `backend/Capstone.API/Data/language_matches.json`
+- Current role:
+  - first-iteration app language source
+  - generated from completed language output
+  - loaded once by the backend language lookup service
+- Long-term plan:
+  - move this language data into the database and replace file-backed lookup with database-backed queries
+
+### Discovery sample cache
+
+- File:
+  - `backend/Capstone.API/Data/discovery_samples_cache.json`
+- Current role:
+  - local ignored cache for Discovery genre samples
+  - local ignored cache for Discovery language samples
+  - local ignored cache for favorite artist samples
+  - used before recomputing Discovery sample data
+- Notes:
+  - this is presentation/local runtime support, not the final database architecture
+
+### Presentation data cache
+
+- File:
+  - `backend/Capstone.API/Data/presentation_data_cache.json`
+- Current role:
+  - local ignored cache for warmed endpoint responses
+  - supports Country Detail, Comparison View, and Hidden Gems demo paths
+  - backend endpoints read it when a matching payload exists and otherwise fall back to normal repository/provider loading
+- Notes:
+  - useful for presentation reliability and future data-prep review
+  - not a replacement for moving stable data into the database
+
+### Presentation data prep tool
+
+- File:
+  - `tools/presentation_data_prep.py`
+- Current role:
+  - interactive local tool for warming selected presentation data
+  - supports Discovery Map, Country Pages, and Hidden Gems prep modes
+  - supports all countries or 10-country ranges
+  - supports all configured demo years or specific years
+- Practical presentation plan:
+  - preload Discovery Map data for 2024 and 2025
+  - preload first 20 countries for 2024 and 2025 for Country Detail / Comparison View flows
+  - preload matching Hidden Gems pages needed for the live demo
+- Future use:
+  - Leena can use the same tool to gather app-pulled external/provider-backed data before later database import work, if that is useful for a future iteration
 
 ## External provider endpoints used by the current live backend path
 
