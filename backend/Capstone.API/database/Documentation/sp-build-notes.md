@@ -226,7 +226,7 @@ EXEC sp_PopulateTopSongByCountryYear;     -- fast — independent; reads base ta
 ## Known Quirks for QA Reference
  
 - `sp_PopulateGlobalOverlapByYear` inserts a **synthetic gap row for 2022** with all NULL metric columns and `is_gap = 1`. This is intentional — Recharts uses it to render the dashed line segment across the 22-month data gap. Do not flag as a data error during QA.
-- `sp_GetCountryProfile` unique songs result set uses `NOT EXISTS` against `HiddenGems` as a proxy for local presence. If `sp_PopulateHiddenGems` has not been run, this result set will return incorrectly inflated results.
+- `sp_GetCountryProfile` **shared songs** result set uses `NOT EXISTS` against `HiddenGems` (filtered by country_id) to exclude songs already categorised as hidden gems for this country from the shared list. If `sp_PopulateHiddenGems` has not been run, the shared songs result set will include those songs. The unique songs result set also has a `NOT EXISTS` against `HiddenGems`, but it is dead code — `country_count = 1` songs can never appear in `HiddenGems` (which requires `country_count >= @MinCountries = 3`), so that filter never matches anything.
 - All read procedures assume population procedures have been run. Running read procedures against empty summary tables will return empty result sets, not errors.
 - `sp_PopulateHiddenGems` accepts `@MinCountries INT = 3` — default threshold is 3 countries. Can be re-run with a different threshold: `EXEC sp_PopulateHiddenGems @MinCountries = 5`
 - Audio feature columns on `DIM_Song` are NULL for all DS1-only songs that were never matched to a DS2 entry. Any component using audio features must handle NULL values. 24,983 songs have audio features populated — all from DS2 coverage.
