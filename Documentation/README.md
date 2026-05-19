@@ -91,8 +91,8 @@ This keeps operational tool usage close to the scripts and runtime paths they de
 
 Business deliverables live in:
 
-- `Documents/Business Report/`
-  - see `Documents/Business Report/README.md` for full index
+- `business-report/`
+  - see `business-report/README.md` for full index
 
 Data findings, dashboard methodology, and BDA decision records live in:
 
@@ -115,7 +115,7 @@ It is not intended to replace:
 - backend docs near backend code
 - stored procedure and database docs in `backend/Capstone.API/database/`
 - tool docs near tool code
-- business deliverables in `Documents/Business Report/`
+- business deliverables in `business-report/`
 - data findings, dashboard methodology, and BDA decision records in `backend/Capstone.API/database/Documentation/Data Findings and Updates/`
 - private planning notes, issue drafts, PR drafts, or personal timeline files
 
@@ -127,6 +127,6 @@ When adding documentation:
 - put backend/API docs in `backend/Capstone.API/Documentation/` or `backend/Capstone.API/Documentation/apis/`
 - put stored procedure and database docs in `backend/Capstone.API/database/`
 - put tool usage docs in the relevant tool folder
-- put business deliverables in `Documents/Business Report/`
+- put business deliverables in `business-report/`
 - put data findings, dashboard methodology, and BDA decision records in `backend/Capstone.API/database/Documentation/Data Findings and Updates/`
 - use this shared folder only for cross-stack or repository-wide orientation
