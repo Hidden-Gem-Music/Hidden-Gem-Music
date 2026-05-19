@@ -277,7 +277,7 @@ Two critical bugs found and fixed. Two non-bugs identified and closed. One addit
 
 Added `COUNT(1) OVER() AS total_count` to the SELECT in `sp_GetHiddenGems`, matching the pattern already used in `sp_GetCountrySongsPaged`. No repopulation required — the fix is in the read proc only.
 
-**File:** `backend/Capstone.API/SQL Scripts/read/sp_GetHiddenGems.sql`  
+**File:** `backend/Capstone.API/database/read/sp_GetHiddenGems.sql`  
 **Deploy:** Re-run SP in SSMS.
 
 ---
@@ -306,8 +306,8 @@ Added a `JOIN SongCountryPresence ON scp.song_id = dgbd.song_id` and filtered by
 4. **`sp_GetDiscoveryGapDistribution` updated:** `SongCountryPresence` join removed entirely. Filter is now `WHERE dgbd.first_chart_date BETWEEN @DateStart AND @DateEnd` — directly scoped to when the spread event originated.
 
 **Files:**
-- `backend/Capstone.API/SQL Scripts/read/sp_GetDiscoveryGapDistribution.sql`
-- `backend/Capstone.API/SQL Scripts/population/sp_PopulateDiscoveryGapByDay.sql`
+- `backend/Capstone.API/database/read/sp_GetDiscoveryGapDistribution.sql`
+- `backend/Capstone.API/database/population/sp_PopulateDiscoveryGapByDay.sql`
 
 **Deploy:** Run `ALTER TABLE` in SSMS, re-run `sp_PopulateDiscoveryGapByDay` to repopulate with `first_chart_date` stored, then re-run the read SP.
 
@@ -332,7 +332,7 @@ Replaced `SongCountryPresence` date join with `WHERE dgd.first_chart_date BETWEE
 
 Note: `SongCountryPresence` is still used in the `EXISTS` clause for the `@MinCountries` filter — that use is correct and unchanged.
 
-**File:** `backend/Capstone.API/SQL Scripts/read/sp_GetAverageDiscoveryGap.sql`  
+**File:** `backend/Capstone.API/database/read/sp_GetAverageDiscoveryGap.sql`  
 **Deploy:** Re-run SP in SSMS. No repopulation required.
 
 ---

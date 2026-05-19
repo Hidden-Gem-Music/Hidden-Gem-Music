@@ -2,7 +2,9 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
+**Contributors:** Leena Komenski
 **Date:** 2026-05-15
+**Last updated:** 2026-05-19
 **Status:** Active
 
 ---
@@ -54,10 +56,12 @@ Current scope there includes:
 Backend architecture documentation lives in:
 
 - `backend/Capstone.API/Documentation/`
+- `backend/Capstone.API/Documentation/README.md`
 
 Backend API/provider/integration documentation lives in:
 
 - `backend/Capstone.API/Documentation/apis/`
+- `backend/Capstone.API/Documentation/apis/README.md`
 
 Current scope there includes:
 
@@ -67,6 +71,11 @@ Current scope there includes:
 - Deezer and Genius provider docs
 - additional-data research notes
 - backend/project integration endpoint mapping
+
+Backend database and stored procedure documentation lives in:
+
+- `backend/Capstone.API/database/`
+- `backend/Capstone.API/database/README.md`
 
 ### Tool documentation
 
@@ -80,15 +89,15 @@ This keeps operational tool usage close to the scripts and runtime paths they de
 
 ### Business & Data Analytics documentation
 
-Business and data analytics documentation lives in:
+Business deliverables live in:
 
-- `Documents/`
+- `business-report/`
+  - see `business-report/README.md` for full index
 
-Current scope there includes:
+Data findings, dashboard methodology, and BDA decision records live in:
 
-- Business Report (`Documents/Business Report/`)
-  - `HiddenGemMusic_BusinessReport.pdf` — main report document
-  - `BDA Reference/` — supporting reference materials (EDA datasets, KPI definitions, schema ADR, data quality reports, capstone proposal)
+- `backend/Capstone.API/database/Documentation/Data Findings and Updates/`
+  - see `backend/Capstone.API/database/Documentation/Data Findings and Updates/README.md` for full index
 
 ---
 
@@ -104,7 +113,10 @@ It is not intended to replace:
 
 - frontend docs near frontend code
 - backend docs near backend code
+- stored procedure and database docs in `backend/Capstone.API/database/`
 - tool docs near tool code
+- business deliverables in `business-report/`
+- data findings, dashboard methodology, and BDA decision records in `backend/Capstone.API/database/Documentation/Data Findings and Updates/`
 - private planning notes, issue drafts, PR drafts, or personal timeline files
 
 ## Practical rule
@@ -113,5 +125,8 @@ When adding documentation:
 
 - put frontend-specific implementation docs in `hidden-gem-music-app/Documentation/`
 - put backend/API docs in `backend/Capstone.API/Documentation/` or `backend/Capstone.API/Documentation/apis/`
+- put stored procedure and database docs in `backend/Capstone.API/database/`
 - put tool usage docs in the relevant tool folder
+- put business deliverables in `business-report/`
+- put data findings, dashboard methodology, and BDA decision records in `backend/Capstone.API/database/Documentation/Data Findings and Updates/`
 - use this shared folder only for cross-stack or repository-wide orientation
