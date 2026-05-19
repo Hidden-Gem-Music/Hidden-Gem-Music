@@ -89,15 +89,14 @@ This keeps operational tool usage close to the scripts and runtime paths they de
 
 ### Business & Data Analytics documentation
 
-Business and data analytics documentation lives in:
+Business deliverables live in:
 
-- `Documents/`
-
-Current scope there includes:
-
-- Business Report (`Documents/Business Report/`)
+- `Documents/Business Report/`
   - see `Documents/Business Report/README.md` for full index
-- Data findings and dashboard documentation (`backend/Capstone.API/database/Documentation/Data Findings and Updates/`)
+
+Data findings, dashboard methodology, and BDA decision records live in:
+
+- `backend/Capstone.API/database/Documentation/Data Findings and Updates/`
   - see `backend/Capstone.API/database/Documentation/Data Findings and Updates/README.md` for full index
 
 ---
@@ -116,7 +115,8 @@ It is not intended to replace:
 - backend docs near backend code
 - stored procedure and database docs in `backend/Capstone.API/database/`
 - tool docs near tool code
-- BDA artifacts, data findings, and dashboard specs in `Documents/`
+- business deliverables in `Documents/Business Report/`
+- data findings, dashboard methodology, and BDA decision records in `backend/Capstone.API/database/Documentation/Data Findings and Updates/`
 - private planning notes, issue drafts, PR drafts, or personal timeline files
 
 ## Practical rule
@@ -127,5 +127,6 @@ When adding documentation:
 - put backend/API docs in `backend/Capstone.API/Documentation/` or `backend/Capstone.API/Documentation/apis/`
 - put stored procedure and database docs in `backend/Capstone.API/database/`
 - put tool usage docs in the relevant tool folder
-- put BDA artifacts, data findings, and dashboard specs in `Documents/`
+- put business deliverables in `Documents/Business Report/`
+- put data findings, dashboard methodology, and BDA decision records in `backend/Capstone.API/database/Documentation/Data Findings and Updates/`
 - use this shared folder only for cross-stack or repository-wide orientation
