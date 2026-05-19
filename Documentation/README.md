@@ -78,6 +78,20 @@ Tool-specific documentation lives with the tools themselves:
 
 This keeps operational tool usage close to the scripts and runtime paths they describe.
 
+### Business & Data Analytics documentation
+
+Business and data analytics documentation lives in:
+
+- `Documents/`
+
+Current scope there includes:
+
+- Business Report (`Documents/Business Report/`)
+  - `HiddenGemMusic_BusinessReport.pdf` — main report document
+  - `BDA Reference/` — supporting reference materials (EDA datasets, KPI definitions, schema ADR, data quality reports, capstone proposal)
+
+---
+
 ## What does not belong here
 
 This shared documentation folder is for repo-wide orientation only.
