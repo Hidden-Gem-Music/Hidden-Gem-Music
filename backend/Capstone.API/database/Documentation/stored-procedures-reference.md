@@ -446,7 +446,7 @@ EXEC sp_GetGlobalOverlapTrend
  
 - `GlobalOverlapByYear` contains a synthetic row for 2022 with `is_gap = 1` and all metric columns `NULL`. This is intentional for Recharts gap rendering — do not flag as a data error during QA.
 - All read procedures assume population procedures have been run. Running read procedures against empty summary tables returns empty result sets, not errors.
-- `sp_GetCountryProfile` shared and unique song result sets use `NOT EXISTS` against `HiddenGems` as a proxy for local chart presence. Results will be incorrect if `sp_PopulateHiddenGems` has not been run.
+- `sp_GetCountryProfile` **shared songs** result set uses `NOT EXISTS` against `HiddenGems` (filtered by country_id) to exclude songs already categorised as hidden gems for this country. If `sp_PopulateHiddenGems` has not been run, those songs will appear in the shared list. The unique songs result set also has a `NOT EXISTS` against `HiddenGems`, but it is dead code — `country_count = 1` songs can never be in `HiddenGems` (which requires `country_count >= @MinCountries = 3`), so that filter never matches anything.
 - `sp_PopulateHiddenGems` can be re-run independently with a different `@MinCountries` threshold without re-running any other population procedure.
 - Audio feature columns on `DIM_Song` are NULL for all DS1-only songs. Any component using audio features must handle NULL values gracefully.
 - `TopSongByCountryYear` uses `TRUNCATE` before each repopulation — running `sp_PopulateTopSongByCountryYear` twice is safe. If the table is empty, `sp_GetDiscoverPageInfo` still returns rows but `top_album_name` and `top_artist_name` will be `NULL` for all countries.
