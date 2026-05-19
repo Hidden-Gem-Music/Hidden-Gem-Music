@@ -20,7 +20,7 @@ BEGIN
     DECLARE @YearStart INT = YEAR(@DateStart);
     DECLARE @YearEnd   INT = YEAR(@DateEnd);
 
-    SELECT TOP 20
+    SELECT
         c.full_name                     AS country_name,
         c.iso_code,
         c.region,
@@ -31,6 +31,8 @@ BEGIN
     FROM IsolationScoreByCountry isc
     JOIN Country c ON c.country_id = isc.country_id
     WHERE isc.chart_year BETWEEN @YearStart AND @YearEnd
+      AND LOWER(c.full_name) != 'global'
+      AND UPPER(c.iso_code) != 'GLOBAL'
     GROUP BY c.country_id, c.full_name, c.iso_code, c.region
     ORDER BY AVG(isc.isolation_score) DESC;
 END;
