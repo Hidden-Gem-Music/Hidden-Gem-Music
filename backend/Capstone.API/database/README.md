@@ -1,4 +1,4 @@
-# SQL Scripts
+# Database
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** Leena Komenski

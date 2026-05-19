@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This folder contains the BDA architecture decision record, dashboard specifications, and reference copy produced during development of the Hidden Gem Music platform. It lives in `SQL Scripts/Documentation/` because this work is tightly coupled to the data layer and stored procedure development.
+This folder contains the BDA architecture decision record, dashboard specifications, and reference copy produced during development of the Hidden Gem Music platform. It lives in `backend/Capstone.API/database/Documentation/` because this work is tightly coupled to the data layer and stored procedure development.
 
 ---
 
