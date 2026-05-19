@@ -3,7 +3,7 @@
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** Leena Komenski (BDA / Backend Lead)
 **Date:** 2026-04-22
-**Status:** Accepted — pending SP cross-check (see Section 6)
+**Status:** Accepted
 
 ---
 
@@ -393,7 +393,7 @@ All DTOs are plain classes with `{ get; set; }` properties and XML doc comments.
 
 ## 6. SP Cross-Check Checklist
 
-> Complete this checklist as each stored procedure is written and tested. If any SP output column name or parameter name differs from what is listed in Section 3, update the corresponding repository mapping — not the SP.
+> **Status: Completed** (May 2026). All stored procedures were written, executed, and verified against the repository mappings in Section 3. Any divergences found during cross-check were resolved by updating the repository — not the SP. This checklist is retained as a historical record.
 
 ### Globe
 - [ ] `sp_GetGlobeSummary` — verify `@Year`, verify all 6 output columns

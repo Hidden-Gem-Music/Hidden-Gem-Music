@@ -3,6 +3,8 @@
 **Reference document for the methodology card at the bottom of the Global Overlap Dashboard.**  
 Last updated: May 8, 2026
 
+> **Reference status:** This document is a content tracker, not a live feed. Everything listed under "Current approved copy" below should be displayed on the frontend dashboard. Use this document to verify that all copy is implemented in the app — if a section is missing from the UI, it needs to be added.
+
 ---
 
 ## Current approved copy

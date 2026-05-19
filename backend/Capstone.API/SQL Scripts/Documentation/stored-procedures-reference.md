@@ -1,7 +1,15 @@
 # Stored Procedures — HiddenGemMusic
- 
-**SOFT290 Capstone** | Leena Komenski | April 2026
- 
+
+**Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
+**Author:** Leena Komenski
+**Date:** 2026-04-22
+**Last updated:** 2026-05-15
+**Status:** Active
+
+---
+
+> **Contributor documentation.** This document is intended for developers and contributors working on the HiddenGemMusic backend. It covers database setup, stored procedure behavior, and data layer internals. It is not relevant to end users of the app.
+
 ---
  
 ## Overview
@@ -11,6 +19,8 @@ This folder contains all MSSQL stored procedures for the HiddenGemMusic database
 - **Population** — expensive procedures that build pre-computed summary tables from raw `ChartEntry` data. Run once after initial ingestion, or any time the summary tables need to be rebuilt. Never called at request time.
 - **Read** — lightweight procedures called by the .NET 9 API at request time. Never touch `ChartEntry` directly — they read only from pre-computed summary tables.
 > **Schema note:** As of April 26, 2026, the database was migrated from 3NF to a star schema. `Song`, `Artist`, `ArtistSong`, `AudioFeatures`, and `Album` were replaced by `DIM_Song`, `DIM_Artist`, and `Bridge_SongArtist`. All population procedures are unchanged. Seven read procedures were updated — see the Star Schema Migration ADR for full details.
+>
+> **Data quality fixes (May 2026):** Three population procedures were updated to exclude Viral 50 entries (`chart_type_id != 2`) — see affected procedures below. `DiscoveryGapByDay` received a new `first_chart_date DATE NULL` column (May 13 schema change). Two read procedures were updated to filter on `first_chart_date` directly rather than using a `SongCountryPresence chart_year` proxy. See `adr-discovery-gap-data-quality.md` for full details.
  
 ---
  
@@ -49,8 +59,10 @@ stored-procedures/
  
 ---
  
-## First-Time Setup
- 
+## Local Development Setup
+
+> This section is for contributors setting up the database locally. It is not relevant to end users.
+
 After the database schema is created and both datasets are ingested via BULK INSERT, run the population procedures **once** in order:
  
 ```sql
@@ -97,11 +109,11 @@ SELECT 'TopSongByCountryYear',      COUNT(*) FROM TopSongByCountryYear;
  
 | Table | Rows (April 27) | Notes |
 |---|---|---|
-| `SongCountryPresence` | 289,690 | Decreased after May 8 repopulation (Viral 50 excluded) |
+| `SongCountryPresence` | 289,690 (pre-fix) | Decreased after May 8 repopulation (Viral 50 excluded) — see `adr-discovery-gap-data-quality.md` for post-fix values |
 | `CountryYearStats` | 546 | Repopulated May 8 |
 | `GlobalOverlapByYear` | 9 | Repopulated May 8 |
 | `TrendVelocityBySong` | 707,689 | Unchanged |
-| `DiscoveryGapByDay` | 466,845 | Decreased after May 8 repopulation (Viral 50 + day-1 excluded) |
+| `DiscoveryGapByDay` | 466,845 (pre-fix) | Decreased after May 8 + May 13 repopulation (Viral 50 excluded, floor raised to `> 1`, `first_chart_date` column added) — see `adr-discovery-gap-data-quality.md` for post-fix values |
 | `IsolationScoreByCountry` | 546 | Repopulated May 8 |
 | `PeakReachBySong` | 240,844 | Repopulated May 8 |
 | `HiddenGems` | 2,585,433 | Unchanged |
@@ -128,6 +140,7 @@ For each song and year, counts how many distinct countries it charted in. This i
 - **Reads:** `ChartEntry`
 - **Writes:** `SongCountryPresence`
 - **Run order:** 1 — must run before all others
+- **Data quality fix (May 8, 2026):** `AND ce.chart_type_id != 2` added to main WHERE clause — Viral 50 entries excluded. Table repopulated.
 ---
  
 ### `sp_PopulateCountryYearStats`
@@ -155,13 +168,14 @@ Pre-computes a normalized trend velocity per song per country using a 4-snapshot
 ---
  
 ### `sp_PopulateDiscoveryGapByDay`
-For each song charting in 2+ countries: calculates the number of days between its first chart appearance anywhere (origin country) and its first appearance in each subsequent country. Pre-buckets results into gap bands at population time so no client-side math is needed at render time.
+For each song charting in 2+ countries: calculates the number of days between its first chart appearance anywhere (origin country) and its first appearance in each subsequent country. Pre-buckets results into gap bands at population time so no client-side math is needed at render time. Also populates `first_chart_date` — the origin date of each spread event — directly on the output table for use by read SPs.
  
 Gap bands: `1-7d` | `8-14d` | `15-30d` | `31-60d` | `61-90d` | `90d+`
  
 - **Reads:** `ChartEntry`
 - **Writes:** `DiscoveryGapByDay`
 - **Run order:** 5 — most expensive date calculation in the system
+- **Data quality fixes (May 2026):** `AND ce.chart_type_id != 2` added to FirstAppearance CTE (Viral 50 excluded). Final WHERE floor raised from `gap_days >= 0` to `gap_days > 1` (day-zero left-censorship artifacts and day-one global simultaneous rollouts excluded). HAVING filter added to Origin CTE to exclude dataset boundary-week origins. `first_chart_date DATE NULL` column added to `DiscoveryGapByDay` table (May 13) and populated from `origin_date` in the Spread CTE. Table repopulated.
 ---
  
 ### `sp_PopulateIsolationScoreByCountry`
@@ -178,6 +192,7 @@ For each song: finds the `snapshot_date` on which it charted in the most countri
 - **Reads:** `ChartEntry`
 - **Writes:** `PeakReachBySong`
 - **Run order:** 7
+- **Data quality fix (May 8, 2026):** `AND ce.chart_type_id != 2` added to DailyReach CTE — Viral 50 entries excluded. Table repopulated.
 ---
  
 ### `sp_PopulateHiddenGems`
@@ -345,7 +360,7 @@ EXEC sp_GetGlobalOverlapRate
 ---
  
 #### `sp_GetAverageDiscoveryGap`
-**KPI 2.** Average and median days between a song's first chart appearance anywhere and its first appearance in a second country.
+**KPI 2.** Average and median days between a song's first chart appearance anywhere and its first appearance in a second country. Aggregates to one row per song (minimum gap) before averaging — both metrics count the same unit as `sp_GetDiscoveryGapDistribution`.
  
 ```sql
 EXEC sp_GetAverageDiscoveryGap
@@ -355,6 +370,8 @@ EXEC sp_GetAverageDiscoveryGap
 ```
  
 **Returns:** `avg_gap_days`, `median_gap_days`, `sample_size`
+ 
+> **Data quality fix (May 2026):** Rewrote to aggregate to `SongFirstCrossing` CTE (MIN per song) before averaging. Date filter changed from `SongCountryPresence chart_year` proxy to `WHERE dgd.first_chart_date BETWEEN @DateStart AND @DateEnd`. Floor raised from `> 0` to `> 1`.
  
 ---
  
@@ -368,6 +385,8 @@ EXEC sp_GetDiscoveryGapDistribution
 ```
  
 **Returns:** `bucket_label`, `bucket_order`, `song_count`
+ 
+> **Data quality fix (May 2026):** Date filter changed from `SongCountryPresence chart_year` proxy to `WHERE dgbd.first_chart_date BETWEEN @DateStart AND @DateEnd`. Floor raised from `>= 0` to `> 1`.
  
 ---
  
@@ -432,3 +451,5 @@ EXEC sp_GetGlobalOverlapTrend
 - Audio feature columns on `DIM_Song` are NULL for all DS1-only songs. Any component using audio features must handle NULL values gracefully.
 - `TopSongByCountryYear` uses `TRUNCATE` before each repopulation — running `sp_PopulateTopSongByCountryYear` twice is safe. If the table is empty, `sp_GetDiscoverPageInfo` still returns rows but `top_album_name` and `top_artist_name` will be `NULL` for all countries.
 - `sp_GetAvailableYears` scans `ChartEntry` directly (no summary table). It is called once at startup and the result is cached in-memory by the API — not a hot path.
+- `DiscoveryGapByDay` has a `first_chart_date DATE NULL` column added May 13, 2026. This stores the origin date of each spread event directly on the pre-computed table. Any read SP that date-filters discovery gap data must use `first_chart_date`, not `SongCountryPresence.chart_year`.
+- Viral 50 entries (`chart_type_id = 2`) are excluded from `SongCountryPresence`, `DiscoveryGapByDay`, and `PeakReachBySong`. All KPI values, overlap rates, and peak reach figures reflect Top 200 and Top 50 chart entries only. Do not remove the `chart_type_id != 2` filter without understanding the downstream impact on all dashboard metrics.

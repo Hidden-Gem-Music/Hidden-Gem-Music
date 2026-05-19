@@ -1,7 +1,15 @@
 # Stored Procedure Build Notes
-**SOFT290 Capstone — HiddenGemMusic**
-Date: April 23, 2026 | Updated: April 27, 2026; May 15, 2026 | Author: Leena
- 
+
+**Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
+**Author:** Leena Komenski
+**Date:** 2026-04-23
+**Last updated:** 2026-05-15
+**Status:** Active
+
+---
+
+> **Contributor documentation.** This is an internal build and troubleshooting log documenting issues encountered during stored procedure development and the star schema migration. It is not relevant to end users of the app.
+
 ---
  
 ## Overview
@@ -195,7 +203,11 @@ EXEC sp_PopulateTopSongByCountryYear;     -- fast — independent; reads base ta
  
 ## Confirmed Row Counts (post star schema migration, April 27, 2026)
  
-> **May 8, 2026 update:** Six tables were repopulated after the Viral 50 exclusion fix (`AND ce.chart_type_id != 2` added to `sp_PopulateSongCountryPresence`, `sp_PopulateDiscoveryGapByDay`, `sp_PopulatePeakReachBySong`). `DiscoveryGapByDay` also had the floor raised from `> 0` to `> 1`. Counts below reflect the April 27 state — post-fix counts are lower for the repopulated tables.
+> **May 8, 2026 update:** Six tables were repopulated after the Viral 50 exclusion fix (`AND ce.chart_type_id != 2` added to `sp_PopulateSongCountryPresence`, `sp_PopulateDiscoveryGapByDay`, `sp_PopulatePeakReachBySong`). `DiscoveryGapByDay` also had the floor raised from `> 0` to `> 1`.
+>
+> **May 13, 2026 update:** `DiscoveryGapByDay` received a `first_chart_date DATE NULL` schema column (populated from `origin_date` in the Spread CTE). Floor raised again from `> 1` — table repopulated. See `adr-discovery-gap-data-quality.md` for full details.
+>
+> Counts below reflect the April 27 state — post-fix counts are lower for all repopulated tables.
 
 | Table | Row Count (April 27) | Notes |
 |---|---|---|
@@ -219,4 +231,6 @@ EXEC sp_PopulateTopSongByCountryYear;     -- fast — independent; reads base ta
 - `sp_PopulateHiddenGems` accepts `@MinCountries INT = 3` — default threshold is 3 countries. Can be re-run with a different threshold: `EXEC sp_PopulateHiddenGems @MinCountries = 5`
 - Audio feature columns on `DIM_Song` are NULL for all DS1-only songs that were never matched to a DS2 entry. Any component using audio features must handle NULL values. 24,983 songs have audio features populated — all from DS2 coverage.
 - `DIM_Artist.artist_name` has no UNIQUE index — SQL Server cannot index NVARCHAR(MAX) columns. Uniqueness is enforced by NOT EXISTS in ingestion only. Minor duplicates may exist where the same artist name appears with formatting differences across datasets.
+- `DiscoveryGapByDay` has a `first_chart_date DATE NULL` column added May 13, 2026. It stores the origin date of each spread event directly on the pre-computed table. Any read SP filtering discovery gap data by date must use `first_chart_date` — not `SongCountryPresence.chart_year`.
+- Viral 50 entries (`chart_type_id = 2`) are excluded from `SongCountryPresence`, `DiscoveryGapByDay`, and `PeakReachBySong` via `AND ce.chart_type_id != 2`. All KPI values, overlap rates, and peak reach figures reflect Top 200 and Top 50 chart entries only. Do not remove this filter without understanding the downstream impact on all dashboard metrics.
  
