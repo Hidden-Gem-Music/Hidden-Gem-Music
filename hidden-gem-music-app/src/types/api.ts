@@ -197,6 +197,7 @@ export type ApiIsolationEntry = {
   isoCode: string;
   isolationScore: number;
   isolationTier: "high" | "mid" | "low";
+  region: string | null;
 };
 
 export type ApiGapBucket = {

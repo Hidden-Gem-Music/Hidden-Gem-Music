@@ -97,7 +97,8 @@ namespace Capstone.API.Infrastructure.Repositories
                 CountryName = AsString(row, "country_name"),
                 IsoCode = AsString(row, "iso_code"),
                 IsolationScore = AsDecimal(row, "isolation_score"),
-                IsolationTier = AsString(row, "isolation_tier")
+                IsolationTier = AsString(row, "isolation_tier"),
+                Region = AsString(row, "region")
             });
         }
 
