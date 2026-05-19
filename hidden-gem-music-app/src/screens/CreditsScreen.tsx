@@ -40,11 +40,22 @@ type MemberLinkSection = {
 const creditSections: CreditSection[] = [
   {
     name: "Leena Komenski",
-    role: "Contribution Summary Pending",
+    role: "Team Lead, Data Engineering, Backend Architecture, and Data Visualization",
     summary:
-      "Leena's credit section will be completed after they provide preferred wording or update this section directly.",
-    bullets: [],
-    isPending: true,
+      "Built the foundation Hidden Gem Music runs on. Every insight, every chart, every discovery the app surfaces exists because of the data pipeline, stored procedures, and backend architecture underneath it.",
+    bullets: [
+      "Co-named the Discovery Gap and defined how to quantify it — translating the concept into the metrics, stored procedures, and data structures that make it visible across the app.",
+      "Sourced, cleaned, and ingested 28.2 million rows of Spotify chart data spanning 73 countries and eight years into a SQL Server database built from scratch — including diagnosing and resolving a SQL Server 2025 compatibility break that prevented standard CSV ingestion entirely.",
+      "Migrated the database mid-project from a transactional structure to a star-schema data warehouse — redesigning the schema, moving all data without loss, and rebuilding the stored procedure suite against the new structure.",
+      "Designed and implemented the index strategy and pre-computation architecture that makes the app fast — including all summary tables populated once and read instantly at runtime.",
+      "Authored the full SQL stored procedure suite powering every data insight in the app, and maintained sole ownership of database health throughout the project.",
+      "Ran multiple systematic data quality investigations — diagnosing aggregation mismatches, left-censored artifacts, date-parameter bugs, and Viral 50 / Top 200 conflation across the discovery gap pipeline.",
+      "Resolved each investigation end-to-end: live schema changes, stored procedure rewrites, and full summary-table repopulation in dependency order — often tracing root cause from a frontend symptom all the way back to the query layer.",
+      "Optimized backend performance through pre-computed summary tables, backend parallelization, and frontend API caching — turning multi-second loads into near-instant responses.",
+      "Scaffolded the complete .NET 9 backend — controllers, repository interfaces, data models, and DTOs — giving mp3li the foundation to build the app's feature endpoints on top of.",
+      "Created the Discovery Dashboard — translating 28.2 million rows of raw chart data into an interactive, readable analytics view that makes the app's central argument visible to anyone who uses it, through four live charts, four KPI cards, and a dynamic discovery gap display.",
+      "Managed the project end-to-end: proposal, timeline, GitHub board, PR reviews, and scope decisions throughout.",
+    ],
   },
   {
     name: "mp3li",
@@ -76,6 +87,10 @@ const memberLinkSections: MemberLinkSection[] = [
   {
     name: "Leena Komenski",
     body: "Follow Leena Komenski's work and connect with them here:",
+    links: [
+      { label: "GitHub", url: "https://github.com/lkomenski" },
+      { label: "LinkedIn", url: "https://www.linkedin.com/in/leena-komenski" },
+    ],
   },
   {
     name: "mp3li",
