@@ -40,6 +40,7 @@ namespace Capstone.API.Infrastructure.Repositories
                 Lat = RowValueReader.AsDoubleAny(row, "latitude"),
                 Long = RowValueReader.AsDoubleAny(row, "longitude"),
                 HiddenGemCount = RowValueReader.AsIntAny(row, "hidden_gem_count"),
+                TopSongName = RowValueReader.AsStringAny(row, "top_song_name"),
                 TopAlbumName = RowValueReader.AsStringAny(row, "top_album_name"),
                 TopArtistName = RowValueReader.AsStringAny(row, "top_artist_name")
             };

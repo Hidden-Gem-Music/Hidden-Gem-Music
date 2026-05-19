@@ -8,9 +8,12 @@
 --              05/15/2026 — Replaced WHERE latitude/longitude IS NOT NULL filter with
 --                           WHERE iso_code IS NOT NULL to match SVG map ISO-code-based
 --                           country matching (Mapbox globe replaced by SVG Discovery Map).
+--              05/19/2026 — Added top_song_name to SELECT (issue #148).
+--                           Requires ALTER TABLE + sp_PopulateTopSongByCountryYear
+--                           re-run before deploying — see populate SP header.
 -- Description: One lightweight row per country for the Discovery Map and country
 --              sidebar list. Returns country metadata, hidden gem count for the year,
---              and most-charted album/artist name from TopSongByCountryYear.
+--              and most-charted song/album/artist from TopSongByCountryYear.
 --              Reads only pre-computed tables (Country, HiddenGems, TopSongByCountryYear).
 -- EXEC sp_GetDiscoverPageInfo @Year = 2021;
 -- =============================================
@@ -31,6 +34,7 @@ BEGIN
         c.longitude,
         c.region,
         ISNULL(hg_agg.hidden_gem_count, 0)  AS hidden_gem_count,
+        tscy.song_name                      AS top_song_name,
         tscy.album_name                     AS top_album_name,
         tscy.artist_name                    AS top_artist_name
     FROM Country c
