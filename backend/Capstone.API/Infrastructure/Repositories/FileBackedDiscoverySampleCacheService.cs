@@ -132,9 +132,17 @@ namespace Capstone.API.Infrastructure.Repositories
                 return;
             }
 
-            await using var stream = File.OpenRead(_cachePath);
-            var entries = await JsonSerializer.DeserializeAsync<List<DiscoverySampleCacheEntry>>(stream, JsonOptions, cancellationToken)
-                ?? new List<DiscoverySampleCacheEntry>();
+            List<DiscoverySampleCacheEntry> entries;
+            try
+            {
+                await using var stream = File.OpenRead(_cachePath);
+                entries = await JsonSerializer.DeserializeAsync<List<DiscoverySampleCacheEntry>>(stream, JsonOptions, cancellationToken)
+                    ?? new List<DiscoverySampleCacheEntry>();
+            }
+            catch (JsonException)
+            {
+                entries = new List<DiscoverySampleCacheEntry>();
+            }
 
             _entriesByKey = entries
                 .Where(entry => !string.IsNullOrWhiteSpace(entry.CountryCode) && entry.Year > 0)
@@ -153,8 +161,12 @@ namespace Capstone.API.Infrastructure.Repositories
                 .ThenBy(entry => entry.CountryCode)
                 .ToList();
 
-            await using var stream = File.Create(_cachePath);
-            await JsonSerializer.SerializeAsync(stream, entries, JsonOptions, cancellationToken);
+            var tempPath = _cachePath + ".tmp";
+            await using (var stream = File.Create(tempPath))
+            {
+                await JsonSerializer.SerializeAsync(stream, entries, JsonOptions, cancellationToken);
+            }
+            File.Move(tempPath, _cachePath, overwrite: true);
         }
 
         private static string BuildKey(string countryCode, int year)

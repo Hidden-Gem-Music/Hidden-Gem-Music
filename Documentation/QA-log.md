@@ -3,10 +3,166 @@
 
 ---
 
+## 2026-05-19 — sp_GetCountryComparison Performance Analysis
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski
+**Scope:** `sp_GetCountryComparison.sql`, `HiddenGems` table indexes
+
+### What was investigated
+
+Comparison page cold-first-load was taking ~20 seconds for uncached country pairs (e.g. SE/VN 2020). Unlike Country Profile, `ComparisonController` and `ComparisonRepository` use no presentation data cache and no Deezer enrichment — the full 20 seconds is pure DB query time for `sp_GetCountryComparison`.
+
+### Issues identified in the SP
+
+**1. `NOT EXISTS` correlated subqueries with likely missing index (highest impact)**
+
+Result sets 3, 4, and 5 all use this pattern for every row scanned from `SongCountryPresence`:
+
+```sql
+AND NOT EXISTS (
+    SELECT 1 FROM HiddenGems hg
+    WHERE hg.country_id = @CountryIdA
+      AND hg.song_id    = scp.song_id
+      AND hg.chart_year = @Year
+)
+```
+
+Without a composite index on `HiddenGems (country_id, chart_year, song_id)`, SQL Server scans the table for each row. Adding the index turns this into a seek.
+
+**2. Double join to `SongCountryPresence` in result set 3**
+
+`InA` already reads from `SongCountryPresence`, but the main SELECT joins it again to get `country_count` for `ORDER BY`. Carrying `country_count` through the CTE eliminates the second scan:
+
+```sql
+WITH InA AS (
+    SELECT scp.song_id, scp.country_count  -- add country_count here
+    FROM SongCountryPresence scp
+    WHERE ...
+)
+-- then remove the second JOIN to SongCountryPresence in the SELECT
+```
+
+**3. Optional: rewrite `NOT EXISTS` as anti-join**
+
+SQL Server usually handles these equivalently, but an explicit `LEFT JOIN / WHERE IS NULL` sometimes produces a better plan when the optimizer is uncertain about selectivity.
+
+### Recommended fixes (in order of impact)
+
+```sql
+-- 1. Add covering index (run in SSMS)
+CREATE INDEX IX_HiddenGems_Country_Year_Song
+    ON HiddenGems (country_id, chart_year, song_id);
+
+-- 2. Update the SP — carry country_count through InA CTE, drop the second SongCountryPresence join in result set 3
+-- 3. Optional — rewrite NOT EXISTS as LEFT JOIN anti-join in result sets 3, 4, 5
+```
+
+### Status
+
+All three fixes applied (2026-05-19):
+- Index `IX_HiddenGems_Country_Year_Song` added to `HiddenGems`
+- `country_count` carried through `InA` CTE; redundant `SongCountryPresence` join removed from result set 3
+- `NOT EXISTS` rewritten as `LEFT JOIN / WHERE IS NULL` anti-join in result sets 3, 4, and 5
+
+Index alone reduced cold-load time by ~2 s (~20 s → ~18 s). Retest with all three changes applied to confirm total improvement.
+
+---
+
+## 2026-05-19 — CountryRepository Parallel Deezer Enrichment
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `CountryRepository.cs`
+
+### What was fixed
+
+Cold-cache Country Profile page loads were taking 15–20 seconds. Unlike Comparison, Country Profile enriches song results with Deezer API data (artist images, album art, genres, preview URLs). This enrichment was sequential — each song awaited its own Deezer calls before the next one started. With ~20 songs across the shared and unique lists, each requiring up to 3 Deezer API calls (~200 ms each), the enrichment alone accounted for 8–12 seconds per request.
+
+Four changes were made to `CountryRepository.cs`:
+
+**1. `EnrichSongRowsAsync` — parallel enrichment**
+
+Changed from sequential `foreach await` to `Task.WhenAll`. All songs in a list now enrich concurrently. The `DeezerSongEnrichmentService` has a built-in sliding window rate limiter (50 req / 4.9 s) that prevents overloading the Deezer API.
+
+**2. `GetHiddenGemsPreviewAsync` — parallel enrichment**
+
+Changed from sequential `foreach await` to `Task.WhenAll` over all raw rows, with deduplication and limit applied in a post-filter pass over the results.
+
+**3. `GetCountryGenreSampleAsync` — parallel prefix scans**
+
+The three prefix scans ("B", "I", "Y") previously ran one after another. They now run concurrently with independent `seenGenres` sets; results are deduplicated after all tasks complete.
+
+**4. `GetCountryProfileAsync` — parallel sub-operations**
+
+Shared songs enrichment, unique songs enrichment, and genre sample fetch previously ran sequentially. All three now start together via `Task.WhenAll`.
+
+**Dead code removed**
+
+`FindDistinctLanguageForPrefixAsync` and `FillRemainingDistinctLanguagesAsync` (~150 lines) were async duplicates of the synchronous language methods. They were never called — `GetCountryLanguageSampleAsync` uses the synchronous versions. Both deleted.
+
+### Expected improvement
+
+Cold-cache country profile enrichment: ~8–12 s (sequential) → ~1–2 s (parallel, rate-limited). The DB query time and any remaining Deezer bottleneck still apply — improvement is specifically to the song enrichment phase.
+
+### How to test
+
+1. Identify a country/year not in `presentation_data_cache.json` (e.g. a country not in Eli's warmed set).
+2. Load the Country Profile page and time the first load.
+3. Compare against the same country/year before this change (or against a cached country as a baseline for DB-only latency).
+4. Verify genre samples, hidden gems preview, and top songs all still display correctly.
+5. Check that hidden gems preview deduplication still works (no duplicate songs in the preview widget).
+
+### Verification
+
+- `dotnet build Capstone.API.csproj` passed with 0 C# errors.
+- Correctness testing: Leena Komenski (Windows) — pending.
+
+---
+
+## 2026-05-19 — CountryController Validation Outside try/catch Fix
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `CountryController.cs`
+
+### What was fixed
+
+Three categories of issues in `CountryController.cs`:
+
+**1. `ValidateInputsAsync` called outside try/catch**
+
+In `GetCountryProfile`, `GetHiddenGemsPreview`, and `GetCountrySongs`, `ValidateInputsAsync` was called before the `try` block. `ValidateInputsAsync` calls `_metadataRepo.GetAvailableYearsAsync()` — a DB call. If that call threw, the exception was not caught by any handler, producing a silent (unlogged) 500 response. Moved inside the `try` block in all three methods.
+
+**2. Year validation outside try/catch in `GetCountryGenreSamples` and `GetCountryLanguageSamples`**
+
+These two endpoints had an inline `_memoryCache.GetOrCreateAsync` → `GetAvailableYearsAsync()` block before their `try` blocks. Same silent-500 risk. Moved inside `try`.
+
+**3. `GetAvailableYearsAsync()` called without `CancellationToken`**
+
+Every call to `GetAvailableYearsAsync()` throughout the controller was missing the request cancellation token. Cancelling the HTTP request would not abort the in-flight DB call.
+
+### How it was fixed
+
+Extracted a private `IsAvailableYearAsync(int year, CancellationToken)` helper that holds the single `IMemoryCache.GetOrCreateAsync` + `GetAvailableYearsAsync(cancellationToken)` call. `ValidateInputsAsync` now calls the helper (and also accepts a `CancellationToken`). `GetCountryGenreSamples` and `GetCountryLanguageSamples` call the helper directly inside their `try` blocks. All five action method call sites pass `cancellationToken`.
+
+### How to test
+
+1. Load a valid Country Profile page — should load normally.
+2. Load with an invalid year (e.g. `?year=1900`) — should return 400 with a year-unavailable message.
+3. Load with an invalid country code (e.g. `/api/country/ZZZ`) — should return 400 with country-code message.
+4. Confirm no regressions on genre-samples and language-samples endpoints.
+
+### Verification
+
+- `dotnet build Capstone.API.csproj` passed with 0 C# errors.
+
+---
+
 ## 2026-05-19 — Discovery Map Showing "No Song Data" for DS1 Years (Issue #148)
 
 **Tester:** Eli (reviewer, PR #137 — flagged in PR review comments, not in this log)
-**Fix owner:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
 **Branch:** `148-bug-sp-unknown-song-with-unknown-album`
 **Scope:** `sp_PopulateTopSongByCountryYear`, `sp_GetDiscoverPageInfo`, `TopSongByCountryYear` table, `GlobeRepository.cs`, `CountryGlobeSummary.cs`, `api.ts`, `apiMappers.ts`, `discoveryApi.ts`, `GlobeView.tsx`, `CountryCard.tsx`
 
@@ -76,6 +232,130 @@ SELECT
 FROM DIM_Song
 WHERE song_id IN (SELECT DISTINCT song_id FROM ChartEntry WHERE YEAR(snapshot_date) BETWEEN 2017 AND 2021);
 ```
+
+## 2026-05-19 — Country/Comparison Slow First-Load Investigation (Mac / Docker SQL Server)
+
+**Tester:** Leena Komenski
+**Fix owner:** Pending (see long-term recommendations below)
+**Scope:** Country Profile and Comparison pages, `sp_GetCountryProfile`, Docker SQL Server execution plan cache, `FileBackedPresentationDataCacheService`, `SaveAsync` blocking pattern
+
+### What was investigated
+
+After the `05.15_HiddenGemMusic.bak` restore, Country Profile and Comparison pages loaded unusably slowly for mp3li on Mac — several minutes per page. mp3li noted this in his timeline document immediately after the restore on May 15 and built the file-backed cache services and presentation-data warmer tools (commit `6f4b76d`) as a workaround. The loading optimization branch (`cfe2fa7`) was suspected as the cause but investigation showed otherwise.
+
+### Root cause
+
+**The `.bak` restore wiped mp3li's Docker SQL Server execution plan cache.**
+
+SQL Server does not store execution plans in backup files. Plans live in-memory only and are cleared whenever a database is restored. Before the restore, mp3li's Docker SQL Server had warm, locally-compiled plans for `sp_GetCountryProfile` and related country/comparison stored procedures. Those plans had been adapted over time to his container's memory and CPU constraints.
+
+After restoring Leena's `.bak`, SQL Server recompiled all plans from cold using the statistics embedded in the Windows backup. Statistics generated on a native Windows SQL Server machine can lead the optimizer to choose memory-intensive plans (hash joins, large sort operations) that run efficiently on a full-RAM Windows installation but exceed Docker's constrained container memory — causing those operations to spill to disk and run orders of magnitude slower.
+
+This is why:
+
+- The Discovery page was **fast** after the restore — `sp_GetDiscoverPageInfo` was optimized in the same branch to read from the pre-computed `TopSongByCountryYear` table, so it is near-instant regardless of plan quality.
+- Country/Comparison pages were **slow** — `sp_GetCountryProfile` is a complex aggregation SP that is sensitive to plan choice and Docker memory limits on a cold compile.
+- The loading optimization branch code changes themselves (parallelizing genre-sample fetching in the backend, deduplicating the `loadAvailableYears` promise in the frontend) were **not** the cause.
+
+### Secondary issue: `SaveAsync` blocks HTTP responses
+
+The `FileBackedPresentationDataCacheService.SaveAsync` and `FileBackedDiscoverySampleCacheService.SaveFavoriteArtistsAsync` calls in `CountryController.cs` are `await`ed before `return Ok(result)`. This means every cold-cache request waits for both file writes to complete — and those writes serialize through a `SemaphoreSlim(1, 1)` — before the client gets a response. This adds latency on top of slow DB queries rather than running in the background.
+
+### Loading veil behavior (expected but worth noting)
+
+The glassy section loading covers added in `6f4b76d` are each tied to an individual loading state flag (`initialLoadingProfile`, `initialLoadingUnique`, `initialLoadingShared`, `initialLoadingPreview`). The veils are semi-transparent overlays, so underlying placeholder/skeleton content is visible through them while data loads. Veils do not clear until their controlling flag is set to `false`, which only happens when the HTTP response arrives. Because `SaveAsync` is awaited before the response is sent, slow DB queries + serialized file writes on a cold Docker instance compound into minutes of total wait — all veils remain up for the full duration.
+
+### Long-term recommendations
+
+**1. Increase Docker Desktop memory allocation (highest impact, no code change)**
+
+In Docker Desktop on macOS → Settings → Resources, increase the memory limit to 8 GB or more. SQL Server defaults to using up to 80% of available container memory for its buffer pool. More memory means hash joins and sort operations stay in RAM instead of spilling to disk, and cold plan compilation produces efficient plans even from cold start.
+
+**2. Run `sp_updatestats` after every `.bak` restore**
+
+After each database restore, run the following in SSMS before starting app work:
+
+```sql
+USE HiddenGemMusic;
+EXEC sp_updatestats;
+```
+
+This rebuilds statistics from the actual data in the Docker instance rather than using the Windows-generated statistics embedded in the backup. The optimizer then compiles plans suited to the Docker environment.
+
+**3. Fix `SaveAsync` to not block HTTP responses**
+
+In `CountryController.cs`, fire the cache-write calls as background tasks so the response returns immediately after the DB query completes:
+
+```csharp
+// Current (blocks response until writes finish):
+await _discoverySampleCache.SaveFavoriteArtistsAsync(normalizedCode, year, favoriteArtists, cancellationToken);
+await _presentationDataCache.SaveAsync(cacheKey, result, cancellationToken);
+return Ok(result);
+
+// Recommended (response returns immediately; cache writes complete in background):
+if (favoriteArtists.Count > 0)
+    _ = _discoverySampleCache.SaveFavoriteArtistsAsync(normalizedCode, year, favoriteArtists);
+_ = _presentationDataCache.SaveAsync(cacheKey, result);
+return Ok(result);
+```
+
+The same pattern applies to the hidden gems preview and songs endpoints in the same file. This does not fix slow DB queries but removes the extra serialized file-write latency stacked on top of them on every cold-cache request.
+
+### Current workaround
+
+The presentation-data warmer scripts (`tools/presentation_data_prep.py`, `tools/fill_discovery_samples_cache.py`) pre-populate the file-backed cache JSON files before a session. With warm cache files, country and comparison profile requests return from the JSON file without hitting the database at all, which is fast regardless of Docker plan quality. Warmers should be run after any `.bak` restore and before demo or testing sessions until the Docker memory and `sp_updatestats` fixes are in place.
+
+**Note:** The file-backed cache services and warmer tools exist solely as a workaround for the slow cold-query problem described above. If the root cause is resolved (Docker memory increased and/or `sp_updatestats` run after restores), Country and Comparison pages will load at normal speed directly from the database and the warmers become redundant. The `FileBackedPresentationDataCacheService`, `FileBackedDiscoverySampleCacheService`, and associated warmer scripts can be removed at that point.
+
+---
+
+## 2026-05-19 — CountryController `SaveAsync` Fire-and-Forget Fix
+
+**Tester:** Leena Komenski, pending mp3li
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `CountryController.cs` — `GetCountryProfile`, `GetHiddenGemsPreview`, `GetCountrySongs`, `GetCountryGenreSamples`, `GetCountryLanguageSamples`
+
+### What was fixed
+
+Per the investigation documented above, file-backed cache writes were `await`ed before returning HTTP responses, adding serialized file-write latency on top of every cold-cache DB query. All five save calls were changed to fire-and-forget using the `_ =` discard pattern so the response returns as soon as the DB result is ready.
+
+The `CancellationToken` parameter was also dropped from each fire-and-forget call. Passing a request-scoped token to a background write would cancel the write the moment the HTTP response completed, defeating the purpose of the background save.
+
+Changes made in `backend/Capstone.API/Controllers/CountryController.cs`:
+
+| Endpoint | Call changed |
+|---|---|
+| `GetCountryProfile` | `SaveFavoriteArtistsAsync` |
+| `GetCountryProfile` | `SaveAsync` (presentation cache) |
+| `GetHiddenGemsPreview` | `SaveAsync` (presentation cache) |
+| `GetCountrySongs` | `SaveAsync` (presentation cache) |
+| `GetCountryGenreSamples` | `SaveGenresAsync` (inside `GetOrCreateAsync` factory) |
+| `GetCountryLanguageSamples` | `SaveLanguagesAsync` (inside `GetOrCreateAsync` factory) |
+
+### How to test
+
+**Correctness (Leena — Windows):**
+
+Test against a country/year combination not already present in the cache (so a real DB fetch is triggered) rather than deleting the cache files — the cache files contain mp3li's warmed data and should not be cleared for this test.
+
+1. Identify a country/year that is not in `presentation_data_cache.json` (or use a fresh branch without the cache files).
+2. Open that Country Profile page — data should load normally.
+3. Navigate away, then back to the same country — second load should be instant, confirming the background write succeeded and the cache was populated.
+4. Confirm the JSON file now contains an entry for that country/year.
+
+If the second load is still slow, the fire-and-forget write failed silently and needs investigation.
+
+**Note on the warmers:** If the root cause fix (Docker memory / `sp_updatestats`) is in place before this test is run, the file-backed cache services may not be needed at all — see the note in the root cause investigation entry above.
+
+**Performance (mp3li — Mac / Docker SQL Server):**
+
+First load of a Country Profile or Comparison page on a cold cache should now return data as soon as the DB query completes, without the additional wait for serialized file writes on top. Compare cold first-load time before and after pulling this change.
+
+### Verification
+
+- `dotnet build Capstone.API.csproj` passed with 0 warnings and 0 errors.
+- Correctness testing: Leena Komenski (Windows).
+- Performance testing: mp3li (Mac / Docker SQL Server) — pending.
 
 ---
 

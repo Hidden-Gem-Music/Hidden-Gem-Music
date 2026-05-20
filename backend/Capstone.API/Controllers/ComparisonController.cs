@@ -1,6 +1,7 @@
 using Capstone.API.Infrastructure.Interfaces;
 using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using System.Text.RegularExpressions;
 
 namespace Capstone.API.Controllers
@@ -14,8 +15,12 @@ namespace Capstone.API.Controllers
     {
         private static readonly Regex CountryCodeRegex = new("^[A-Za-z]{2}$", RegexOptions.Compiled);
 
+        private const string AvailableYearsCacheKey = "comparison-controller-available-years";
+
         private readonly IComparisonRepository _repo;
         private readonly IMetadataRepository _metadataRepo;
+        private readonly IPresentationDataCacheService _presentationDataCache;
+        private readonly IMemoryCache _memoryCache;
         private readonly ILogger<ComparisonController> _logger;
 
         /// <summary>
@@ -24,10 +29,14 @@ namespace Capstone.API.Controllers
         public ComparisonController(
             IComparisonRepository repo,
             IMetadataRepository metadataRepo,
+            IPresentationDataCacheService presentationDataCache,
+            IMemoryCache memoryCache,
             ILogger<ComparisonController> logger)
         {
             _repo = repo;
             _metadataRepo = metadataRepo;
+            _presentationDataCache = presentationDataCache;
+            _memoryCache = memoryCache;
             _logger = logger;
         }
 
@@ -53,15 +62,19 @@ namespace Capstone.API.Controllers
                 if (!await IsAvailableYearAsync(year, cancellationToken))
                     return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
 
-                var result = await _repo.GetCountryComparisonAsync(
-                    countryA.ToUpperInvariant(),
-                    countryB.ToUpperInvariant(),
-                    year,
-                    cancellationToken);
+                var normalizedA = countryA.ToUpperInvariant();
+                var normalizedB = countryB.ToUpperInvariant();
+                var cacheKey = $"COMPARISON::{normalizedA}::{normalizedB}::{year}";
+                var cached = await _presentationDataCache.GetAsync(cacheKey, cancellationToken);
+                if (cached.HasValue)
+                    return Ok(cached.Value);
+
+                var result = await _repo.GetCountryComparisonAsync(normalizedA, normalizedB, year, cancellationToken);
 
                 if (result == null)
                     return NotFound();
 
+                _ = _presentationDataCache.SaveAsync(cacheKey, result);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -112,11 +125,15 @@ namespace Capstone.API.Controllers
                 if (!await IsAvailableYearAsync(year, cancellationToken))
                     return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
 
-                var result = await _repo.GetComparisonHiddenGemsAsync(
-                    countryA.ToUpperInvariant(),
-                    countryB.ToUpperInvariant(),
-                    year,
-                    cancellationToken);
+                var normalizedA = countryA.ToUpperInvariant();
+                var normalizedB = countryB.ToUpperInvariant();
+                var cacheKey = $"COMPARISON-HIDDEN-GEMS::{normalizedA}::{normalizedB}::{year}";
+                var cached = await _presentationDataCache.GetAsync(cacheKey, cancellationToken);
+                if (cached.HasValue)
+                    return Ok(cached.Value);
+
+                var result = await _repo.GetComparisonHiddenGemsAsync(normalizedA, normalizedB, year, cancellationToken);
+                _ = _presentationDataCache.SaveAsync(cacheKey, result);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -147,7 +164,11 @@ namespace Capstone.API.Controllers
 
         private async Task<bool> IsAvailableYearAsync(int year, CancellationToken cancellationToken)
         {
-            var availableYears = await _metadataRepo.GetAvailableYearsAsync(cancellationToken);
+            var availableYears = await _memoryCache.GetOrCreateAsync(AvailableYearsCacheKey, async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+                return (await _metadataRepo.GetAvailableYearsAsync(cancellationToken)).ToHashSet();
+            }) ?? new HashSet<int>();
             return availableYears.Contains(year);
         }
 

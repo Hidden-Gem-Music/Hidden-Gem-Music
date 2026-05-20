@@ -73,7 +73,8 @@ BEGIN
       AND scp.country_count = 1
       AND NOT EXISTS (
           SELECT 1 FROM HiddenGems hg3
-          WHERE hg3.song_id    = scp.song_id
+          WHERE hg3.country_id = (SELECT country_id FROM Country WHERE iso_code = @CountryCode)
+            AND hg3.song_id    = scp.song_id
             AND hg3.chart_year = @Year
       )
     ORDER BY NEWID();

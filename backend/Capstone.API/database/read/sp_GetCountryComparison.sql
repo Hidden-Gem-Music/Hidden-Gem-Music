@@ -2,8 +2,11 @@
 -- Author:      Leena Komenski
 -- Create date: 04/23/2026
 -- Updated:     04/26/2026 — Star schema rewrite
--- Changes:     Song → DIM_Song, ArtistSong → Bridge_SongArtist (artist_order=1),
---              Artist → DIM_Artist, Album join removed (album_name on DIM_Song)
+--              05/19/2026 — Performance pass: index IX_HiddenGems_Country_Year_Song
+--                           added separately; country_count carried through InA CTE
+--                           to eliminate redundant SongCountryPresence join in RS3;
+--                           NOT EXISTS rewritten as LEFT JOIN anti-join so the
+--                           optimizer can use the index as a seek in all result sets.
 -- Description: Side-by-side KPIs and song lists for two countries. Returns five result sets:
 -- (1) Country A stats, (2) Country B stats, (3) shared songs,
 -- (4) unique to A, (5) unique to B.
@@ -44,32 +47,30 @@ BEGIN
 
     -- ── Result Set 3: Songs in BOTH countries ───────────────
     WITH InA AS (
-        SELECT scp.song_id
+        SELECT scp.song_id, scp.country_count
         FROM SongCountryPresence scp
+        LEFT JOIN HiddenGems hgA
+            ON hgA.country_id = @CountryIdA
+           AND hgA.song_id    = scp.song_id
+           AND hgA.chart_year = @Year
         WHERE scp.chart_year = @Year
-          AND NOT EXISTS (
-              SELECT 1 FROM HiddenGems hg
-              WHERE hg.country_id = @CountryIdA
-                AND hg.song_id    = scp.song_id
-                AND hg.chart_year = @Year
-          )
+          AND hgA.song_id IS NULL
     ),
     InB AS (
         SELECT scp.song_id
         FROM SongCountryPresence scp
+        LEFT JOIN HiddenGems hgB
+            ON hgB.country_id = @CountryIdB
+           AND hgB.song_id    = scp.song_id
+           AND hgB.chart_year = @Year
         WHERE scp.chart_year = @Year
-          AND NOT EXISTS (
-              SELECT 1 FROM HiddenGems hg
-              WHERE hg.country_id = @CountryIdB
-                AND hg.song_id    = scp.song_id
-                AND hg.chart_year = @Year
-          )
+          AND hgB.song_id IS NULL
     )
     SELECT
         s.song_id,
         s.title             AS song_title,
         a.artist_name,
-        scp.country_count   AS global_presence
+        InA.country_count   AS global_presence
     FROM InA
     JOIN InB ON InB.song_id = InA.song_id
     JOIN DIM_Song s ON s.song_id = InA.song_id
@@ -77,22 +78,18 @@ BEGIN
         ON bsa.song_id      = s.song_id
        AND bsa.artist_order = 1
     LEFT JOIN DIM_Artist a ON a.artist_id = bsa.artist_id
-    JOIN SongCountryPresence scp
-        ON scp.song_id    = InA.song_id
-       AND scp.chart_year = @Year
-    ORDER BY scp.country_count DESC;
+    ORDER BY InA.country_count DESC;
 
     -- ── Result Set 4: Songs unique to Country A ─────────────
     WITH InA AS (
         SELECT scp.song_id
         FROM SongCountryPresence scp
+        LEFT JOIN HiddenGems hgA
+            ON hgA.country_id = @CountryIdA
+           AND hgA.song_id    = scp.song_id
+           AND hgA.chart_year = @Year
         WHERE scp.chart_year = @Year
-          AND NOT EXISTS (
-              SELECT 1 FROM HiddenGems hg
-              WHERE hg.country_id = @CountryIdA
-                AND hg.song_id    = scp.song_id
-                AND hg.chart_year = @Year
-          )
+          AND hgA.song_id IS NULL
     ),
     NotInB AS (
         SELECT song_id
@@ -123,13 +120,12 @@ BEGIN
     InB AS (
         SELECT scp.song_id
         FROM SongCountryPresence scp
+        LEFT JOIN HiddenGems hgB
+            ON hgB.country_id = @CountryIdB
+           AND hgB.song_id    = scp.song_id
+           AND hgB.chart_year = @Year
         WHERE scp.chart_year = @Year
-          AND NOT EXISTS (
-              SELECT 1 FROM HiddenGems hg
-              WHERE hg.country_id = @CountryIdB
-                AND hg.song_id    = scp.song_id
-                AND hg.chart_year = @Year
-          )
+          AND hgB.song_id IS NULL
     )
     SELECT TOP 20
         s.song_id,

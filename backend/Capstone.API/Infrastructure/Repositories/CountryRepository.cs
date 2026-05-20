@@ -58,13 +58,19 @@ namespace Capstone.API.Infrastructure.Repositories
                 OverlapPct = RowValueReader.AsDecimalAny(stats, "overlap_pct")
             };
 
-            if (sets.Count > 1)
-                profile.TopSharedSongs = await EnrichSongRowsAsync(sets[1].Select(MapSong), limit: 10, cancellationToken);
+            var sharedSongsTask = sets.Count > 1
+                ? EnrichSongRowsAsync(sets[1].Select(MapSong), limit: 10, cancellationToken)
+                : Task.FromResult(new List<Song>());
+            var uniqueSongsTask = sets.Count > 2
+                ? EnrichSongRowsAsync(sets[2].Select(MapSong), limit: 10, cancellationToken)
+                : Task.FromResult(new List<Song>());
+            var genresTask = GetCountryGenreSampleAsync(countryCode, year, cancellationToken);
 
-            if (sets.Count > 2)
-                profile.TopUniqueSongs = await EnrichSongRowsAsync(sets[2].Select(MapSong), limit: 10, cancellationToken);
+            await Task.WhenAll(sharedSongsTask, uniqueSongsTask, genresTask);
 
-            profile.SampleGenres = (await GetCountryGenreSampleAsync(countryCode, year, cancellationToken)).ToList();
+            profile.TopSharedSongs = sharedSongsTask.Result;
+            profile.TopUniqueSongs = uniqueSongsTask.Result;
+            profile.SampleGenres = genresTask.Result.ToList();
 
             return profile;
         }
@@ -82,30 +88,24 @@ namespace Capstone.API.Infrastructure.Repositories
                 { "@Limit", rawLimit }
             }, cancellationToken);
 
-            var results = new List<CountryHiddenGemPreviewItem>();
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var row in rows)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var enriched = await EnrichPreviewItemAsync(MapHiddenGem(row), cancellationToken);
-                if (enriched is null)
-                {
-                    continue;
-                }
+            var enrichedItems = await Task.WhenAll(rows.Select(row => EnrichPreviewItemAsync(MapHiddenGem(row), cancellationToken)));
 
-                var songName = enriched.SongName?.Trim();
-                var artistName = enriched.ArtistName?.Trim();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var results = new List<CountryHiddenGemPreviewItem>();
+            foreach (var item in enrichedItems)
+            {
+                if (item is null)
+                    continue;
+
+                var songName = item.SongName?.Trim();
+                var artistName = item.ArtistName?.Trim();
                 var duplicateKey = $"{songName?.ToLowerInvariant()}||{artistName?.ToLowerInvariant()}";
                 if (string.IsNullOrWhiteSpace(songName) || string.IsNullOrWhiteSpace(artistName) || !seen.Add(duplicateKey))
-                {
                     continue;
-                }
 
-                results.Add(enriched);
+                results.Add(item);
                 if (results.Count >= requestedLimit)
-                {
                     break;
-                }
             }
 
             return results;
@@ -191,19 +191,16 @@ namespace Capstone.API.Infrastructure.Repositories
         /// <inheritdoc/>
         public async Task<IReadOnlyList<string>> GetCountryGenreSampleAsync(string countryCode, int year, CancellationToken cancellationToken = default)
         {
+            var prefixTasks = PreferredGenrePrefixes
+                .Select(prefix => FindDistinctGenreForPrefixAsync(countryCode, year, prefix, new HashSet<string>(StringComparer.OrdinalIgnoreCase), cancellationToken));
+            var prefixResults = await Task.WhenAll(prefixTasks);
+
             var selectedGenres = new List<string>(3);
             var seenGenres = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var prefix in PreferredGenrePrefixes)
+            foreach (var genre in prefixResults)
             {
-                var genre = await FindDistinctGenreForPrefixAsync(countryCode, year, prefix, seenGenres, cancellationToken);
-                if (string.IsNullOrWhiteSpace(genre))
-                {
-                    continue;
-                }
-
-                seenGenres.Add(genre);
-                selectedGenres.Add(genre);
+                if (!string.IsNullOrWhiteSpace(genre) && seenGenres.Add(genre))
+                    selectedGenres.Add(genre);
             }
 
             if (selectedGenres.Count < 3)
@@ -325,24 +322,8 @@ namespace Capstone.API.Infrastructure.Repositories
 
         private async Task<List<Song>> EnrichSongRowsAsync(IEnumerable<Song> songs, int limit, CancellationToken cancellationToken)
         {
-            var results = new List<Song>();
-            foreach (var song in songs)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var enriched = await EnrichSongAsync(song, cancellationToken);
-                if (enriched is null)
-                {
-                    continue;
-                }
-
-                results.Add(enriched);
-                if (results.Count >= limit)
-                {
-                    break;
-                }
-            }
-
-            return results;
+            var enriched = await Task.WhenAll(songs.Select(song => EnrichSongAsync(song, cancellationToken)));
+            return enriched.Where(song => song is not null).Take(limit).ToList()!;
         }
 
         private async Task<Song?> EnrichSongAsync(Song song, CancellationToken cancellationToken)
@@ -522,160 +503,6 @@ namespace Capstone.API.Infrastructure.Repositories
                         seenGenres.Add(primaryGenre);
                         selectedGenres.Add(primaryGenre);
                         if (selectedGenres.Count >= 3)
-                        {
-                            return;
-                        }
-                    }
-
-                    scanOffset += rows.Count;
-                    if (scanOffset >= totalRawCount)
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-
-        private async Task<string?> FindDistinctLanguageForPrefixAsync(
-            string countryCode,
-            int year,
-            string prefix,
-            HashSet<string> seenLanguages,
-            CancellationToken cancellationToken)
-        {
-            var duplicateSkips = 0;
-            foreach (var listType in new[] { "shared", "unique" })
-            {
-                var inspectedRows = 0;
-                var scanOffset = 0;
-
-                while (inspectedRows < GenreSampleScanCapPerList && duplicateSkips < LanguageDuplicateSkipLimit)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var rows = (await _db.GetDataAsync("sp_GetCountrySongsPaged", new Dictionary<string, object?>
-                    {
-                        { "@CountryCode", countryCode },
-                        { "@Year", year },
-                        { "@ListType", listType },
-                        { "@Offset", scanOffset },
-                        { "@PageSize", RawSongBatchSize }
-                    }, cancellationToken)).ToList();
-
-                    if (rows.Count == 0)
-                    {
-                        break;
-                    }
-
-                    var totalRawCount = RowValueReader.AsIntAny(rows[0], "total_count", "TotalCount");
-                    foreach (var row in rows)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        inspectedRows++;
-                        var mapped = MapSong(row);
-                        if (!SongStartsWithPrefix(mapped.SongName, prefix))
-                        {
-                            continue;
-                        }
-
-                        var match = _languageLookupService.FindMatch(mapped);
-                        if (match is null)
-                        {
-                            continue;
-                        }
-
-                        foreach (var language in match.Languages)
-                        {
-                            var trimmed = language.Trim();
-                            if (string.IsNullOrWhiteSpace(trimmed))
-                            {
-                                continue;
-                            }
-
-                            if (seenLanguages.Contains(trimmed))
-                            {
-                                duplicateSkips++;
-                                continue;
-                            }
-
-                            return trimmed;
-                        }
-                    }
-
-                    scanOffset += rows.Count;
-                    if (scanOffset >= totalRawCount)
-                    {
-                        break;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        private async Task FillRemainingDistinctLanguagesAsync(
-            string countryCode,
-            int year,
-            List<string> selectedLanguages,
-            HashSet<string> seenLanguages,
-            CancellationToken cancellationToken)
-        {
-            var duplicateSkips = 0;
-            foreach (var listType in new[] { "shared", "unique" })
-            {
-                var inspectedRows = 0;
-                var scanOffset = 0;
-
-                while (selectedLanguages.Count < 3 && inspectedRows < GenreSampleScanCapPerList && duplicateSkips < LanguageDuplicateSkipLimit)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var rows = (await _db.GetDataAsync("sp_GetCountrySongsPaged", new Dictionary<string, object?>
-                    {
-                        { "@CountryCode", countryCode },
-                        { "@Year", year },
-                        { "@ListType", listType },
-                        { "@Offset", scanOffset },
-                        { "@PageSize", RawSongBatchSize }
-                    }, cancellationToken)).ToList();
-
-                    if (rows.Count == 0)
-                    {
-                        break;
-                    }
-
-                    var totalRawCount = RowValueReader.AsIntAny(rows[0], "total_count", "TotalCount");
-                    foreach (var row in rows)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        inspectedRows++;
-                        var match = _languageLookupService.FindMatch(MapSong(row));
-                        if (match is null)
-                        {
-                            continue;
-                        }
-
-                        foreach (var language in match.Languages)
-                        {
-                            var trimmed = language.Trim();
-                            if (string.IsNullOrWhiteSpace(trimmed))
-                            {
-                                continue;
-                            }
-
-                            if (seenLanguages.Contains(trimmed))
-                            {
-                                duplicateSkips++;
-                                continue;
-                            }
-
-                            seenLanguages.Add(trimmed);
-                            selectedLanguages.Add(trimmed);
-                            if (selectedLanguages.Count >= 3)
-                            {
-                                return;
-                            }
-                        }
-
-                        if (duplicateSkips >= LanguageDuplicateSkipLimit)
                         {
                             return;
                         }

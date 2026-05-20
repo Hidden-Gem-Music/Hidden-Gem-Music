@@ -59,12 +59,12 @@ namespace Capstone.API.Controllers
         [HttpGet("{code}")]
         public async Task<IActionResult> GetCountryProfile(string code, [FromQuery] int year = 2021, CancellationToken cancellationToken = default)
         {
-            var validationError = await ValidateInputsAsync(code, year);
-            if (validationError != null)
-                return BadRequest(new { message = validationError });
-
             try
             {
+                var validationError = await ValidateInputsAsync(code, year, cancellationToken);
+                if (validationError != null)
+                    return BadRequest(new { message = validationError });
+
                 var normalizedCode = code.ToUpperInvariant();
                 var cacheKey = BuildPresentationCacheKey("country-profile", normalizedCode, year);
                 var cached = await _presentationDataCache.GetAsync(cacheKey, cancellationToken);
@@ -79,11 +79,9 @@ namespace Capstone.API.Controllers
 
                 var favoriteArtists = BuildFavoriteArtists(result);
                 if (favoriteArtists.Count > 0)
-                {
-                    await _discoverySampleCache.SaveFavoriteArtistsAsync(normalizedCode, year, favoriteArtists, cancellationToken);
-                }
+                    _ = _discoverySampleCache.SaveFavoriteArtistsAsync(normalizedCode, year, favoriteArtists);
 
-                await _presentationDataCache.SaveAsync(cacheKey, result, cancellationToken);
+                _ = _presentationDataCache.SaveAsync(cacheKey, result);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -111,14 +109,14 @@ namespace Capstone.API.Controllers
         [HttpGet("{code}/hidden-gems/preview")]
         public async Task<IActionResult> GetHiddenGemsPreview(string code, [FromQuery] int year = 2021, [FromQuery] int limit = DefaultPreviewLimit, CancellationToken cancellationToken = default)
         {
-            var validationError = await ValidateInputsAsync(code, year);
-            if (validationError != null)
-                return BadRequest(new { message = validationError });
-
             var normalizedLimit = Math.Clamp(limit, 1, MaxPreviewLimit);
 
             try
             {
+                var validationError = await ValidateInputsAsync(code, year, cancellationToken);
+                if (validationError != null)
+                    return BadRequest(new { message = validationError });
+
                 var normalizedCode = code.ToUpperInvariant();
                 var cacheKey = BuildPresentationCacheKey("country-hidden-gems-preview", normalizedCode, year, normalizedLimit);
                 var cached = await _presentationDataCache.GetAsync(cacheKey, cancellationToken);
@@ -128,7 +126,7 @@ namespace Capstone.API.Controllers
                 }
 
                 var result = await _repo.GetHiddenGemsPreviewAsync(normalizedCode, year, normalizedLimit, cancellationToken);
-                await _presentationDataCache.SaveAsync(cacheKey, result, cancellationToken);
+                _ = _presentationDataCache.SaveAsync(cacheKey, result);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -165,10 +163,6 @@ namespace Capstone.API.Controllers
             [FromQuery] int pageSize = DefaultSongsPageSize,
             CancellationToken cancellationToken = default)
         {
-            var validationError = await ValidateInputsAsync(code, year);
-            if (validationError != null)
-                return BadRequest(new { message = validationError });
-
             var normalizedListType = listType.Trim().ToLowerInvariant();
             if (normalizedListType != "shared" && normalizedListType != "unique")
                 return BadRequest(new { message = "listType must be either 'shared' or 'unique'." });
@@ -178,6 +172,10 @@ namespace Capstone.API.Controllers
 
             try
             {
+                var validationError = await ValidateInputsAsync(code, year, cancellationToken);
+                if (validationError != null)
+                    return BadRequest(new { message = validationError });
+
                 var normalizedCode = code.ToUpperInvariant();
                 var cacheKey = BuildPresentationCacheKey("country-songs", normalizedCode, year, normalizedListType, normalizedPage, normalizedPageSize);
                 var cached = await _presentationDataCache.GetAsync(cacheKey, cancellationToken);
@@ -193,7 +191,7 @@ namespace Capstone.API.Controllers
                     normalizedPage,
                     normalizedPageSize,
                     cancellationToken);
-                await _presentationDataCache.SaveAsync(cacheKey, result, cancellationToken);
+                _ = _presentationDataCache.SaveAsync(cacheKey, result);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -222,32 +220,22 @@ namespace Capstone.API.Controllers
             [FromQuery] string codes = "",
             CancellationToken cancellationToken = default)
         {
-            var availableYears = await _memoryCache.GetOrCreateAsync(AvailableYearsCacheKey, async (entry) =>
-            {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
-                return (await _metadataRepo.GetAvailableYearsAsync()).ToHashSet();
-            }) ?? new HashSet<int>();
-
-            if (!availableYears.Contains(year))
-            {
-                return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
-            }
-
             var normalizedCodes = codes
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select((value) => value.ToUpperInvariant())
-                .Where((value) => CountryCodeRegex.IsMatch(value))
+                .Select(value => value.ToUpperInvariant())
+                .Where(value => CountryCodeRegex.IsMatch(value))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Take(MaxGenreSampleCodes)
                 .ToList();
 
             if (normalizedCodes.Count == 0)
-            {
                 return BadRequest(new { message = "At least one valid 2-letter country code is required." });
-            }
 
             try
             {
+                if (!await IsAvailableYearAsync(year, cancellationToken))
+                    return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
+
                 var tasks = normalizedCodes.Select(async (countryCode) =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -260,9 +248,7 @@ namespace Capstone.API.Controllers
                             ? cachedGenres
                             : await _repo.GetCountryGenreSampleAsync(countryCode, year, cancellationToken);
                         if (genres.Count > 0 && cachedGenres.Count == 0)
-                        {
-                            await _discoverySampleCache.SaveGenresAsync(countryCode, year, genres, cancellationToken);
-                        }
+                            _ = _discoverySampleCache.SaveGenresAsync(countryCode, year, genres);
                         return new Capstone.API.Models.Country.CountryGenreSample
                         {
                             CountryCode = countryCode,
@@ -303,32 +289,22 @@ namespace Capstone.API.Controllers
             [FromQuery] string codes = "",
             CancellationToken cancellationToken = default)
         {
-            var availableYears = await _memoryCache.GetOrCreateAsync(AvailableYearsCacheKey, async (entry) =>
-            {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
-                return (await _metadataRepo.GetAvailableYearsAsync()).ToHashSet();
-            }) ?? new HashSet<int>();
-
-            if (!availableYears.Contains(year))
-            {
-                return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
-            }
-
             var normalizedCodes = codes
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select((value) => value.ToUpperInvariant())
-                .Where((value) => CountryCodeRegex.IsMatch(value))
+                .Select(value => value.ToUpperInvariant())
+                .Where(value => CountryCodeRegex.IsMatch(value))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Take(MaxLanguageSampleCodes)
                 .ToList();
 
             if (normalizedCodes.Count == 0)
-            {
                 return BadRequest(new { message = "At least one valid 2-letter country code is required." });
-            }
 
             try
             {
+                if (!await IsAvailableYearAsync(year, cancellationToken))
+                    return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
+
                 var tasks = normalizedCodes.Select(async (countryCode) =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -341,9 +317,7 @@ namespace Capstone.API.Controllers
                             ? cachedLanguages
                             : await _repo.GetCountryLanguageSampleAsync(countryCode, year, cancellationToken);
                         if (languages.Count > 0 && cachedLanguages.Count == 0)
-                        {
-                            await _discoverySampleCache.SaveLanguagesAsync(countryCode, year, languages, cancellationToken);
-                        }
+                            _ = _discoverySampleCache.SaveLanguagesAsync(countryCode, year, languages);
                         return new Capstone.API.Models.Country.CountryLanguageSample
                         {
                             CountryCode = countryCode,
@@ -374,25 +348,25 @@ namespace Capstone.API.Controllers
             }
         }
 
-        private async Task<string?> ValidateInputsAsync(string code, int year)
+        private async Task<string?> ValidateInputsAsync(string code, int year, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(code) || !CountryCodeRegex.IsMatch(code))
-            {
                 return "Country code must be exactly 2 letters (ISO format, e.g. 'US').";
-            }
 
+            if (!await IsAvailableYearAsync(year, cancellationToken))
+                return $"Year {year} is unavailable in this dataset.";
+
+            return null;
+        }
+
+        private async Task<bool> IsAvailableYearAsync(int year, CancellationToken cancellationToken = default)
+        {
             var availableYears = await _memoryCache.GetOrCreateAsync(AvailableYearsCacheKey, async (entry) =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
-                return (await _metadataRepo.GetAvailableYearsAsync()).ToHashSet();
+                return (await _metadataRepo.GetAvailableYearsAsync(cancellationToken)).ToHashSet();
             }) ?? new HashSet<int>();
-
-            if (!availableYears.Contains(year))
-            {
-                return $"Year {year} is unavailable in this dataset.";
-            }
-
-            return null;
+            return availableYears.Contains(year);
         }
 
         private static List<Capstone.API.Models.Country.FavoriteArtistSample> BuildFavoriteArtists(Capstone.API.Models.Country.CountryProfile profile)
