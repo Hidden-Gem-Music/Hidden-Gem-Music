@@ -219,8 +219,37 @@ EXEC sp_PopulateTopSongByCountryYear;     -- fast — independent; reads base ta
 | `IsolationScoreByCountry` | 546 | Repopulated May 8 |
 | `PeakReachBySong` | 240,844 | Repopulated May 8 |
 | `HiddenGems` | 2,585,433 | Unchanged |
-| `TopSongByCountryYear` | — | Populated May 15, 2026 |
+| `TopSongByCountryYear` | — | Populated May 15, 2026; repopulate after May 19 migration |
  
+---
+
+## Part 3 — Issue #148 Fix (May 19, 2026)
+
+### 16. Discovery Map — "No song data" for all DS1 years (2017–2021)
+
+**Issue:** Discovery Map hover cards and country cards showed "No song data for [year]" for virtually all countries in DS1 years (2017–2021). The display line was suppressed even though song titles and artist names were present in the database.
+
+**Root cause:** The Historical Top 200 CSV (DS1) does not include album names. `DIM_Song.album_name` is `NULL` for all DS1 songs and is never populated by any enrichment process — Deezer enrichment tools write local output files only, not the database. The Discovery Map path reads `sp_GetDiscoverPageInfo` → `TopSongByCountryYear` → `DIM_Song.album_name`, which is always `NULL` for DS1. `hasSongData` required a non-null album_name, so the display was suppressed for all DS1 countries.
+
+The bug was pre-existing; the May 13 optimization did not change this behavior. DS2 album data works correctly because the Top 50 CSV includes album names.
+
+**Resolution:**
+
+SP changes:
+- `sp_PopulateTopSongByCountryYear` — Added `s.title AS song_name` to `SELECT`, `GROUP BY`, and `INSERT` so the winning song title is persisted in `TopSongByCountryYear`. Added `CASE WHEN a.artist_name IS NOT NULL THEN 0 ELSE 1 END ASC` as a secondary tie-break in `ROW_NUMBER()` (defensive: prefer known-artist songs at equal chart counts).
+- `sp_GetDiscoverPageInfo` — Added `tscy.song_name AS top_song_name` to the `SELECT`.
+- `TopSongByCountryYear` table — One-time migration required:
+  ```sql
+  ALTER TABLE TopSongByCountryYear ADD song_name NVARCHAR(512) NULL;
+  ```
+
+Frontend changes (see QA log for full scope):
+- `hasSongData` now checks `topSongName` + `topArtistName` instead of `topAlbumName` + `topArtistName`.
+- Hover card and country card label changed from "Most popular album" to "Most popular song."
+- Display now uses `topSong` (song title) instead of `topAlbum` (album name).
+
+**Action required:** In SSMS — run the `ALTER TABLE` above, re-apply both updated SP definitions, then `EXEC sp_PopulateTopSongByCountryYear;`. Note: `album_name` remaining `NULL` in the result set for DS1 entries is expected and correct.
+
 ---
  
 ## Known Quirks for QA Reference

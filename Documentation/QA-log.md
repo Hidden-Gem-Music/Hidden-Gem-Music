@@ -3,6 +3,82 @@
 
 ---
 
+## 2026-05-19 — Discovery Map Showing "No Song Data" for DS1 Years (Issue #148)
+
+**Tester:** Eli (reviewer, PR #137 — flagged in PR review comments, not in this log)
+**Fix owner:** Leena Komenski
+**Branch:** `148-bug-sp-unknown-song-with-unknown-album`
+**Scope:** `sp_PopulateTopSongByCountryYear`, `sp_GetDiscoverPageInfo`, `TopSongByCountryYear` table, `GlobeRepository.cs`, `CountryGlobeSummary.cs`, `api.ts`, `apiMappers.ts`, `discoveryApi.ts`, `GlobeView.tsx`, `CountryCard.tsx`
+
+### What was noticed
+
+Eli flagged during review of PR #137 that the Discovery Map showed **"No song data for [year]"** for most countries in 2021 (and other DS1 years). The hover card and country card lines that should show the most popular song were suppressed entirely for DS1 countries.
+
+### Root cause
+
+The Historical Top 200 CSV (DS1) does not include album names — `DIM_Song.album_name` is `NULL` for all DS1 songs and is never written by any enrichment process. The Deezer enrichment tools (`tools/song_data_enrichment/`) produce local CSV/JSON output files; they do not write back to `DIM_Song`. The `DeezerSongEnrichmentService` calls Deezer at request time for endpoints like Country Profile and Hidden Gems, but the Discovery Map path bypasses that service entirely — it reads only from `sp_GetDiscoverPageInfo` → `TopSongByCountryYear`.
+
+As a result, the Discovery Map hover card for DS1 years (2017–2021) has never had album data. `hasSongData = Boolean(topAlbumName?.trim() && topArtistName?.trim())` evaluated to `false` for all DS1 countries (album_name always NULL), suppressing the entire display even though song title and artist name are fully available from the CSV.
+
+DS2 years (2023–2025) are unaffected — the Top 50 CSV includes album names, so `DIM_Song.album_name` is populated for DS2 songs and the hover card album line works correctly for those years.
+
+The May 13 optimization (commit cc709af) did not change or worsen this behavior — the old live subquery read the same `DIM_Song.album_name = NULL` values. The bug was pre-existing for all DS1 years; Eli noticed it during the PR #137 review of the optimization. DS1 song titles (`DIM_Song.title`) and artist names (`DIM_Artist.artist_name`) are fully populated from the CSV and have always been available.
+
+### What was fixed
+
+**Database layer:**
+- **`sp_PopulateTopSongByCountryYear`** — Added `s.title AS song_name` to `SELECT`, `GROUP BY`, and `INSERT` so the winning song title is persisted in `TopSongByCountryYear`. Added `CASE WHEN a.artist_name IS NOT NULL THEN 0 ELSE 1 END ASC` as a secondary tie-break in `ROW_NUMBER()` (defensive improvement — prefer a known-artist song at equal chart counts).
+- **`sp_GetDiscoverPageInfo`** — Added `tscy.song_name AS top_song_name` to the `SELECT`.
+- **`TopSongByCountryYear` table** — Requires a one-time migration before re-running the populate SP:
+  ```sql
+  ALTER TABLE TopSongByCountryYear ADD song_name NVARCHAR(512) NULL;
+  ```
+
+**API / C# layer:**
+- **`CountryGlobeSummary.cs`** — Added `TopSongName` property.
+- **`GlobeRepository.cs`** — Maps `top_song_name` → `TopSongName`.
+
+**Frontend:**
+- **`api.ts`** — Added `topSongName: string | null` to `ApiCountryGlobeSummary`.
+- **`apiMappers.ts`** — Added `topSong` to `UiCountryGlobeSummary`; maps `topSongName` via `toNonEmpty`.
+- **`discoveryApi.ts`** — Changed `hasSongData` to check `topSongName` + `topArtistName` (both available for DS1) instead of `topAlbumName` + `topArtistName`. Changed `topSong` to use `mapped.topSong` from the API instead of falling back to the static country cache.
+- **`GlobeView.tsx`** and **`CountryCard.tsx`** — Changed display label from "Most popular album" to "Most popular song". Changed display value from `country.album` to `country.topSong`. Updated `hasNoSongData` guard to check `topSong` instead of `album`.
+
+### How to test
+
+1. In SSMS, run the migration: `ALTER TABLE TopSongByCountryYear ADD song_name NVARCHAR(512) NULL;`
+2. Re-apply the SP definitions from the updated `.sql` files.
+3. `EXEC sp_PopulateTopSongByCountryYear;` — sanity output should show rows for each available year.
+4. `EXEC sp_GetDiscoverPageInfo @Year = 2021;` — confirm `top_song_name` and `top_artist_name` are non-null for major countries (US, GB, JP, AR, MX, DE).
+5. In the app, select year 2021 on the Discovery Map. Country cards and hover cards that previously showed "No song data for 2021" should now show "Most popular song: X by Y."
+6. Verify DS2 years (2023–2025) also still display correctly — song title + artist should show for those years too.
+7. Spot-check year 2018 to confirm the fix extends to all DS1 years (66 countries have chart data for 2018).
+8. Once Deezer enrichment has been run against the DB and `DIM_Song.album_name` is backfilled, re-run `EXEC sp_PopulateTopSongByCountryYear;` — the secondary album display in the hover card will populate automatically without any further code changes.
+
+### Verification
+
+```sql
+-- Confirm song_name column was added
+SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'TopSongByCountryYear' AND COLUMN_NAME = 'song_name';
+
+-- Spot-check — song_name and artist_name should be non-null; album_name will be NULL until Deezer enrichment backfills DIM_Song
+SELECT TOP 20 country_id, chart_year, song_name, album_name, artist_name
+FROM TopSongByCountryYear
+WHERE chart_year = 2021
+ORDER BY country_id;
+
+-- Check Deezer enrichment coverage — album_name NULL here means enrichment has not run yet
+SELECT
+    COUNT(*) AS total_ds1_songs,
+    COUNT(album_name) AS enriched_with_album,
+    COUNT(*) - COUNT(album_name) AS pending_enrichment
+FROM DIM_Song
+WHERE song_id IN (SELECT DISTINCT song_id FROM ChartEntry WHERE YEAR(snapshot_date) BETWEEN 2017 AND 2021);
+```
+
+---
+
 ## 2026-05-17 — Credits Screen Content Completion
 
 **Tester:** mp3li / Codex-assisted verification

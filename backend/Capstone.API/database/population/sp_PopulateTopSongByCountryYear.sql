@@ -5,16 +5,31 @@
 --                           for readability. Added song_id to INSERT for traceability.
 --                           Confirmed table name as ChartEntry (star schema).
 --                           Added sanity-check result set (rows per year) at end.
+--              05/19/2026 — Bug fix (issue #148): DS1 CSV has no album names so
+--                           DIM_Song.album_name is NULL for all DS1 songs. The hover
+--                           card guard (hasSongData) was requiring a non-null album_name,
+--                           suppressing the display for all DS1 years.
+--                           Added song_name (DIM_Song.title) so the hover card can show
+--                           "Most popular song: X by Y" using data that IS in the CSV.
+--                           DS2 album_name is populated from its CSV and will appear as
+--                           a secondary line on the hover card automatically.
+--                           Added artist_name IS NOT NULL as secondary tie-break in
+--                           ROW_NUMBER (defensive: prefer known-artist songs at ties).
+--                           BEFORE re-running this SP, apply the migration in SSMS:
+--                             ALTER TABLE TopSongByCountryYear
+--                               ADD song_name NVARCHAR(512) NULL;
 -- Description: Pre-computes the most frequently charted song per country per year.
---              Stores country_id, chart_year, song_id, album_name, and primary artist_name
---              in TopSongByCountryYear for use by sp_GetDiscoverPageInfo without scanning
---              ChartEntry at read time. Ties broken deterministically by song_id ASC.
+--              Stores country_id, chart_year, song_id, song_name, album_name, and
+--              primary artist_name in TopSongByCountryYear for use by
+--              sp_GetDiscoverPageInfo without scanning ChartEntry at read time.
+--              Tie-break order: COUNT(*) DESC → artist known first → song_id ASC.
 --              Run once after ChartEntry is populated or updated.
--- Table:       TopSongByCountryYear — DDL:
+-- Table:       TopSongByCountryYear — DDL (original + 05/19/2026 migration):
 --                CREATE TABLE TopSongByCountryYear (
 --                    country_id   INT            NOT NULL,
 --                    chart_year   INT            NOT NULL,
 --                    song_id      INT            NOT NULL,
+--                    song_name    NVARCHAR(512)  NULL,   -- added 05/19/2026
 --                    album_name   NVARCHAR(512)  NULL,
 --                    artist_name  NVARCHAR(MAX)  NULL,
 --                    CONSTRAINT PK_TopSongByCountryYear PRIMARY KEY (country_id, chart_year),
@@ -36,12 +51,16 @@ BEGIN
             ce.country_id,
             YEAR(ce.snapshot_date)      AS chart_year,
             ce.song_id,
+            s.title                     AS song_name,
             s.album_name,
             a.artist_name,
             COUNT(*)                    AS chart_appearances,
             ROW_NUMBER() OVER (
                 PARTITION BY ce.country_id, YEAR(ce.snapshot_date)
-                ORDER BY COUNT(*) DESC, ce.song_id ASC  -- song_id tiebreak = deterministic
+                ORDER BY
+                    COUNT(*) DESC,
+                    CASE WHEN a.artist_name IS NOT NULL THEN 0 ELSE 1 END ASC,
+                    ce.song_id ASC
             ) AS rn
         FROM ChartEntry ce
         JOIN DIM_Song s
@@ -56,11 +75,12 @@ BEGIN
             ce.country_id,
             YEAR(ce.snapshot_date),
             ce.song_id,
+            s.title,
             s.album_name,
             a.artist_name
     )
-    INSERT INTO TopSongByCountryYear (country_id, chart_year, song_id, album_name, artist_name)
-    SELECT country_id, chart_year, song_id, album_name, artist_name
+    INSERT INTO TopSongByCountryYear (country_id, chart_year, song_id, song_name, album_name, artist_name)
+    SELECT country_id, chart_year, song_id, song_name, album_name, artist_name
     FROM RankedSongs
     WHERE rn = 1;
 

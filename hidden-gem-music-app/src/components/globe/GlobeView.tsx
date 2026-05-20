@@ -245,7 +245,7 @@ export function GlobeView({
   const hasNoSongData =
     cardCountry
       ? cardCountry.hasSongData === false ||
-        cardCountry.album.trim().toLowerCase().startsWith("unknown") ||
+        cardCountry.topSong.trim().toLowerCase().startsWith("unknown") ||
         cardCountry.albumArtist.trim().toLowerCase().startsWith("unknown")
       : false;
   const noSongDataCopy = selectedYear ? `No song data for ${selectedYear}` : "No song data for this year";
@@ -549,12 +549,16 @@ export function GlobeView({
   const baseStrokeWidth = isNativeMobile ? 0.42 : zoom <= 1.2 ? 0.28 : zoom <= 1.8 ? 0.34 : zoom <= 2.6 ? 0.42 : 0.5;
   const canZoomOut = zoom > MIN_ZOOM + 0.01;
   const canZoomIn = zoom < MAX_ZOOM - 0.01;
+  const hasAlbumData = cardCountry
+    ? !cardCountry.album.trim().toLowerCase().startsWith("unknown")
+    : false;
   const hoveredCountryStats = cardCountry
     ? [
         `Hidden Gems:  ${hasHiddenGems ? `${cardCountry.hiddenSongs}` : noHiddenGemsCopy}`,
         hasNoSongData
-          ? `Most popular album in ${selectedYearLabel}:  ${noSongDataCopy}`
-          : `Most popular album in ${selectedYearLabel}:  ${cardCountry.album} by ${cardCountry.albumArtist}`,
+          ? `Most popular song in ${selectedYearLabel}:  ${noSongDataCopy}`
+          : `Most popular song in ${selectedYearLabel}:  ${cardCountry.topSong} by ${cardCountry.albumArtist}`,
+        ...(hasAlbumData && !hasNoSongData ? [`Top album:  ${cardCountry.album}`] : []),
       ]
     : null;
   const mobileInfoPanelHeight = hoveredCountryStats ? MOBILE_DETAIL_INFO_PANEL_HEIGHT : MOBILE_HELPER_INFO_PANEL_HEIGHT;

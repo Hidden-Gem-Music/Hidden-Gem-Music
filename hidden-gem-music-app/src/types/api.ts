@@ -129,6 +129,7 @@ export type ApiCountryGlobeSummary = {
   lat: number;
   long: number;
   hiddenGemCount: number;
+  topSongName: string | null;
   topAlbumName: string | null;
   topArtistName: string | null;
 };

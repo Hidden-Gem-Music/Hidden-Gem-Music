@@ -37,7 +37,15 @@ namespace Capstone.API.Models.Globe
         public int HiddenGemCount { get; set; }
 
         /// <summary>
-        /// Gets or sets the name of the top album for this country, shown on the hover card.
+        /// Gets or sets the title of the most-charted song for this country, shown on the hover card.
+        /// Populated from DIM_Song.title via TopSongByCountryYear. Available for both DS1 and DS2.
+        /// Nullable — may not be available for all countries.
+        /// </summary>
+        public string? TopSongName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the top album for this country.
+        /// NULL for DS1 (Historical Top 200) — DS1 source data does not include album names.
         /// Nullable — may not be available for all countries.
         /// </summary>
         public string? TopAlbumName { get; set; }

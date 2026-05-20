@@ -90,6 +90,7 @@ export type UiCountryGlobeSummary = {
   lat: number;
   long: number;
   hiddenSongs: number;
+  topSong: string;
   topAlbum: string;
   topArtist: string;
 };
@@ -195,6 +196,7 @@ export const mapApiCountryGlobeSummary = (item: ApiCountryGlobeSummary): UiCount
   lat: item.lat,
   long: item.long,
   hiddenSongs: item.hiddenGemCount,
+  topSong: toNonEmpty(item.topSongName, "Unknown Song"),
   topAlbum: toNonEmpty(item.topAlbumName, "Unknown Album"),
   topArtist: toNonEmpty(item.topArtistName, "Unknown Artist"),
 });
