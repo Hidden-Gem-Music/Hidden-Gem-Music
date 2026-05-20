@@ -3,6 +3,116 @@
 
 ---
 
+## 2026-05-19 — sp_GetCountryProfile Unique Songs Returning Wrong-Country Songs
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `sp_GetCountryProfile.sql`, `presentation_data_cache.json`
+
+### What was noticed
+
+Country Profile pages for Japan (JP) and Brazil (BR) for 2020 displayed Swedish and Polish songs (Maximillian, Benjamin Ingrosso, Szpaku, TIX) as "top unique songs," with those artists listed as country favorites. These are regional Northern/Eastern European artists with no meaningful chart presence in Japan or Brazil.
+
+### Root cause
+
+The "Top 10 Unique Songs" query in `sp_GetCountryProfile` was missing a country filter on its `NOT EXISTS` clause:
+
+```sql
+-- Bug: no country_id filter — passes for ANY country
+AND NOT EXISTS (
+    SELECT 1 FROM HiddenGems hg3
+    WHERE hg3.song_id    = scp.song_id
+      AND hg3.chart_year = @Year
+)
+```
+
+`SongCountryPresence` contains all songs that chart globally. The query found songs with `country_count = 1` (charting in exactly one country) that are not in anyone's `HiddenGems` list — but never verified that the one country they chart in is actually the requested country. Every Swedish or Norwegian regional song qualified.
+
+Compare to the shared songs query above it, which correctly scopes the `NOT EXISTS` to `hg2.country_id = (SELECT country_id FROM Country WHERE iso_code = @CountryCode)`.
+
+### Fix applied
+
+Added the missing country filter to the unique songs `NOT EXISTS`:
+
+```sql
+AND NOT EXISTS (
+    SELECT 1 FROM HiddenGems hg3
+    WHERE hg3.country_id = (SELECT country_id FROM Country WHERE iso_code = @CountryCode)
+      AND hg3.song_id    = scp.song_id
+      AND hg3.chart_year = @Year
+)
+```
+
+### Known limitation (deferred)
+
+`sp_PopulateHiddenGems` uses `@MinCountries = 3`, so only songs charting in 3+ countries are written to `HiddenGems`. Songs with `country_count = 1` or `2` are never in `HiddenGems` for any country. This means "NOT IN HiddenGems for country X" is an imperfect proxy for "charts in country X" for low-count songs. Fixing this properly without querying `ChartEntry` (28M rows) directly is non-trivial and deferred.
+
+### Cache action required
+
+`presentation_data_cache.json` was already populated with the wrong data (wrong songs cached under `COUNTRY-PROFILE::JP::2020`, `COUNTRY-PROFILE::BR::2020`, and likely others). After applying the SP fix in SSMS, delete the file so profiles rebuild from the corrected SP:
+
+```
+backend\Capstone.API\Data\presentation_data_cache.json
+```
+
+### How to test
+
+1. Run the updated `sp_GetCountryProfile.sql` in SSMS.
+2. Delete `presentation_data_cache.json` and restart the server.
+3. Load Japan 2020 and Brazil 2020 country profiles — unique songs and favorite artists should now reflect locally charted artists, not Northern/Eastern European regional artists.
+4. Spot-check a known culturally distinct country (e.g. JP, AR, TR) to confirm its unique songs are plausibly from that market.
+
+---
+
+## 2026-05-19 — Controller Response Caching (Comparison, Discovery, Metadata)
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `ComparisonController.cs`, `DiscoveryController.cs`, `MetadataController.cs`
+
+### What was investigated
+
+Network tab on the Discovery page showed `countries?year=2020` and `years` both taking ~3.78–3.79 s on cold load. Comparison page took ~20 s total for a first load despite `sp_GetCountryComparison` running near-instantly in SSMS after the performance fixes.
+
+Three controllers had no caching at all — every request hit the database directly:
+
+- **`DiscoveryController`** — called `GetAvailableYearsAsync` and `GetGlobeSummaryAsync` on every request with no caching. `GetGlobeSummaryAsync` returns 46.4 kB of globe summary data and was the source of the 3.79 s cold hit.
+- **`MetadataController`** — `GetAvailableYears` called `GetAvailableYearsAsync` directly on every request. No caching.
+- **`ComparisonController`** — `IsAvailableYearAsync` called `GetAvailableYearsAsync` on every comparison request with no cache. The comparison result itself was never cached — every `/api/comparison` hit ran the full SP.
+
+Compare to `CountryController`, which caches available years in `IMemoryCache` (5-minute TTL) and caches full profile responses in `IPresentationDataCacheService` (file-backed, survives restarts).
+
+### Fixes applied
+
+**`DiscoveryController`:**
+- Added `IMemoryCache` dependency.
+- Available years check: `IMemoryCache.GetOrCreateAsync` with 5-minute TTL.
+- Globe summary result: `IMemoryCache.GetOrCreateAsync` with 30-minute TTL keyed by year (`discovery-globe::{year}`).
+
+**`MetadataController`:**
+- Added `IMemoryCache` dependency.
+- Years response: `IMemoryCache.GetOrCreateAsync` with 5-minute TTL.
+
+**`ComparisonController`:**
+- Added `IMemoryCache` and `IPresentationDataCacheService` dependencies.
+- `IsAvailableYearAsync`: now uses `IMemoryCache.GetOrCreateAsync` with 5-minute TTL (same pattern as `CountryController`).
+- `GetCountryComparison`: checks `IPresentationDataCacheService` before hitting the SP; writes result to file-backed cache after first load.
+- `GetComparisonHiddenGems`: same file-backed cache check/write.
+
+### Expected behavior after fix
+
+- **Second load** of any comparison pair or discovery globe year: near-instant (file-backed cache for comparison, memory cache for globe/years).
+- **First load after server restart**: `countries?year=X` and `years` still hit DB once per year per restart (~3.8 s), then serve from memory. Comparison pairs still hit DB once, then serve from file-backed cache across restarts.
+
+### How to test
+
+1. Restart server with a cleared `presentation_data_cache.json`.
+2. Load the Discovery page — `countries?year=X` will be slow on first load; navigate away and back — should be near-instant on second load.
+3. Load a comparison pair (e.g. SE/VN 2020) — first load slow; second load should be instant regardless of server restart.
+4. Confirm `/api/metadata/years` returns the same data as before.
+
+---
+
 ## 2026-05-19 — sp_GetCountryComparison Performance Analysis
 
 **Tester:** Leena Komenski
