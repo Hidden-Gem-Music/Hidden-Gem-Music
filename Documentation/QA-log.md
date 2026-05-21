@@ -41,64 +41,67 @@
 
 ---
 
-## 2026-05-19 — sp_GetCountryProfile Unique Songs Returning Wrong-Country Songs
+## 2026-05-19 / 2026-05-21 — Wrong-Country Songs in Country Profile and Comparison Pages
 
-**Tester:** Leena Komenski
+**Tester:** Leena Komenski; Eli (independent confirmation for USA 2025)
 **Fix owner:** Leena Komenski / Claude-assisted implementation
-**Scope:** `sp_GetCountryProfile.sql`, `presentation_data_cache.json`
+**Scope:** `sp_GetCountryProfile.sql`, `sp_GetCountrySongsPaged.sql`, `sp_GetCountryComparison.sql`, `SongCountryChart` (new table), `sp_PopulateSongCountryChart.sql`, `presentation_data_cache.json`
 
 ### What was noticed
 
-Country Profile pages for Japan (JP) and Brazil (BR) for 2020 displayed Swedish and Polish songs (Maximillian, Benjamin Ingrosso, Szpaku, TIX) as "top unique songs," with those artists listed as country favorites. These are regional Northern/Eastern European artists with no meaningful chart presence in Japan or Brazil.
+Country Profile pages for Japan (JP) and Brazil (BR) for 2020 displayed Swedish and Polish songs (Maximillian, Benjamin Ingrosso, Szpaku, TIX) as "top unique songs," with those artists listed as country favorites. Eli independently flagged that USA 2025 showed unrecognized artists in "Favorite Artists" and songs he didn't recognize in the "Loved Here" section — he noted the results appeared "more year/global SongCountryPresence based rather than explicitly songs that charted in this selected country."
 
 ### Root cause
 
-The "Top 10 Unique Songs" query in `sp_GetCountryProfile` was missing a country filter on its `NOT EXISTS` clause:
+`SongCountryPresence` tracks `(song_id, chart_year, country_count)` — a global count with no `country_id` column. There is no way to ask "did this song chart in Japan?" from that table. All three SPs used `HiddenGems` as a proxy: if a song is not in country X's HiddenGems list, treat it as charting in X. This proxy is fundamentally broken for unique songs.
+
+`sp_PopulateHiddenGems` uses `@MinCountries = 3`, so only songs charting in 3+ countries are written to `HiddenGems`. Songs with `country_count = 1` or `2` are never in HiddenGems for any country. For the unique songs queries (`country_count = 1`), the `NOT EXISTS (HiddenGems)` clause was always true for every country — it never filtered anything. Every globally-unique regional song qualified as "unique to" any requested country.
+
+Additionally, `sp_GetCountrySongsPaged` (the paginated "Loved Here" / "Loved Here and Elsewhere" source) had the same structural flaw in its unique branch. `sp_GetCountryComparison` RS4 and RS5 ("unique to A" / "unique to B") used the same HiddenGems anti-join pattern with the same limitation.
+
+An earlier partial fix (2026-05-19) added a `country_id` filter to the `NOT EXISTS` clause in `sp_GetCountryProfile`, but this did not change the results — since `country_count = 1` songs are never in HiddenGems regardless, the filter was a no-op.
+
+### Fix applied (2026-05-21)
+
+Created `SongCountryChart (song_id, country_id, chart_year)` — a pre-computed lookup table derived from `ChartEntry` (Top 200 only, `chart_type_id != 2` for Viral 50 exclusion, consistent with `sp_PopulateSongCountryPresence`). Populated by `sp_PopulateSongCountryChart`.
+
+Replaced the HiddenGems proxy with a direct join/exists on `SongCountryChart` in all three SPs:
 
 ```sql
--- Bug: no country_id filter — passes for ANY country
-AND NOT EXISTS (
-    SELECT 1 FROM HiddenGems hg3
-    WHERE hg3.song_id    = scp.song_id
-      AND hg3.chart_year = @Year
+-- sp_GetCountryProfile (shared and unique songs):
+JOIN SongCountryChart scc
+    ON scc.song_id    = scp.song_id
+   AND scc.country_id = @CountryId
+   AND scc.chart_year = @Year
+
+-- sp_GetCountrySongsPaged (both branches):
+AND EXISTS (
+    SELECT 1 FROM SongCountryChart scc
+    WHERE scc.song_id    = scp.song_id
+      AND scc.country_id = @CountryId
+      AND scc.chart_year = @Year
 )
+
+-- sp_GetCountryComparison RS4/RS5 (anti-join via LEFT JOIN / WHERE IS NULL):
+WITH InA AS (SELECT scc.song_id FROM SongCountryChart scc WHERE scc.country_id = @CountryIdA ...)
+WITH NotInB AS (SELECT scc.song_id FROM SongCountryChart scc WHERE scc.country_id = @CountryIdB ...)
 ```
 
-`SongCountryPresence` contains all songs that chart globally. The query found songs with `country_count = 1` (charting in exactly one country) that are not in anyone's `HiddenGems` list — but never verified that the one country they chart in is actually the requested country. Every Swedish or Norwegian regional song qualified.
+`SongCountryChart` has a clustered PK on `(song_id, country_id, chart_year)` for song-first joins, and `IX_SongCountryChart_Country_Year` on `(country_id, chart_year)` for country-first lookups in the comparison SP CTEs.
 
-Compare to the shared songs query above it, which correctly scopes the `NOT EXISTS` to `hg2.country_id = (SELECT country_id FROM Country WHERE iso_code = @CountryCode)`.
+### Steps to apply
 
-### Fix applied
-
-Added the missing country filter to the unique songs `NOT EXISTS`:
-
-```sql
-AND NOT EXISTS (
-    SELECT 1 FROM HiddenGems hg3
-    WHERE hg3.country_id = (SELECT country_id FROM Country WHERE iso_code = @CountryCode)
-      AND hg3.song_id    = scp.song_id
-      AND hg3.chart_year = @Year
-)
-```
-
-### Known limitation (deferred)
-
-`sp_PopulateHiddenGems` uses `@MinCountries = 3`, so only songs charting in 3+ countries are written to `HiddenGems`. Songs with `country_count = 1` or `2` are never in `HiddenGems` for any country. This means "NOT IN HiddenGems for country X" is an imperfect proxy for "charts in country X" for low-count songs. Fixing this properly without querying `ChartEntry` (28M rows) directly is non-trivial and deferred.
-
-### Cache action required
-
-`presentation_data_cache.json` was already populated with the wrong data (wrong songs cached under `COUNTRY-PROFILE::JP::2020`, `COUNTRY-PROFILE::BR::2020`, and likely others). After applying the SP fix in SSMS, delete the file so profiles rebuild from the corrected SP:
-
-```
-backend\Capstone.API\Data\presentation_data_cache.json
-```
+1. In SSMS, uncomment and run the `CREATE TABLE` + `CREATE INDEX` block from `sp_PopulateSongCountryChart.sql`.
+2. Run the rest of that file to create the SP, then `EXEC sp_PopulateSongCountryChart;`
+3. Run `sp_GetCountryProfile.sql`, `sp_GetCountrySongsPaged.sql`, and `sp_GetCountryComparison.sql` in SSMS.
+4. Delete `backend\Capstone.API\Data\presentation_data_cache.json` and restart the server.
 
 ### How to test
 
-1. Run the updated `sp_GetCountryProfile.sql` in SSMS.
-2. Delete `presentation_data_cache.json` and restart the server.
-3. Load Japan 2020 and Brazil 2020 country profiles — unique songs and favorite artists should now reflect locally charted artists, not Northern/Eastern European regional artists.
-4. Spot-check a known culturally distinct country (e.g. JP, AR, TR) to confirm its unique songs are plausibly from that market.
+1. Load Japan 2020 and Brazil 2020 country profiles — unique songs and favorite artists should reflect locally charted artists.
+2. Load USA 2025 — "Loved Here" and "Favorite Artists" should show recognizable US chart artists.
+3. Load a comparison pair with culturally distinct countries (e.g. JP vs. BR 2020) — "unique to A" and "unique to B" lists should contain artists plausibly from those markets.
+4. Spot-check a DS2 year (2024 or 2025) for a non-English-speaking country (e.g. TR, AR, KR) to confirm local artists appear.
 
 ---
 

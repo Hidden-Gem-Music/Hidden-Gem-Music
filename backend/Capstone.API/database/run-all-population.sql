@@ -3,6 +3,7 @@
 -- Create date: 04/23/2026
 -- Updated:     05/15/2026 — Added sp_PopulateTopSongByCountryYear (step 9)
 --                           and TopSongByCountryYear to the row count check.
+--              05/21/2026 — Added sp_PopulateSongCountryChart (step 2, after SongCountryPresence).
 -- Description: Runs all population stored procedures in the correct
 --              execution order. Run once after initial data ingestion,
 --              or any time the pre-computed summary tables need to be rebuilt.
@@ -16,6 +17,8 @@ USE HiddenGemMusic;
 GO
 
 EXEC sp_PopulateSongCountryPresence;
+GO
+EXEC sp_PopulateSongCountryChart;
 GO
 EXEC sp_PopulateCountryYearStats;
 GO
@@ -55,4 +58,6 @@ SELECT 'PeakReachBySong',         COUNT(*) FROM PeakReachBySong
 UNION ALL
 SELECT 'HiddenGems',              COUNT(*) FROM HiddenGems
 UNION ALL
-SELECT 'TopSongByCountryYear',    COUNT(*) FROM TopSongByCountryYear;
+SELECT 'TopSongByCountryYear',    COUNT(*) FROM TopSongByCountryYear
+UNION ALL
+SELECT 'SongCountryChart',        COUNT(*) FROM SongCountryChart;

@@ -4,6 +4,10 @@
 -- Updated:     04/26/2026 — Star schema rewrite
 -- Changes:     Song → DIM_Song, ArtistSong → Bridge_SongArtist (artist_order=1),
 --              Artist → DIM_Artist, Album join removed (album_name on DIM_Song)
+-- Updated:     05/19/2026 — Bug fix: added country_id filter to unique songs NOT EXISTS
+-- Updated:     05/21/2026 — Replaced HiddenGems proxy with SongCountryChart join for both
+--              shared and unique songs; added @CountryId variable; requires SongCountryChart
+--              table (see sp_PopulateSongCountryChart.sql)
 -- Description: Full summary stats for one country and year. Returns three result sets:
 -- (1) KPI summary, (2) top 10 shared songs, (3) top 10 unique songs.
 -- EXEC sp_GetCountryProfile @CountryCode = 'US', @Year = 2021;
@@ -18,6 +22,8 @@ CREATE OR ALTER PROCEDURE sp_GetCountryProfile
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    DECLARE @CountryId INT = (SELECT country_id FROM Country WHERE iso_code = @CountryCode);
 
     -- ── Summary Stats ───────────────────────────────────────
     SELECT
@@ -42,6 +48,10 @@ BEGIN
         s.album_name,
         scp.country_count   AS countries_charted_in
     FROM SongCountryPresence scp
+    JOIN SongCountryChart scc
+        ON scc.song_id    = scp.song_id
+       AND scc.country_id = @CountryId
+       AND scc.chart_year = @Year
     JOIN DIM_Song s ON s.song_id = scp.song_id
     LEFT JOIN Bridge_SongArtist bsa
         ON bsa.song_id      = s.song_id
@@ -49,12 +59,6 @@ BEGIN
     LEFT JOIN DIM_Artist a ON a.artist_id = bsa.artist_id
     WHERE scp.chart_year  = @Year
       AND scp.country_count > 1
-      AND NOT EXISTS (
-          SELECT 1 FROM HiddenGems hg2
-          WHERE hg2.country_id = (SELECT country_id FROM Country WHERE iso_code = @CountryCode)
-            AND hg2.song_id    = scp.song_id
-            AND hg2.chart_year = @Year
-      )
     ORDER BY scp.country_count DESC;
 
     -- ── Top 10 Unique Songs ──────────────────────────────────
@@ -64,6 +68,10 @@ BEGIN
         a.artist_name,
         s.album_name
     FROM SongCountryPresence scp
+    JOIN SongCountryChart scc
+        ON scc.song_id    = scp.song_id
+       AND scc.country_id = @CountryId
+       AND scc.chart_year = @Year
     JOIN DIM_Song s ON s.song_id = scp.song_id
     LEFT JOIN Bridge_SongArtist bsa
         ON bsa.song_id      = s.song_id
@@ -71,12 +79,6 @@ BEGIN
     LEFT JOIN DIM_Artist a ON a.artist_id = bsa.artist_id
     WHERE scp.chart_year    = @Year
       AND scp.country_count = 1
-      AND NOT EXISTS (
-          SELECT 1 FROM HiddenGems hg3
-          WHERE hg3.country_id = (SELECT country_id FROM Country WHERE iso_code = @CountryCode)
-            AND hg3.song_id    = scp.song_id
-            AND hg3.chart_year = @Year
-      )
     ORDER BY NEWID();
 END;
 GO
