@@ -19,6 +19,7 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { GlobePanel } from "../components/globe/GlobePanel";
+import { YearDataDisclaimer } from "../components/YearDataDisclaimer";
 import { isCountryWithAppData } from "../data/countryDisplay";
 import { Country } from "../types/content";
 import { colors } from "../theme/colors";
@@ -903,6 +904,7 @@ export function ComparisonSelectScreen({
         }}
         onDone={handleDone}
       />
+      <YearDataDisclaimer year={comparisonYear} style={styles.comparisonYearDisclaimer} />
       <View
         style={[
           styles.layout,
@@ -927,6 +929,9 @@ const styles = StyleSheet.create({
   stack: {
     gap: 16,
     marginTop: -8,
+  },
+  comparisonYearDisclaimer: {
+    alignSelf: "flex-end",
   },
   blurbPanel: {
     minHeight: 80,

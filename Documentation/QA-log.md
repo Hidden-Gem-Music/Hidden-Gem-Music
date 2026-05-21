@@ -3,6 +3,44 @@
 
 ---
 
+## 2026-05-21 — Issue #135: 2023 Limited Data Disclaimer
+
+**Tester:** mp3li / Codex-assisted verification
+**Fix owner:** mp3li / Codex-assisted implementation
+**Branch:** `135-debug-add-2023-data-disclaimer-anywhere-2023-is-an-option`
+**Scope:** `YearDataDisclaimer`, Discovery Map, Country Detail, Hidden Gems, Comparison Mode, Comparison View
+
+### What was fixed
+
+- Added a small reusable `YearDataDisclaimer` component for the 2023 limited-data notice.
+- The notice renders only when the actively viewed year is `2023`.
+- Added the notice to the main year-driven app views:
+  - Discovery Map
+  - Country Detail
+  - Hidden Gems
+  - Comparison Mode
+  - Comparison View country panes
+- Kept the copy concise: `2023 has limited data and may slightly skew results. New data coming soon.`
+- Styled the notice with the app's existing gem icon, gradient, border, typography, and compact callout treatment.
+- Right-aligned the notice on Discovery Map, Country Detail, Hidden Gems, and Comparison Mode.
+- In Comparison View, each pane evaluates its own selected year so only panes viewing 2023 show the notice.
+
+### How to test
+
+1. Open Discovery Map, select 2023, and confirm the notice appears on the right side of the page.
+2. Change Discovery Map to a non-2023 year and confirm the notice disappears.
+3. Open Country Detail, select 2023, and confirm the notice appears below the country/year header on the right.
+4. Open Hidden Gems, select 2023, and confirm the notice appears below the top blurb controls on the right.
+5. Open Comparison Mode, select 2023, and confirm the notice appears below the blurb on the right.
+6. Open Comparison View and set one pane to 2023; confirm the notice appears only in that pane.
+7. Resize web to a narrow/mobile width and confirm the notice wraps cleanly without overlapping the year controls.
+
+### Verification
+
+- `npm run typecheck` passed after the Issue #135 changes.
+
+---
+
 ## 2026-05-19 — Discovery Map Showing "No Song Data" for DS1 Years (Issue #148)
 
 **Tester:** Eli (reviewer, PR #137 — flagged in PR review comments, not in this log)
