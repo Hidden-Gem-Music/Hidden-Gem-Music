@@ -1,6 +1,27 @@
 mp3li implementation timeline document
 
-Updated: May 17, 2026
+Updated: May 21, 2026
+
+Issue 135 - 2023 Data Disclaimer (May 21, 2026)
+- Objective:
+  - Add a visible, lightweight notice anywhere the user actively views 2023 because the 2023 dataset is incomplete and can skew results.
+  - Keep the notice small and consistent with the current app style instead of adding a large disruptive banner.
+
+- Frontend implementation completed:
+  - Added a reusable `YearDataDisclaimer` component that renders only when the active viewed year is `2023`.
+  - Used the app's existing gem icon, gradient, border, typography, and compact callout styling for the notice.
+  - Added the notice to Discovery Map, Country Detail, Hidden Gems, Comparison Mode, and Comparison View.
+  - Right-aligned the notice on Discovery Map, Country Detail, Hidden Gems, and Comparison Mode.
+  - In Comparison View, each country pane checks its own selected year so the warning appears only in panes currently viewing 2023.
+  - Kept the message concise: `2023 has limited data and may slightly skew results. New data coming soon.`
+
+- PR/documentation artifacts updated:
+  - Updated professional QA documentation with Issue 135 testing steps.
+  - Updated frontend architecture documentation to record the shared 2023 disclaimer component.
+  - Updated the PR markdown in `my txts/PR_Issue_135_2023_Data_Disclaimer.md`.
+
+- Verification completed:
+  - Ran frontend TypeScript checking after the Issue 135 changes.
 
 Credits Screen Content Completion for mp3li Portion (May 17, 2026)
 - Objective:

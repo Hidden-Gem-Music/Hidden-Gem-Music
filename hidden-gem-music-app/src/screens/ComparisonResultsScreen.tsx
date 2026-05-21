@@ -21,6 +21,7 @@ import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
+import { YearDataDisclaimer } from "../components/YearDataDisclaimer";
 import { getCachedCountryGenreSamples, getCachedCountryLanguageSamples, loadAvailableYears, loadCountryHiddenGemsPreview, loadCountryProfile, loadCountrySongsPage } from "../data/countryApi";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiSong } from "../data/apiMappers";
 import { collectUniqueLanguagesFromSongs, enrichSongsWithLanguage, formatLanguageAndMore } from "../data/languageApi";
@@ -757,6 +758,7 @@ function ComparisonPaneDropdownStack({
           </Panel>
         ) : null}
       </View>
+      <YearDataDisclaimer year={selectedYear} style={styles.paneYearDisclaimer} />
     </View>
   );
 }
@@ -2122,6 +2124,11 @@ const styles = StyleSheet.create({
   },
   paneBottomYearDropdownWrap: {
     zIndex: 11,
+  },
+  paneYearDisclaimer: {
+    alignSelf: "flex-end",
+    width: 260,
+    maxWidth: 260,
   },
   paneDropdownShell: {
     borderRadius: 17,

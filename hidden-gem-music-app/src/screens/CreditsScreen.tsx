@@ -37,6 +37,16 @@ type MemberLinkSection = {
   }>;
 };
 
+type DataSourceSection = {
+  title: string;
+  summary: string;
+  bullets: string[];
+  links: Array<{
+    label: string;
+    url: string;
+  }>;
+};
+
 const creditSections: CreditSection[] = [
   {
     name: "Leena Komenski",
@@ -61,7 +71,7 @@ const creditSections: CreditSection[] = [
     name: "mp3li",
     role: "Frontend Lead, UX Implementation, Additional Data Integration, and Presentation Tooling",
     summary:
-      "Owned the app-facing design and implementation work that turned Hidden Gem Music into a polished, data-connected web and mobile experience. This included visual design, screen flow, user experience direction, frontend architecture, screen builds, interaction systems, additional-data workflows, loading behavior, documentation, QA, and presentation-readiness support. The Discovery Dashboard was originally created by Leena; mp3li's Dashboard work focused on frontend polish, naming/navigation updates, and the native/mobile adaptation without Recharts.",
+      "Owned the app-facing design and implementation work that turned Hidden Gem Music into a polished, data-connected web and mobile experience. This included visual design, screen flow, user experience direction, frontend architecture, screen builds, interaction systems, Deezer-backed additional-data integration, Deezer metadata workflows, album-art and preview-data handling, loading behavior, documentation, QA, and presentation-readiness support. The Discovery Dashboard was originally created by Leena; mp3li's Dashboard work focused on frontend polish, naming/navigation updates, and the native/mobile adaptation without Recharts.",
     bullets: [
       "Designed the app's visual direction, screen flow, interaction model, and overall user experience across the full Hidden Gem Music interface.",
       "Established the frontend architecture and core screen scaffolding, including the shared app shell, screen ownership patterns, navigation structure, visual system, and responsive layout direction.",
@@ -105,6 +115,31 @@ const memberLinkSections: MemberLinkSection[] = [
   },
 ] as const;
 
+const dataSourceSection: DataSourceSection = {
+  title: "Data Sources & Music APIs",
+  summary:
+    "Hidden Gem Music combines large-scale Spotify chart datasets with live music metadata APIs to power its discovery, comparison, country, hidden-gem, and presentation views.",
+  bullets: [
+    "Spotify chart history from Kaggle supports the app's historical country/year song analysis, including country profiles, comparison views, shared-song counts, and hidden-gem calculations.",
+    "The daily Top Spotify Songs in 73 Countries dataset supports the newer country chart coverage used throughout the app's current-year discovery and dashboard experiences.",
+    "Deezer API metadata is used for app-facing song details such as album art, preview/audio metadata, artist and album information, explicit-content fields, contributors, and tracklist-backed display details.",
+  ],
+  links: [
+    {
+      label: "Top Spotify Songs in 73 Countries",
+      url: "https://www.kaggle.com/datasets/asaniczka/top-spotify-songs-in-73-countries-daily-updated",
+    },
+    {
+      label: "Spotify Charts",
+      url: "https://www.kaggle.com/datasets/dhruvildave/spotify-charts",
+    },
+    {
+      label: "Deezer API",
+      url: "https://developers.deezer.com/api",
+    },
+  ],
+};
+
 function CreditsSurface({
   children,
   style,
@@ -112,11 +147,19 @@ function CreditsSurface({
 }: {
   children: ReactNode;
   style?: ViewStyle | ViewStyle[];
-  fillVariant?: "comparisonBlue" | "softBlue";
+  fillVariant?: "comparisonBlue" | "softBlue" | "blurb";
 }) {
   return (
     <Panel style={[styles.surfacePanel, style]}>
-      {fillVariant === "softBlue" ? (
+      {fillVariant === "blurb" ? (
+        <LinearGradient
+          colors={[colors.surfaceSecondary, "#27293B", "rgba(66,72,101,0.42)", "rgba(66,72,101,0.72)"]}
+          locations={[0, 0.42, 0.78, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.surfaceFill}
+        />
+      ) : fillVariant === "softBlue" ? (
         <LinearGradient
           colors={[colors.backgroundSoft, "#74819B", "#5D6983", colors.backgroundBottom]}
           locations={[0, 0.48, 0.82, 1]}
@@ -135,6 +178,42 @@ function CreditsSurface({
       )}
       <View style={styles.surfaceContent}>{children}</View>
     </Panel>
+  );
+}
+
+function DataSourceLinkButton({ label, url }: { label: string; url: string }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+
+  return (
+    <Pressable
+      style={[
+        styles.dataSourceLinkRow,
+        isHovered ? styles.dataSourceLinkRowHovered : null,
+        isPressed ? styles.dataSourceLinkRowPressed : null,
+      ]}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      onPress={() => Linking.openURL(url)}
+    >
+      <LinearGradient
+        colors={
+          isPressed
+            ? ["rgba(15,16,21,0.52)", "rgba(35,38,55,0.42)", "rgba(66,72,101,0.24)"]
+            : isHovered
+              ? ["rgba(117,82,107,0.42)", "rgba(66,72,101,0.42)", "rgba(44,46,75,0.34)"]
+              : ["rgba(169,176,209,0.12)", "rgba(66,72,101,0.22)", "rgba(35,38,55,0.26)"]
+        }
+        locations={[0, 0.56, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.memberLinkRowFill}
+      />
+      <Text style={styles.dataSourceLinkLabel}>{label}</Text>
+      <Text style={styles.dataSourceLinkUrl}>{url}</Text>
+    </Pressable>
   );
 }
 
@@ -315,6 +394,29 @@ function CreditsPageContent() {
                   ) : null}
                 </View>
               ))}
+            </View>
+          </CreditsSurface>
+
+          <CreditsSurface style={styles.dataSourcesPanel} fillVariant="blurb">
+            <View style={styles.dataSourceCard}>
+              <View style={styles.creditCardTitleWrap}>
+                <Text style={styles.dataSourceTitle}>{dataSourceSection.title}</Text>
+                <View style={styles.dataSourceUnderline} />
+              </View>
+              <Text style={styles.dataSourceBody}>{dataSourceSection.summary}</Text>
+              <View style={styles.bulletList}>
+                {dataSourceSection.bullets.map((bullet) => (
+                  <View key={bullet} style={styles.bulletRow}>
+                    <GemIcon size={14} />
+                    <Text style={styles.dataSourceBulletText}>{bullet}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.dataSourceLinkGrid}>
+                {dataSourceSection.links.map((link) => (
+                  <DataSourceLinkButton key={link.url} label={link.label} url={link.url} />
+                ))}
+              </View>
             </View>
           </CreditsSurface>
         </ScrollView>
@@ -536,5 +638,79 @@ const styles = StyleSheet.create({
   },
   memberLinkTextActive: {
     opacity: 1,
+  },
+  dataSourcesPanel: {
+    minHeight: 0,
+    borderWidth: 2,
+    borderColor: "rgba(169,176,209,0.28)",
+  },
+  dataSourceCard: {
+    width: "100%",
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: "rgba(169,176,209,0.42)",
+    backgroundColor: "rgba(22,26,38,0.2)",
+    padding: 16,
+    gap: 12,
+  },
+  dataSourceTitle: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 25,
+    lineHeight: 30,
+  },
+  dataSourceUnderline: {
+    width: "100%",
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: colors.textLight,
+    opacity: 0.72,
+  },
+  dataSourceBody: {
+    color: colors.textLight,
+    fontFamily: typefaces.body,
+    fontSize: 17,
+    lineHeight: 26,
+  },
+  dataSourceBulletText: {
+    flex: 1,
+    color: colors.textLight,
+    fontFamily: typefaces.body,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  dataSourceLinkGrid: {
+    gap: 8,
+    marginTop: 4,
+  },
+  dataSourceLinkRow: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(169,176,209,0.36)",
+    backgroundColor: "rgba(22,26,38,0.12)",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    gap: 2,
+    overflow: "hidden",
+  },
+  dataSourceLinkRowHovered: {
+    borderColor: "rgba(169,176,209,0.7)",
+  },
+  dataSourceLinkRowPressed: {
+    borderColor: colors.textStrong,
+    transform: [{ scale: 0.99 }],
+  },
+  dataSourceLinkLabel: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  dataSourceLinkUrl: {
+    color: colors.textLight,
+    fontFamily: typefaces.body,
+    fontSize: 16,
+    lineHeight: 24,
+    opacity: 0.78,
   },
 });
