@@ -20,6 +20,7 @@ import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
+import { YearDataDisclaimer } from "../components/YearDataDisclaimer";
 import { getCachedCountryGenreSamples, getCachedCountryLanguageSamples, loadAvailableYears, loadCountryHiddenGemsPreview, loadCountryProfile, loadCountrySongsPage } from "../data/countryApi";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiSong } from "../data/apiMappers";
 import { collectUniqueLanguagesFromSongs, enrichSongsWithLanguage, formatLanguageAndMore } from "../data/languageApi";
@@ -2131,6 +2132,7 @@ export function CountryScreen({
             />
           </View>
         </View>
+        <YearDataDisclaimer year={selectedYear} style={styles.countryYearDisclaimer} />
 
         <CountryPageSection style={styles.countrySummarySection} fillVariant="comparisonBlue">
           <Text style={[styles.countrySummarySectionHeader, styles.countrySummarySectionTextDark]}>Country Summary</Text>
@@ -2318,6 +2320,9 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     paddingRight: 18,
     overflow: "visible",
+  },
+  countryYearDisclaimer: {
+    alignSelf: "flex-end",
   },
   pageScrollbarTrack: {
     position: "absolute",

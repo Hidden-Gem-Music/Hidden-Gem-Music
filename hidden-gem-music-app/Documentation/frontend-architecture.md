@@ -2,7 +2,7 @@
 
 **Project:** Hidden Gem Music Discovery Platform — SOFT290 Capstone
 **Author:** mp3li
-**Date:** 2026-05-15
+**Date:** 2026-05-21
 **Status:** Current Working Frontend Architecture
 
 ---
@@ -115,6 +115,14 @@ Shared visual primitives are mostly in:
 - `src/components/CdCaseArt.tsx`
 - `src/components/GemIcon.tsx`
 - `src/components/YearSlider.tsx`
+- `src/components/YearDataDisclaimer.tsx`
+
+2023 data disclaimer behavior:
+
+- `src/components/YearDataDisclaimer.tsx` owns the small inline notice for 2023-limited data.
+- The component renders nothing unless the active viewed year is `2023`.
+- Discovery Map, Country Detail, Hidden Gems, Comparison Mode, and Comparison View all reuse the same component instead of duplicating warning copy.
+- Comparison View evaluates each pane's selected year independently, so a 2023 notice can appear in only one pane when the other pane is viewing a different year.
 
 Theme ownership lives in:
 

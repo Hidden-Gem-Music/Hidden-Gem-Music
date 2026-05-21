@@ -11,6 +11,7 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { YearSlider } from "../components/YearSlider";
+import { YearDataDisclaimer } from "../components/YearDataDisclaimer";
 import { loadCountryGenreSamples, loadCountryLanguageSamples } from "../data/countryApi";
 import { formatLanguageAndMore } from "../data/languageApi";
 import { useLoadingText } from "../hooks/useLoadingText";
@@ -593,6 +594,7 @@ export function DiscoveryScreen({
       />
       */}
       <DiscoveryBlurb />
+      <YearDataDisclaimer year={selectedYear} style={styles.discoveryYearDisclaimer} />
       <View style={[styles.layout, isStacked ? styles.layoutStacked : null]}>
         {isStacked ? globeColumn : listColumn}
         {isStacked ? listColumn : globeColumn}
@@ -970,6 +972,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 24,
+  },
+  discoveryYearDisclaimer: {
+    alignSelf: "flex-end",
   },
   layout: {
     flexDirection: "row",

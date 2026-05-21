@@ -26,6 +26,7 @@ import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
+import { YearDataDisclaimer } from "../components/YearDataDisclaimer";
 import { getCachedHiddenGemsPage, loadCountryProfile, loadHiddenGemsPage } from "../data/countryApi";
 import { isCountryWithHiddenGems } from "../data/countryDisplay";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiHiddenGemPage } from "../data/apiMappers";
@@ -1906,6 +1907,7 @@ export function HiddenGemsScreen({
             </View>
           </View>
         </Panel>
+        <YearDataDisclaimer year={selectedYear} style={styles.hiddenGemsYearDisclaimer} />
         <View style={styles.layout}>
           <View style={[styles.primaryPanelsRow, isStacked ? styles.primaryPanelsRowStacked : null]}>
             {isStacked ? (
@@ -2737,6 +2739,9 @@ const styles = StyleSheet.create({
   layout: {
     gap: 12,
     alignItems: "stretch",
+  },
+  hiddenGemsYearDisclaimer: {
+    alignSelf: "flex-end",
   },
   primaryPanelsRow: {
     flexDirection: "row",
