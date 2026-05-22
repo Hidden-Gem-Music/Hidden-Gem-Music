@@ -3,6 +3,65 @@
 
 ---
 
+## 2026-05-21 — Cache Clearing Required After Every Backend or SP Change
+
+**Tester:** Leena Komenski
+**Fix owner:** ⚠️ Flagged for Eli
+**Scope:** `FileBackedDiscoverySampleCacheService`, `FileBackedPresentationDataCacheService`, `DiscoveryController` (`IMemoryCache`)
+
+### What was noticed
+
+Every SP or backend code change requires manually deleting cache files and restarting the server before the effect is visible. The two-layer cache (file-backed JSON + `IMemoryCache`) is good for production performance but makes iterative QA and debugging significantly slower.
+
+### Cache locations to clear
+
+- `backend\Capstone.API\Data\discovery_samples_cache.json` (and `.tmp` if present)
+- `backend\Capstone.API\Data\presentation_data_cache.json`
+- `backend\Capstone.API\live_song_enrichment_cache\live_song_cache.json`
+- In-memory cache (`IMemoryCache`) — cleared only by server restart
+
+### ⚠️ Eli — consider a dev cache bypass
+
+A flag (e.g. environment variable or `appsettings.Development.json` setting) that disables or shortens cache TTLs in development would make local QA much faster without affecting production behavior.
+
+---
+
+## 2026-05-21 — Viral 50 Leaking into CountryYearStats for Top-200-Absent Countries
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `sp_PopulateCountryYearStats.sql`
+
+### What was noticed
+
+Andorra's country profile KPI showed 682 total songs, 557 shared, 125 unique, 81% overlap — despite no songs ever loading in the shared or unique song lists. Andorra is the only country in the dataset with chart entries but no Top 200 data.
+
+### Root cause
+
+`sp_PopulateCountryYearStats` queried `ChartEntry` without filtering out Viral 50 (`chart_type_id = 2`). Countries like Andorra that have Viral 50 data but no Top 200 presence got inflated KPI numbers. The shared/unique classification comes from `SongCountryPresence` (Top 200 only), so those numbers don't describe the country's own charting behavior — they describe the global Top 200 popularity of songs that happened to trend virally there. The "unique" count in particular is meaningless: it counted songs unique to one other country's Top 200, not unique to Andorra.
+
+`SongCountryChart` correctly excludes Viral 50, so song lists were empty — producing the visible inconsistency of a non-zero KPI with no songs displayed.
+
+### Fix applied
+
+Added `AND ce.chart_type_id != 2` to `SongsPerCountryYear` CTE in `sp_PopulateCountryYearStats`, consistent with `sp_PopulateSongCountryPresence` and `sp_PopulateSongCountryChart`.
+
+### Steps to apply
+
+1. Run updated `sp_PopulateCountryYearStats.sql` in SSMS to update the SP.
+2. `EXEC sp_PopulateCountryYearStats;`
+3. Delete `presentation_data_cache.json` and restart the server.
+
+### Note on affected countries
+
+Andorra is the only country in the dataset with chart entries but no Top 200 data — all other countries either have Top 200 data or no chart entries at all. Andorra will now show no profile data, which is correct given its data is entirely Viral 50 and cannot support the app's Discovery Gap metrics.
+
+### ⚠️ Follow-up — verify raw data for Andorra
+
+Check the raw Kaggle CSV for `AD` rows with `chart_type_id = 1` (Top 200). If Top 200 rows exist in the source file but aren't in the database, the data can be ingested and Andorra will work correctly. If no Top 200 rows exist in the source, the current behavior is correct and no further action is needed.
+
+---
+
 ## 2026-05-21 — Discovery Map Genre/Language Sampling Fixes
 
 **Tester:** Leena Komenski
@@ -30,7 +89,7 @@
 
 ### Steps to apply
 
-1. Run `sp_GetCountrySongsPaged.sql` in SSMS (required — root cause of same-genres-everywhere).
+1. Run updated `sp_GetCountrySongsPaged.sql` in SSMS (required — root cause of same-genres-everywhere).
 2. Delete `backend\Capstone.API\Data\discovery_samples_cache.json` and restart the server.
 3. Delete `backend\Capstone.API\live_song_enrichment_cache\live_song_cache.json` if any bad fallback matches are cached from before this fix (optional but recommended for a clean slate).
 
