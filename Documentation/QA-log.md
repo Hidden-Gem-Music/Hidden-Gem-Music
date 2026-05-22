@@ -3,6 +3,84 @@
 
 ---
 
+## 2026-05-21 — Discovery Map Genre/Language Sampling Fixes
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `CountryRepository.cs`, `sp_GetCountrySongsPaged.sql`
+
+### What was noticed
+
+- Discovery Map showed identical genres (e.g. Alternative, R&B, Pop) for nearly every country in every year.
+- Country profile page genres did not match the genres of the country's own top songs — e.g. Australia 2023 showed "Classical" while none of its top songs were Classical.
+- Some countries (Egypt, Saudi Arabia, Morocco, Andorra) showed no genre or language at all.
+- Some variation in language across countries but far less than expected.
+
+### Root causes
+
+**1. `sp_GetCountrySongsPaged` not applied to database** — The SP was updated in this branch but not yet run in SSMS. The database still had the old query, which pulled from a global song pool with no country filter → same songs → same genres for all countries.
+
+**2. Deezer rate limiting from parallel prefix scans** — Commit `013b796` made the three genre prefix scans run in parallel. With 16 countries requested at once, this created up to 144 concurrent Deezer calls, exceeding the 50/4.9s rate limiter and causing Egypt, Saudi Arabia, Morocco, and Andorra to return no genre or language data. The rate limiter was known to handle individual call bursts correctly — the oversight was not accounting for how parallelizing the prefix scans multiplied the burst size when many countries load simultaneously.
+
+### Fixes applied
+
+- **Ran `sp_GetCountrySongsPaged.sql` in SSMS** — primary fix for identical genres across all countries.
+- **Reverted prefix scans to sequential** in `GetCountryGenreSampleAsync` — fixes missing genre/language data for non-Latin-alphabet countries.
+- **Deezer fallback investigated, not changed** — splitting `SelectBestTrackMatch` into strict (genre sampling) and permissive (Hidden Gems) paths was prototyped and reverted. The SP fix is the root cause; the original `FirstOrDefault()` fallback is preserved.
+
+### Steps to apply
+
+1. Run `sp_GetCountrySongsPaged.sql` in SSMS (required — root cause of same-genres-everywhere).
+2. Delete `backend\Capstone.API\Data\discovery_samples_cache.json` and restart the server.
+3. Delete `backend\Capstone.API\live_song_enrichment_cache\live_song_cache.json` if any bad fallback matches are cached from before this fix (optional but recommended for a clean slate).
+
+### ⚠️ Eli — profile page genre source: review requested
+
+`GetCountryProfileAsync` currently calls `GetCountryGenreSampleAsync` (your original prefix-based approach) for `SampleGenres`. During this investigation an alternative was prototyped and reverted — flagging for your review:
+
+**Option A (current — Eli's original):** `GetCountryGenreSampleAsync` — prefix heuristic samples from the full catalog for genre diversity. Costs extra Deezer calls on profile load; genres may not match the specific top songs shown on screen.
+
+**Option B (prototyped, reverted):** Derive `SampleGenres` from the already-enriched `TopSharedSongs` + `TopUniqueSongs` directly. Zero extra Deezer calls; genres always match the visible songs. Risk: top shared songs are ordered by `country_count DESC` (most globally popular), so genres may skew toward mainstream Pop/R&B and miss local genres that don't chart globally.
+
+Kept Option A on the assumption that genre diversity was intentional. Please confirm.
+
+### How to test
+
+1. Open Discovery Map for 2021 — confirm countries show different genres from each other.
+2. Open a country profile — confirm the listed genres match those on the visible top song cards.
+3. Check Egypt or Saudi Arabia — may show fewer genres than English-speaking countries due to Deezer match confidence on non-Latin titles; this is expected.
+
+---
+
+## 2026-05-21 — Country Profile KPI Card Label Improvements
+
+**Tester:** TBD
+**Fix owner:** ⚠️ Frontend change needed — flagged for Eli
+**Scope:** Frontend Country Detail page — KPI summary cards
+
+### What was noticed
+
+The KPI card labels on the country profile page don't clearly communicate what they're showing to a new viewer:
+
+| Current label | Suggested label | Notes |
+|---|---|---|
+| Songs in this view | **Total songs charted** | "In this view" is ambiguous — clarify it's the total for the country/year |
+| Loved in This Country | **X unique songs** | Show the actual count; "Loved in This Country" reads like a section heading, not a stat |
+| Loved Here and Elsewhere | **X shared songs** | Same — lead with the number, label describes what it counts |
+| _(overlap % card)_ | See options below | Currently shows `overlap_pct` with label "% of this view" — misleading |
+
+### ⚠️ Eli — overlap percentage card copy
+
+`overlap_pct` = `shared_count / total_charted` — the percentage of this country's charting songs that also appeared in at least one other country's charts that year. The current label "% of this view" doesn't explain this. Suggested options (or choose something else entirely):
+
+- **"of songs here also charted abroad"** — plain and accurate
+- **"international chart overlap"** — short, reads like a stat label
+- **"of this year's chart crossed borders"** — more expressive
+
+No backend changes needed — `overlap_pct` is already returned in the profile response from `CountryYearStats`.
+
+---
+
 ## 2026-05-21 — Issue #135: 2023 Limited Data Disclaimer
 
 **Tester:** mp3li / Codex-assisted verification
@@ -221,6 +299,7 @@ Index alone reduced cold-load time by ~2 s (~20 s → ~18 s). Retest with all th
 ---
 
 ## 2026-05-19 — CountryRepository Parallel Deezer Enrichment
+_(updated 2026-05-21 — items 3 and 4 revised; see 2026-05-21 Discovery Map Genre/Language Sampling Fixes)_
 
 **Tester:** Leena Komenski
 **Fix owner:** Leena Komenski / Claude-assisted implementation
@@ -234,19 +313,19 @@ Four changes were made to `CountryRepository.cs`:
 
 **1. `EnrichSongRowsAsync` — parallel enrichment**
 
-Changed from sequential `foreach await` to `Task.WhenAll`. All songs in a list now enrich concurrently. The `DeezerSongEnrichmentService` has a built-in sliding window rate limiter (50 req / 4.9 s) that prevents overloading the Deezer API.
+Changed from sequential `foreach await` to `Task.WhenAll`. All songs in a list now enrich concurrently. The `DeezerSongEnrichmentService` has a built-in sliding window rate limiter (50 req / 4.9 s), but this only throttles individual calls — it does not prevent burst overload when many countries are loaded simultaneously on the Discovery Map.
 
 **2. `GetHiddenGemsPreviewAsync` — parallel enrichment**
 
 Changed from sequential `foreach await` to `Task.WhenAll` over all raw rows, with deduplication and limit applied in a post-filter pass over the results.
 
-**3. `GetCountryGenreSampleAsync` — parallel prefix scans**
+**3. `GetCountryGenreSampleAsync` — parallel prefix scans** ⚠️ reverted 2026-05-21
 
-The three prefix scans ("B", "I", "Y") previously ran one after another. They now run concurrently with independent `seenGenres` sets; results are deduplicated after all tasks complete.
+The three prefix scans ("B", "I", "Y") were changed to run concurrently. In practice, with 16 countries loading simultaneously on the Discovery Map, this created up to 144 burst Deezer calls, exceeding the rate limiter window and causing countries at the back of the queue to return no genre or language data. **Reverted to sequential prefix scans** in the 2026-05-21 genre sampling fix.
 
 **4. `GetCountryProfileAsync` — parallel sub-operations**
 
-Shared songs enrichment, unique songs enrichment, and genre sample fetch previously ran sequentially. All three now start together via `Task.WhenAll`.
+Shared songs enrichment and unique songs enrichment run together via `Task.WhenAll`. Genre sampling was later removed from this `Task.WhenAll` (2026-05-21) — the profile now derives genres from the already-enriched top songs instead of making a separate sampling pass.
 
 **Dead code removed**
 

@@ -14,7 +14,6 @@ namespace Capstone.API.Infrastructure.Repositories
         private static readonly string[] PreferredGenrePrefixes = ["B", "I", "Y"];
         private const int RawSongBatchSize = 100;
         private const int GenreSampleScanCapPerList = 200;
-        private const int LanguageDuplicateSkipLimit = 12;
 
         private readonly IDataRepository _db;
         private readonly IDeezerSongEnrichmentService _deezerSongEnrichmentService;
@@ -191,22 +190,20 @@ namespace Capstone.API.Infrastructure.Repositories
         /// <inheritdoc/>
         public async Task<IReadOnlyList<string>> GetCountryGenreSampleAsync(string countryCode, int year, CancellationToken cancellationToken = default)
         {
-            var prefixTasks = PreferredGenrePrefixes
-                .Select(prefix => FindDistinctGenreForPrefixAsync(countryCode, year, prefix, new HashSet<string>(StringComparer.OrdinalIgnoreCase), cancellationToken));
-            var prefixResults = await Task.WhenAll(prefixTasks);
-
             var selectedGenres = new List<string>(3);
             var seenGenres = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var genre in prefixResults)
+
+            foreach (var prefix in PreferredGenrePrefixes)
             {
+                var genre = await FindDistinctGenreForPrefixAsync(countryCode, year, prefix, seenGenres, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(genre) && seenGenres.Add(genre))
                     selectedGenres.Add(genre);
+                if (selectedGenres.Count >= 3)
+                    return selectedGenres;
             }
 
             if (selectedGenres.Count < 3)
-            {
                 await FillRemainingDistinctGenresAsync(countryCode, year, selectedGenres, seenGenres, cancellationToken);
-            }
 
             return selectedGenres;
         }
@@ -396,67 +393,6 @@ namespace Capstone.API.Infrastructure.Repositories
             item.Contributors = metadata.Contributors;
             item.ArtistAlbumCount = metadata.ArtistAlbumCount;
             return item;
-        }
-
-        private async Task<string?> FindDistinctGenreForPrefixAsync(
-            string countryCode,
-            int year,
-            string prefix,
-            HashSet<string> seenGenres,
-            CancellationToken cancellationToken)
-        {
-            foreach (var listType in new[] { "shared", "unique" })
-            {
-                var inspectedRows = 0;
-                var scanOffset = 0;
-
-                while (inspectedRows < GenreSampleScanCapPerList)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var rows = (await _db.GetDataAsync("sp_GetCountrySongsPaged", new Dictionary<string, object?>
-                    {
-                        { "@CountryCode", countryCode },
-                        { "@Year", year },
-                        { "@ListType", listType },
-                        { "@Offset", scanOffset },
-                        { "@PageSize", RawSongBatchSize }
-                    }, cancellationToken)).ToList();
-
-                    if (rows.Count == 0)
-                    {
-                        break;
-                    }
-
-                    var totalRawCount = RowValueReader.AsIntAny(rows[0], "total_count", "TotalCount");
-                    foreach (var row in rows)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        inspectedRows++;
-                        var mapped = MapSong(row);
-                        if (!SongStartsWithPrefix(mapped.SongName, prefix))
-                        {
-                            continue;
-                        }
-
-                        var enriched = await EnrichSongAsync(mapped, cancellationToken);
-                        var primaryGenre = GetPrimaryGenre(enriched);
-                        if (string.IsNullOrWhiteSpace(primaryGenre) || seenGenres.Contains(primaryGenre))
-                        {
-                            continue;
-                        }
-
-                        return primaryGenre;
-                    }
-
-                    scanOffset += rows.Count;
-                    if (scanOffset >= totalRawCount)
-                    {
-                        break;
-                    }
-                }
-            }
-
-            return null;
         }
 
         private async Task FillRemainingDistinctGenresAsync(
