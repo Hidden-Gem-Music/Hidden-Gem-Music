@@ -1,6 +1,8 @@
+using System.Net;
 using Capstone.API.Infrastructure.Interfaces;
 using Capstone.API.Infrastructure.Interfaces.Repositories;
 using Capstone.API.Infrastructure.Repositories;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +11,12 @@ builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, relo
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddMemoryCache();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownProxies.Add(IPAddress.Loopback);
+    options.KnownProxies.Add(IPAddress.IPv6Loopback);
+});
 builder.Services.AddHttpClient("DeezerApi", client =>
 {
     client.BaseAddress = new Uri("https://api.deezer.com/");
@@ -16,7 +24,7 @@ builder.Services.AddHttpClient("DeezerApi", client =>
 
 // CORS:
 // - Local/Development: allow Expo Go (exp://...) and LAN hosts used during mobile testing.
-// - Other envs: keep explicit localhost web origin.
+// - Other envs: allow only the deployed Cloudflare Pages frontend and localhost web fallback.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontendDev", policy =>
@@ -25,7 +33,9 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod());
 
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:8081")
+        policy.WithOrigins(
+                  "http://localhost:8081",
+                  "https://hiddengemmusicapp.mp3li.online")
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
@@ -46,6 +56,8 @@ builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<IMetadataRepository, MetadataRepository>();
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();

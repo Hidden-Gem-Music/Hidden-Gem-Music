@@ -3,6 +3,66 @@
 
 ---
 
+## 2026-05-23 — Issue 49 Deploy Cloud Platform Selection Plan and Minimal UI Fixes
+
+**Tester:** mp3li / Codex-assisted implementation
+**Fix owner:** mp3li
+**Branch:** `49-deploy-cloud-platform-selection-plan`
+**Scope:** Deployment platform decision documentation, Cloudflare deployment readiness config, and minimal pre-presentation UI/copy fixes
+
+### What was handled
+
+This branch completed the deployment platform selection plan for the capstone Software Development deployment/integration deliverable. The selected approach is a hybrid Cloudflare deployment: Cloudflare Pages hosts the Expo web frontend, Cloudflare Tunnel routes public HTTPS API traffic to the iMac-hosted .NET backend, and SQL Server remains private on the iMac/local Docker setup.
+
+### Deployment plan documented
+
+- Added `Documentation/deployment-platform-selection-plan.md`.
+- Documented the chosen frontend URL: `https://hiddengemmusicapp.mp3li.online`.
+- Documented the chosen API URL: `https://api-hiddengemmusicapp.mp3li.online`.
+- Explained why the Expo web app can be deployed through static hosting while still remaining interactive through JavaScript and API calls.
+- Explained why GitHub Pages was not selected even though it can host static frontend files.
+- Documented Cloudflare Pages Free limits, Cloudflare Tunnel practical boundaries, and presentation readiness checks.
+- Updated the shared documentation map to include the deployment decision record.
+
+### Deployment readiness changes
+
+- Added `npm run export:web` for the Expo web export path used by Cloudflare Pages.
+- Added `hidden-gem-music-app/public/_redirects` so direct route refreshes on Cloudflare Pages serve the SPA entrypoint.
+- Updated backend production CORS to allow the deployed Cloudflare Pages frontend origin.
+- Added forwarded-header handling for the Cloudflare Tunnel loopback proxy path before HTTPS redirection.
+
+### Minimal UI/copy fixes
+
+- Removed language filters from Discovery Map's All Filters popup and Comparison Mode's Add Your Filters panel.
+- Kept language display/enrichment intact in Country, Comparison, Hidden Gems, and supporting display areas.
+- Updated Discovery Map Pre-Selected Filters helper copy to start with "Coming Soon".
+- Reduced web-only Discovery Map Pre-Selected Filters expanded sidebar height to reduce empty space below the preset filter options.
+- Updated Hidden Gems helper copy to describe Previous/Next, List View, and Play behavior.
+- Marked the Comparison Mode Popularity filter label as coming soon.
+- Filtered non-language placeholders out of Country/Comparison language summary text while leaving the Hidden Gems big-CD language display behavior unchanged.
+
+### Related local artifact
+
+- Added a local issue draft in `my txts/Issue_Add_README_Screenshots_GIFs_And_How_To_Use_Guide.md` for a future README screenshot/GIF documentation pass.
+- The issue covers a README header GIF, screenshots across README sections, a "How to Use Hidden Gem Music" guide, hover/click-state screenshots, and full-screen/function visual documentation.
+
+### Not included
+
+- No SQL Server migration or full-cloud database deployment was attempted.
+- No Cloudflare account-side setup was completed in code; Pages project, custom domains, and Tunnel setup still happen in Cloudflare.
+- No generated `dist` output is committed.
+- No new files were added under `Documents/`.
+
+### Verification
+
+- `npm run typecheck` passed.
+- `dotnet build` passed.
+- `npm run export:web` passed.
+- Confirmed `dist/_redirects` is generated from `public/_redirects`.
+- `git diff --check` passed.
+
+---
+
 ## 2026-05-23 — Branch 57 Final Code Review Cleanup
 
 **Tester:** mp3li / Codex-assisted cleanup

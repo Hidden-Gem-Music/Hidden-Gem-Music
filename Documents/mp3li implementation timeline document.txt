@@ -2,6 +2,47 @@ mp3li implementation timeline document
 
 Updated: May 23, 2026
 
+Deploy Cloud Platform Selection Plan and Minimal UI Fixes (May 23, 2026)
+- Objective:
+  - Complete Issue 49 by selecting and documenting a realistic cloud deployment platform plan for the capstone deployment/integration deliverable.
+  - Keep the deployment plan aligned with the current app architecture: Expo web frontend, .NET 9 API, and SQL Server database.
+  - Apply only small, low-risk UI/copy cleanup items that were appropriate before presentation/deployment.
+
+- Deployment platform decision completed:
+  - Selected a hybrid Cloudflare deployment approach:
+    - Cloudflare Pages for the Expo web frontend at `https://hiddengemmusicapp.mp3li.online`.
+    - Cloudflare Tunnel for the iMac-hosted .NET API at `https://api-hiddengemmusicapp.mp3li.online`.
+    - SQL Server remains private on the iMac/local Docker setup and is not exposed publicly.
+  - Documented why Cloudflare Pages is appropriate even though the frontend exports as static files: the browser bundle is static, but the app remains interactive through JavaScript and API calls.
+  - Documented why GitHub Pages is not the selected path: it can host static frontend files, but it does not fit the broader Cloudflare DNS/Tunnel/API routing workflow as cleanly.
+  - Documented Cloudflare Pages Free limits and Cloudflare Tunnel practical boundaries so the plan does not overpromise hosting behavior.
+
+- Deployment readiness changes completed:
+  - Added `Documentation/deployment-platform-selection-plan.md` as the shared platform decision and setup plan.
+  - Updated `Documentation/README.md` so the deployment decision record appears in the repository documentation map.
+  - Added `npm run export:web` to the frontend package scripts for Cloudflare Pages builds.
+  - Added `hidden-gem-music-app/public/_redirects` so Cloudflare Pages serves the Expo SPA entrypoint on direct route refreshes.
+  - Updated backend production CORS to allow `https://hiddengemmusicapp.mp3li.online`.
+  - Added forwarded-header handling for the Cloudflare Tunnel loopback proxy path so the API can understand the original HTTPS request before HTTPS redirection runs.
+
+- Minimal UI/copy fixes completed:
+  - Removed language filters from Discovery Map's All Filters popup and Comparison Mode's Add Your Filters panel while leaving language display/enrichment intact elsewhere.
+  - Marked Discovery Map's Pre-Selected Filters helper text as "Coming Soon".
+  - Reduced the web-only Discovery Map Pre-Selected Filters expanded sidebar height so it no longer leaves as much empty room under the preset options.
+  - Updated Hidden Gems helper copy to describe Previous/Next, List View, and Play behavior instead of hover-only CD controls.
+  - Marked the Comparison Mode Popularity filter label as coming soon.
+  - Filtered non-language placeholders such as `Another language goes here`, `Instrumental`, `Unknown`, and loading text out of Country/Comparison language summary text while preserving the Hidden Gems big-CD language display behavior.
+
+- Follow-up documentation artifact created:
+  - Added a local issue draft for the future README screenshot/GIF documentation pass in `my txts/Issue_Add_README_Screenshots_GIFs_And_How_To_Use_Guide.md`.
+  - The issue asks for a README header GIF, screenshots throughout the README, a "How to Use Hidden Gem Music" guide, hover/click-state captures, and documentation-oriented screenshots for every major screen and function.
+
+- Verification completed:
+  - Ran `npm run typecheck`; passed.
+  - Ran `dotnet build`; passed.
+  - Ran `npm run export:web`; passed and confirmed `_redirects` is copied into `dist`.
+  - Ran `git diff --check`; passed.
+
 Final Code Review Cleanup (May 23, 2026)
 - Objective:
   - Complete the requested final code review and cleanup issue on branch `57-qa-final-code-review-cleanup`.

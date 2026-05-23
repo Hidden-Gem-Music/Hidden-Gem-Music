@@ -14,7 +14,6 @@ import { YearSlider } from "../components/YearSlider";
 import { YearDataDisclaimer } from "../components/YearDataDisclaimer";
 import { loadCountryGenreSamples, loadCountryLanguageSamples } from "../data/countryApi";
 import { formatLanguageAndMore } from "../data/languageApi";
-import { useLoadingText } from "../hooks/useLoadingText";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
@@ -181,15 +180,7 @@ export function DiscoveryScreen({
   const visibleSelectedCountryId = filteredCountries.some((country) => country.id === selectedCountryId)
     ? selectedCountryId
     : filteredCountries[0]?.id ?? selectedCountryId;
-  const anyDiscoveryLanguageLoading = Object.values(languageLoadingByCountryCode).some(Boolean);
-  const discoveryLanguageLoadingText = useLoadingText(anyDiscoveryLanguageLoading);
   const visibleSelectedCountryCode = filteredCountries.find((country) => country.id === visibleSelectedCountryId)?.code;
-  const selectedLanguageSummary =
-    visibleSelectedCountryCode && languageSummaryByCountryCode[visibleSelectedCountryCode]
-      ? languageSummaryByCountryCode[visibleSelectedCountryCode]
-      : visibleSelectedCountryCode && languageLoadingByCountryCode[visibleSelectedCountryCode]
-        ? discoveryLanguageLoadingText
-        : "Loading...";
   const displayGenreSummaryByCountryCode = useMemo(() => {
     const next: Record<string, string> = {};
     filteredCountries.forEach((country) => {
@@ -781,7 +772,7 @@ export function DiscoveryScreen({
                       <View style={styles.filterButtonContent}>
                         <View style={styles.filterButtonLead}>
                           <GemIcon size={16} />
-                          <Text style={styles.filterButtonText}>{selectedLanguageSummary}</Text>
+                          <Text style={styles.filterButtonText}>Genre info coming soon.</Text>
                         </View>
                       </View>
                     </View>
@@ -789,22 +780,6 @@ export function DiscoveryScreen({
                 </View>
               </Panel> */}
 
-              <Panel style={styles.filterSection}>
-                <SecondarySurfaceFill />
-                <Text style={styles.filterSectionTitle}>Language(s)</Text>
-                <View style={styles.optionGroup}>
-                  <View style={styles.filterButtonShell}>
-                    <View style={styles.filterButton}>
-                      <View style={styles.filterButtonContent}>
-                        <View style={styles.filterButtonLead}>
-                          <GemIcon size={16} />
-                          <Text style={styles.filterButtonText}>{selectedLanguageSummary}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </Panel>
             </ScrollView>
           </Panel>
         </View>
