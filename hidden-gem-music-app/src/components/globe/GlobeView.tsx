@@ -1256,8 +1256,8 @@ const styles = StyleSheet.create({
           WebkitBackdropFilter: "blur(18px)",
         } as any)
       : null),
-    minHeight: 58,
-    height: 58,
+    minHeight: 72,
+    height: 72,
   },
   infoPanelShellMobile: {
     height: MOBILE_HELPER_INFO_PANEL_HEIGHT,
@@ -1298,8 +1298,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(240,232,241,0.82)",
   },
   infoPanelBodyWrap: {
-    minHeight: 16,
-    maxHeight: 16,
+    minHeight: 30,
+    maxHeight: 30,
     marginTop: 7,
     justifyContent: "flex-start",
     paddingTop: 0,

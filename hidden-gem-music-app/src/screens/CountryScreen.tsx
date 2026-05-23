@@ -2168,7 +2168,7 @@ export function CountryScreen({
           <View style={[styles.statSquaresBlock, !splitStatsAndInsights ? styles.statSquaresBlockWide : null]}>
             <View style={[styles.statSquaresGrid, statsTwoByTwo ? styles.statSquaresGridTwoByTwo : styles.statSquaresGridSingleRow]}>
               <StatSquare
-                label="Songs in This View"
+                label="Songs in Selected View"
                 value={areProfileStatsLoading ? loadingText : `${profileStats.totalCharted}`}
                 note="songs"
                 valueOffsetY={6}
@@ -2200,7 +2200,7 @@ export function CountryScreen({
                     <Text style={styles.statSquareValuePercentSymbol}>%</Text>
                   </>
                 )}
-                note="% of this view"
+                note="% of selected view"
                 useLoadingStyle={areProfileStatsLoading}
                 style={splitStatsAndInsights && !statsTwoByTwo ? styles.statSquareWide : statsTwoByTwo ? styles.statSquareHalf : null}
               />

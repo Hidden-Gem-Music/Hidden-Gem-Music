@@ -3,6 +3,83 @@
 
 ---
 
+## 2026-05-22 — Branch 39 End-to-End QA Flow and Frontend Follow-Through
+
+**Tester:** mp3li / Codex-assisted verification
+**Fix owner:** mp3li for frontend follow-up; Leena Komenski for the merged Issue 147 SQL/backend correctness changes
+**Branch:** `39-qa-end-to-end-flow`
+**Scope:** Local SSMS follow-through for Leena's Issue 147 merge, cache clearing, Country Profile KPI copy, Discovery Map hover card sizing, header search country coverage, and full app navigation flow testing
+
+### What was handled
+
+This branch followed up on Leena's merged Issue 147 work. The SQL/backend stored-procedure changes are Leena's work; this branch applied the required local database steps, validated the results, cleared stale caches, and completed a small set of frontend readiness fixes.
+
+### Database follow-through completed
+
+- Ran the one-time `SongCountryChart` DDL/index setup in SSMS against `HiddenGemMusic`.
+- Ran the affected stored-procedure definition files in SSMS:
+  - `sp_PopulateSongCountryChart.sql`
+  - `sp_PopulateCountryYearStats.sql`
+  - `sp_PopulateTopSongByCountryYear.sql`
+  - `sp_GetCountryProfile.sql`
+  - `sp_GetCountrySongsPaged.sql`
+  - `sp_GetCountryComparison.sql`
+  - `sp_GetDiscoverPageInfo.sql`
+- Ran only the affected population procedures:
+  - `EXEC sp_PopulateSongCountryChart;`
+  - `EXEC sp_PopulateCountryYearStats;`
+  - `EXEC sp_PopulateTopSongByCountryYear;`
+- Did not run the full `run-all-population.sql`.
+- Cleared stale file-backed caches so old country/song data would not continue serving after the stored-procedure changes:
+  - `backend/Capstone.API/Data/presentation_data_cache.json`
+  - `backend/Capstone.API/Data/discovery_samples_cache.json`
+
+### SSMS validation results
+
+- `SongCountryChart` populated successfully with `518452` rows.
+- Confirmed Andorra has `0` Top 200 rows in `SongCountryChart`.
+- Confirmed Andorra returns no rows from `CountryYearStats`, which is expected because the available dataset only contains Viral 50 rows for Andorra.
+- Confirmed `TopSongByCountryYear` includes `song_name` values after population.
+- Confirmed population sanity outputs returned year/country coverage for populated years.
+
+### Frontend changes completed
+
+- Increased the desktop/web Discovery Map glassy hover blurb height so the third country hover row, `Top album`, is visible instead of clipped.
+- Kept mobile Discovery Map blurb sizing unchanged by leaving the mobile-specific height/body overrides untouched.
+- Updated two Country Profile KPI labels:
+  - `Songs in This View` -> `Songs in Selected View`
+  - `% of this view` -> `% of selected view`
+- Kept `Loved in This Country` and `Loved Here and Elsewhere` unchanged because those KPI labels intentionally mirror the matching song sections lower on the page, helping users connect summary numbers to the detailed lists.
+- Updated header search to use an all-years API-valid country pool instead of only the currently selected year's pool.
+- Removed the search overlay's 25-result cap so the full valid country list can display.
+- Preserved the corrected behavior where countries without Top 200 app data, such as Andorra, should not be selectable search results.
+
+### KPI copy decision note
+
+The two changed KPI labels were adjusted because they could be clarified without changing the existing information hierarchy. The wording now ties the stat to the user's active country/year selection, which is the context used to reach the page and generate the displayed stats.
+
+From a frontend UX perspective, `Loved in This Country` and `Loved Here and Elsewhere` were kept because those KPI labels intentionally mirror the matching song sections lower on the page. Longer labels such as "total songs in this country/year" were avoided because the stat represents songs in the selected app dataset, not every song that exists for that country and year, and the cards are compact responsive UI elements across multiple layout widths. A future iteration could add longer explanatory text, but that would require broader UI changes and web/mobile QA beyond a small label update.
+
+### End-to-end flow testing completed
+
+- Completed a full end-to-end navigation flow test across the app.
+- Verified that the main user paths route to the expected screens.
+- Verified that country/year context is preserved where applicable.
+- Verified that pages bring users to the intended destination screens during normal navigation.
+
+### Verification
+
+- `dotnet build` passed after stale cache files were cleared.
+- `npm run typecheck` passed after frontend changes.
+
+### Follow-up not included
+
+- No change was made to the Country Profile genre source. The current `GetCountryGenreSampleAsync` behavior remains in place for deadline stability.
+- No dev cache bypass setting was added.
+- No additional backend ownership is claimed for Leena's Issue 147 SQL/backend implementation.
+
+---
+
 ## 2026-05-21 — Cache Clearing Required After Every Backend or SP Change
 
 **Tester:** Leena Komenski
