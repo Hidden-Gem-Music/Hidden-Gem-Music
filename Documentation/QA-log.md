@@ -3,6 +3,46 @@
 
 ---
 
+## 2026-05-23 — Branch 57 Final Code Review Cleanup
+
+**Tester:** mp3li / Codex-assisted cleanup
+**Fix owner:** mp3li
+**Branch:** `57-qa-final-code-review-cleanup`
+**Scope:** Final code review cleanup only: remove dead code and ensure inline comments are complete
+
+### What was handled
+
+This branch completed the requested final code review cleanup pass. The scope was intentionally limited to dead-code removal and inline comment clarity so the branch does not introduce new feature work during deployment preparation.
+
+### Dead code removed
+
+- Removed unused frontend state, props, helper functions, imports, and pass-through values that were no longer referenced by the active screens/components.
+- Removed the unused Discovery Map mobile year dropdown implementation that was not part of the current rendered flow.
+- Removed unused chart color/helper code from Country Profile and Country Comparison screens after confirming it was not referenced.
+- Removed unused genre-loading pass-through props after confirming the current UI does not display those loading states.
+- Removed the unused backend MySQL repository stub and its unused package reference. The active backend data provider path remains SQL Server.
+
+### Inline comments reviewed
+
+- Reviewed comments touched by the cleanup pass for accuracy.
+- Clarified the Comparison Mode genre-filter comment so it explains why genre filters are intentionally omitted for now: the current live genre data is fetched per song and is not normalized enough yet to support trustworthy comparison filtering.
+
+### Not included
+
+- No frontend UX changes were made.
+- No database or stored-procedure changes were made.
+- No API contract changes were made.
+- No behavior changes were intentionally introduced beyond removing unused code paths.
+
+### Verification
+
+- `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` passed.
+- `npm run typecheck` passed.
+- `dotnet build` passed.
+- Final cleanup scan found no actionable `TODO`, `FIXME`, `HACK`, `XXX`, `console.log`, `debugger`, `@ts-ignore`, `@ts-expect-error`, `eslint-disable`, `NotImplementedException`, `MySqlRepository`, or `MySqlConnector` references. The remaining `debuggerHost` text is a legitimate Expo field name, not a debugger statement.
+
+---
+
 ## 2026-05-22 — Branch 39 End-to-End QA Flow and Frontend Follow-Through
 
 **Tester:** mp3li / Codex-assisted verification

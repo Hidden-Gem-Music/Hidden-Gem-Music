@@ -32,7 +32,6 @@ export function YearSlider({ year, onChangeYear, years, displayLabel }: Props) {
   const dragYearRef = useRef(year);
   const yearBeforeGap = hasGap ? gapStartYear - 1 : minYear;
   const yearAfterGap = hasGap ? gapEndYear + 1 : maxYear;
-  const yearBeforeGapIndex = sliderYears.indexOf(yearBeforeGap);
   const yearAfterGapIndex = sliderYears.indexOf(yearAfterGap);
   const gapSlotIndex = hasGap ? yearAfterGapIndex : -1;
   const totalSlots = sliderYears.length + (hasGap ? 1 : 0);

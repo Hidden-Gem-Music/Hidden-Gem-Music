@@ -293,7 +293,6 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [apiAvailableYears, setApiAvailableYears] = useState<number[]>([]);
   const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(true);
-  const [discoveryLoadingDots, setDiscoveryLoadingDots] = useState(1);
   const [discoveryCountriesByYear, setDiscoveryCountriesByYear] = useState<Record<number, Country[]>>({});
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
@@ -809,19 +808,6 @@ export default function App() {
   }, [countries, discoveryCountries.length, discoveryCountriesByYear, selectedYear, shouldHydrateApiCountryPool]);
 
   useEffect(() => {
-    if (!isDiscoveryLoading) {
-      setDiscoveryLoadingDots(1);
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setDiscoveryLoadingDots((current) => (current >= 3 ? 1 : current + 1));
-    }, 350);
-
-    return () => clearInterval(timer);
-  }, [isDiscoveryLoading]);
-
-  useEffect(() => {
     if (!isAwaitingDiscoveryRefreshRef.current) {
       return;
     }
@@ -1284,7 +1270,6 @@ export default function App() {
                     availableCountries={comparisonCountryPool}
                     selectedYear={selectedYear}
                     onBack={() => navigateToRoute("comparisonSelect")}
-                    onChangeYear={(year) => handleYearChange(year, "Comparison View")}
                     onChangeCountryAtIndex={(index, countryId) => {
                       setComparisonIds((current) => {
                         const next = [...current];

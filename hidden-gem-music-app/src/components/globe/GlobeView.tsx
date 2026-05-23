@@ -16,7 +16,6 @@ import { GemIcon } from "../GemIcon";
 type Props = {
   countries: Country[];
   allCountries?: Country[];
-  activeCountry?: Country;
   externalHoveredCountryId?: string | null;
   selectedCountryIds?: string[];
   selectedYear?: number;
@@ -26,9 +25,6 @@ type Props = {
   onChangeYear?: (year: number) => void;
   onFiltersPress?: () => void;
   selectOnHover?: boolean;
-  genreSummaryByCountryCode?: Record<string, string | undefined>;
-  genreLoadingByCountryCode?: Record<string, boolean | undefined>;
-  loadingText?: string;
   onEnsureGenreSample?: (countryCode: string) => void;
   onEnsureLanguageSample?: (countryCode: string) => void;
   isActive?: boolean;
@@ -164,7 +160,6 @@ function getPathBounds(path: string) {
 export function GlobeView({
   countries,
   allCountries,
-  activeCountry,
   externalHoveredCountryId,
   selectedCountryIds,
   selectedYear,
@@ -174,9 +169,6 @@ export function GlobeView({
   onChangeYear,
   onFiltersPress,
   selectOnHover = true,
-  genreSummaryByCountryCode,
-  genreLoadingByCountryCode,
-  loadingText = "Loading...",
   onEnsureGenreSample,
   onEnsureLanguageSample,
   isActive = true,
@@ -726,7 +718,7 @@ export function GlobeView({
                     <Stop offset="100%" stopColor={colors.button} stopOpacity={0.96} />
                   </SvgRadialGradient>
                 </Defs>
-                {countryShapeMetadata.map(({ shape, shapeIndex, shapeKey }) => {
+                {countryShapeMetadata.map(({ shape, shapeKey }) => {
                   const linkedCountry = shape.code ? countryByCode.get(shape.code) : undefined;
                   const isHovered = Boolean(linkedCountry && effectiveHoveredCountryId === linkedCountry.id);
                   const isFocusedCountry = Boolean(linkedCountry && focusedCountryId === linkedCountry.id);
