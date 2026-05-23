@@ -1,6 +1,61 @@
 mp3li implementation timeline document
 
-Updated: May 21, 2026
+Updated: May 22, 2026
+
+End-to-End QA Flow, Leena PR Follow-Through, and Frontend Polish (May 22, 2026)
+- Objective:
+  - Bring the new `39-qa-end-to-end-flow` branch into a verified state after Leena's Issue 147 PR was merged into development.
+  - Apply and validate the required local database follow-through from Leena's PR without claiming ownership of the SQL/backend stored-procedure changes.
+  - Complete the small frontend follow-up items that were appropriate to handle before deployment while keeping larger UX changes out of scope.
+
+- Database and cache follow-through completed from Leena's merge:
+  - Confirmed the branch includes Leena's Issue 147 database/backend work for country profile, country comparison, Discovery Map, and Top-200-only country/year correctness.
+  - Walked through the required SSMS application order for the new/updated stored procedures and affected population procedures.
+  - Ran the one-time `SongCountryChart` DDL/index setup in SSMS.
+  - Ran the affected stored-procedure definitions in SSMS.
+  - Ran only the required population procedures:
+    - `EXEC sp_PopulateSongCountryChart;`
+    - `EXEC sp_PopulateCountryYearStats;`
+    - `EXEC sp_PopulateTopSongByCountryYear;`
+  - Cleared stale file-backed presentation/discovery caches so the app would not continue serving old incorrect country/song data after the stored-procedure updates.
+
+- SSMS validation completed:
+  - `SongCountryChart` populated successfully with `518452` rows.
+  - Confirmed Andorra returns `0` Top 200 rows in `SongCountryChart`.
+  - Confirmed Andorra returns no rows in `CountryYearStats`, which is correct because the dataset only has Viral 50 rows for Andorra.
+  - Confirmed `TopSongByCountryYear` now includes `song_name` values for populated country/year rows.
+  - Confirmed the population sanity outputs returned expected year coverage for `SongCountryChart` and `TopSongByCountryYear`.
+
+- Frontend updates completed:
+  - Increased the desktop/web Discovery Map glassy blurb height so the third hover row, `Top album`, is visible instead of clipped.
+  - Kept the mobile Discovery Map blurb sizing unchanged by only adjusting the default/web styles; mobile continues to use its existing mobile-specific height/body overrides.
+  - Updated two Country Profile KPI labels:
+    - `Songs in This View` -> `Songs in Selected View`
+    - `% of this view` -> `% of selected view`
+  - Kept `Loved in This Country` and `Loved Here and Elsewhere` unchanged because those KPI labels intentionally mirror the matching song sections lower on the page and help connect summary cards to the detailed lists.
+  - Broadened header search so it can include all API-valid countries across available years instead of only the currently selected year's country pool.
+  - Removed the search overlay's 25-result display cap so the search list can show the full country list rather than truncating valid countries.
+  - Preserved the corrected behavior where countries with no Top 200 app data, such as Andorra, should not appear as selectable search results.
+
+- KPI label rationale documented:
+  - The changed labels now refer to the user's selected country/year view, which is the context used to reach the Country Profile page and generate the displayed stats.
+  - Longer labels such as "total songs in this country/year" were intentionally avoided because the stat represents songs in the app's selected dataset, not every song that exists for that country and year.
+  - The cards are compact responsive UI elements across multiple layout widths, so broader explanatory text should be treated as a future UI iteration requiring web/mobile QA rather than a small label-only change.
+
+- End-to-end flow testing completed:
+  - Completed a full end-to-end navigation flow test across the app.
+  - Verified that the main user paths route to the expected screens.
+  - Verified that selected country/year context is preserved where applicable.
+  - Verified that pages bring users to the intended destination screens during normal app navigation.
+
+- Verification completed:
+  - Ran `dotnet build` after clearing stale cache files; backend build passed.
+  - Ran `npm run typecheck` after frontend updates; frontend TypeScript checking passed.
+
+- PR/documentation artifacts updated:
+  - Updated professional QA documentation with this branch's database follow-through, frontend fixes, and end-to-end test notes.
+  - Updated this personal implementation timeline.
+  - Added the PR-ready branch summary in `my txts/PR_39_QA_End_To_End_Flow.md`.
 
 Issue 135 - 2023 Data Disclaimer (May 21, 2026)
 - Objective:

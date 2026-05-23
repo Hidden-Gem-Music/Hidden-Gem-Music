@@ -23,10 +23,10 @@ export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Pr
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) {
-      return countries.slice(0, 25);
+      return countries;
     }
 
-    return countries.filter((country) => country.name.toLowerCase().includes(normalized)).slice(0, 25);
+    return countries.filter((country) => country.name.toLowerCase().includes(normalized));
   }, [countries, query]);
 
   useEffect(() => {

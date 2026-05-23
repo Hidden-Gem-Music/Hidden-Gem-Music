@@ -370,6 +370,10 @@ export default function App() {
     () => apiCountryPool,
     [apiCountryPool]
   );
+  const searchCountryPool = useMemo(
+    () => (allYearsDiscoveryCountries.length > 0 ? allYearsDiscoveryCountries : comparisonCountryPool),
+    [allYearsDiscoveryCountries, comparisonCountryPool]
+  );
   const selectedComparisonCountries = useMemo(
     () =>
       comparisonIds
@@ -869,6 +873,53 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (apiAvailableYears.length === 0) {
+      return;
+    }
+
+    const missingYears = apiAvailableYears.filter((year) => !discoveryCountriesByYear[year]);
+    if (missingYears.length === 0) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    Promise.all(
+      missingYears.map((year) =>
+        loadDiscoveryCountries(year, getCountriesForYear(year), controller.signal)
+          .then((apiCountries) => ({ year, apiCountries }))
+          .catch((error) => {
+            if (!controller.signal.aborted) {
+              console.warn(`Failed to load discovery countries for search year ${year}.`, error);
+            }
+            return null;
+          })
+      )
+    ).then((results) => {
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      const loadedResults = results.filter((result): result is { year: number; apiCountries: Country[] } => Boolean(result));
+      if (loadedResults.length === 0) {
+        return;
+      }
+
+      setDiscoveryCountriesByYear((current) => {
+        const next = { ...current };
+        loadedResults.forEach(({ year, apiCountries }) => {
+          next[year] = apiCountries;
+        });
+        return next;
+      });
+    });
+
+    return () => {
+      controller.abort();
+    };
+  }, [apiAvailableYears, discoveryCountriesByYear]);
+
+  useEffect(() => {
     if (apiAvailableYears.length === 0 || apiAvailableYears.includes(selectedYear)) {
       return;
     }
@@ -1114,7 +1165,7 @@ export default function App() {
             searchOpen={searchOpen}
             onToggleSearch={() => setSearchOpen((open) => !open)}
             onCloseSearch={() => setSearchOpen(false)}
-            countries={comparisonCountryPool}
+            countries={searchCountryPool}
             onOpenCountry={openCountry}
           />
           <View style={styles.screenArea}>
