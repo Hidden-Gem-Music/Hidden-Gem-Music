@@ -75,6 +75,15 @@ Practical implication:
 - web-only success on `localhost` does not automatically prove that phone/mobile testing will work
 - phone/mobile testing depends on LAN-reachable backend behavior
 
+This matters because current full-stack testing may involve more than one host context:
+
+- SQL Server can run in Docker on macOS.
+- SSMS/database inspection can run from Windows 11 in Parallels.
+- the .NET API can run on macOS.
+- the Expo frontend can run on macOS, while phone/mobile testing runs from a separate device over the local network.
+
+In that setup, `localhost` is relative to whichever machine or runtime is making the request. Browser testing on the Mac can use `localhost`, but a phone running the Expo app needs the Mac's LAN address to reach the backend API.
+
 ## Environment-variable guidance
 
 `EXPO_PUBLIC_API_BASE_URL` should be used when:
@@ -84,6 +93,16 @@ Practical implication:
 - a temporary backend host or port override is needed
 
 This variable should remain local-only.
+
+Example local override:
+
+```bash
+EXPO_PUBLIC_API_BASE_URL="http://YOUR_MAC_LAN_IP:5140" npx expo start -c --host lan
+```
+
+Replace `YOUR_MAC_LAN_IP` with the address returned by `ipconfig getifaddr en0` or the correct LAN address for the tester's machine. This does not need to match the hardcoded fallback in `src/data/apiBaseUrl.ts`; the environment variable exists so each tester can point the app at the backend host that works on their own network.
+
+Do not commit a personal LAN IP into source just to support another tester. If two people need different mobile API hosts, each person should run Expo with their own `EXPO_PUBLIC_API_BASE_URL` value in their local terminal/session.
 
 ## Frontend verification commands
 

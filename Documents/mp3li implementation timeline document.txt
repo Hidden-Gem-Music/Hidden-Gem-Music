@@ -30,6 +30,24 @@ Final Code Review Cleanup (May 23, 2026)
   - Updated this personal implementation timeline.
   - Added the PR-ready branch summary in `my txts/PR_Issue_57_Final_Code_Review_Cleanup.md`.
 
+- Deployment reminder recorded:
+  - The final code review identified frontend API URL and backend CORS as deployment-dependent configuration items.
+  - No code change was made yet because the deployment target has not been decided.
+  - Before deployment, configure the frontend API base URL and backend allowed CORS origins for the real deployed URLs instead of relying on localhost/local Expo defaults.
+
+- Final review follow-up fixes completed:
+  - Updated country shared/unique song paging so `totalCount` reflects the stored-procedure raw total instead of a partial enriched count.
+  - Passed abort signals through Discovery/metadata fetch helpers that already accepted signal parameters.
+  - Added safe backend logging for fire-and-forget cache-write failures.
+  - Restored Country Profile and Country Comparison song-row navigation into Hidden Gems so selected songs can hand off title, artist, preview index, and Deezer track ID for preview targeting.
+  - Fixed Hidden Gems refresh behavior for URLs such as `/hidden-gems?country=iso-us&year=2025` so a valid country/year URL stays on the selected page instead of reopening the intro popup.
+  - Confirmed Discovery Map and Hidden Gems behavior were working again after leaving Discovery Map country-list behavior unchanged.
+
+- Local testing documentation expanded:
+  - Added local-only `EXPO_PUBLIC_API_BASE_URL` guidance for testers who need a different reachable backend host.
+  - Documented the mixed local setup used during testing: SQL Server in Docker on macOS, SSMS through Windows 11 in Parallels, and both the .NET API and Expo frontend running on macOS.
+  - Clarified why `localhost` is relative to the runtime making the request and why phone/mobile testing may require the Mac's LAN address.
+
 End-to-End QA Flow, Leena PR Follow-Through, and Frontend Polish (May 22, 2026)
 - Objective:
   - Bring the new `39-qa-end-to-end-flow` branch into a verified state after Leena's Issue 147 PR was merged into development.

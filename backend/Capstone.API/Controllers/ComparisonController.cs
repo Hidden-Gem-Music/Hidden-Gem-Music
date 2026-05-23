@@ -74,7 +74,7 @@ namespace Capstone.API.Controllers
                 if (result == null)
                     return NotFound();
 
-                _ = _presentationDataCache.SaveAsync(cacheKey, result);
+                BackgroundTaskLogger.LogFailure(_presentationDataCache.SaveAsync(cacheKey, result), _logger, cacheKey);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -133,7 +133,7 @@ namespace Capstone.API.Controllers
                     return Ok(cached.Value);
 
                 var result = await _repo.GetComparisonHiddenGemsAsync(normalizedA, normalizedB, year, cancellationToken);
-                _ = _presentationDataCache.SaveAsync(cacheKey, result);
+                BackgroundTaskLogger.LogFailure(_presentationDataCache.SaveAsync(cacheKey, result), _logger, cacheKey);
                 return Ok(result);
             }
             catch (SqlException ex)

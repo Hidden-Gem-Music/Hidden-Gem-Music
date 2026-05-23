@@ -79,9 +79,12 @@ namespace Capstone.API.Controllers
 
                 var favoriteArtists = BuildFavoriteArtists(result);
                 if (favoriteArtists.Count > 0)
-                    _ = _discoverySampleCache.SaveFavoriteArtistsAsync(normalizedCode, year, favoriteArtists);
+                    BackgroundTaskLogger.LogFailure(
+                        _discoverySampleCache.SaveFavoriteArtistsAsync(normalizedCode, year, favoriteArtists),
+                        _logger,
+                        $"favorite artists {normalizedCode} {year}");
 
-                _ = _presentationDataCache.SaveAsync(cacheKey, result);
+                BackgroundTaskLogger.LogFailure(_presentationDataCache.SaveAsync(cacheKey, result), _logger, cacheKey);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -126,7 +129,7 @@ namespace Capstone.API.Controllers
                 }
 
                 var result = await _repo.GetHiddenGemsPreviewAsync(normalizedCode, year, normalizedLimit, cancellationToken);
-                _ = _presentationDataCache.SaveAsync(cacheKey, result);
+                BackgroundTaskLogger.LogFailure(_presentationDataCache.SaveAsync(cacheKey, result), _logger, cacheKey);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -191,7 +194,7 @@ namespace Capstone.API.Controllers
                     normalizedPage,
                     normalizedPageSize,
                     cancellationToken);
-                _ = _presentationDataCache.SaveAsync(cacheKey, result);
+                BackgroundTaskLogger.LogFailure(_presentationDataCache.SaveAsync(cacheKey, result), _logger, cacheKey);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -248,7 +251,10 @@ namespace Capstone.API.Controllers
                             ? cachedGenres
                             : await _repo.GetCountryGenreSampleAsync(countryCode, year, cancellationToken);
                         if (genres.Count > 0 && cachedGenres.Count == 0)
-                            _ = _discoverySampleCache.SaveGenresAsync(countryCode, year, genres);
+                            BackgroundTaskLogger.LogFailure(
+                                _discoverySampleCache.SaveGenresAsync(countryCode, year, genres),
+                                _logger,
+                                $"genre sample {countryCode} {year}");
                         return new Capstone.API.Models.Country.CountryGenreSample
                         {
                             CountryCode = countryCode,
@@ -317,7 +323,10 @@ namespace Capstone.API.Controllers
                             ? cachedLanguages
                             : await _repo.GetCountryLanguageSampleAsync(countryCode, year, cancellationToken);
                         if (languages.Count > 0 && cachedLanguages.Count == 0)
-                            _ = _discoverySampleCache.SaveLanguagesAsync(countryCode, year, languages);
+                            BackgroundTaskLogger.LogFailure(
+                                _discoverySampleCache.SaveLanguagesAsync(countryCode, year, languages),
+                                _logger,
+                                $"language sample {countryCode} {year}");
                         return new Capstone.API.Models.Country.CountryLanguageSample
                         {
                             CountryCode = countryCode,

@@ -513,6 +513,7 @@ function StatSquare({
 function MainComparisonArea({
   title,
   songs,
+  onOpenHiddenGems,
   isInitialLoading = false,
   hasMore = false,
   isLoadingMore = false,
@@ -521,6 +522,7 @@ function MainComparisonArea({
 }: {
   title: string;
   songs: SongPreview[];
+  onOpenHiddenGems: (selection?: { songTitle?: string; artist?: string; previewIndex?: number; deezerTrackId?: number }) => void;
   isInitialLoading?: boolean;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -648,7 +650,14 @@ function MainComparisonArea({
               key={`${title}-${song.title}-${song.artist}-${index}`}
               style={styles.songRowShell}
               accessibilityRole={undefined}
-              onPress={() => {}}
+              onPress={() => {
+                onOpenHiddenGems({
+                  songTitle: song.title,
+                  artist: song.artist,
+                  previewIndex: index,
+                  deezerTrackId: song.deezerTrackId,
+                });
+              }}
               onHoverIn={() => setHoveredSongKey(`${title}-${index}`)}
               onHoverOut={() => setHoveredSongKey((current) => (current === `${title}-${index}` ? null : current))}
               onPressIn={() => setPressedSongKey(`${title}-${index}`)}
@@ -2207,6 +2216,7 @@ export function CountryScreen({
             <MainComparisonArea
               title="Most Loved in This Country"
               songs={profileStats.uniqueSongs}
+              onOpenHiddenGems={onOpenHiddenGems}
               isInitialLoading={initialLoadingUnique}
               hasMore={uniqueHasMore}
               isLoadingMore={loadingMoreUnique}
@@ -2217,6 +2227,7 @@ export function CountryScreen({
             <MainComparisonArea
               title="Loved Here and Elsewhere"
               songs={profileStats.sharedSongs}
+              onOpenHiddenGems={onOpenHiddenGems}
               isInitialLoading={initialLoadingShared}
               hasMore={sharedHasMore}
               isLoadingMore={loadingMoreShared}

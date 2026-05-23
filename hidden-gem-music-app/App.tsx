@@ -264,8 +264,13 @@ export default function App() {
   const initialStackRoute = toInitialStackRoute(initialNavigationSeed.route);
   const persistedAppState = persistedAppStateRef.current;
   const shouldResetHiddenGemsHandoffOnInitialLoad = readAndClearHiddenGemsHandoffMarker(initialNavigationSeed);
+  const hasHiddenGemsRouteTarget =
+    initialNavigationSeed.route === "hiddenGems" &&
+    Boolean(initialNavigationSeed.countryId) &&
+    typeof initialNavigationSeed.year === "number";
   const shouldStartHiddenGemsWithIntro =
     initialNavigationSeed.route === "hiddenGems" &&
+    !hasHiddenGemsRouteTarget &&
     (shouldResetHiddenGemsHandoffOnInitialLoad || !initialNavigationSeed.countryId || typeof initialNavigationSeed.year !== "number");
   const initialYear =
     initialNavigationSeed.route === "country" ||

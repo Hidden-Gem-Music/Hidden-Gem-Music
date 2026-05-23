@@ -61,7 +61,7 @@ namespace Capstone.API.Controllers
                 }
 
                 var result = await _repo.GetHiddenGemsAsync(normalizedCode, year, minCountries, page, pageSize, cancellationToken);
-                _ = _presentationDataCache.SaveAsync(cacheKey, result);
+                BackgroundTaskLogger.LogFailure(_presentationDataCache.SaveAsync(cacheKey, result), _logger, cacheKey);
                 return Ok(result);
             }
             catch (SqlException ex)

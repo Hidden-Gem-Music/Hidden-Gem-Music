@@ -27,6 +27,27 @@ This branch completed the requested final code review cleanup pass. The scope wa
 - Reviewed comments touched by the cleanup pass for accuracy.
 - Clarified the Comparison Mode genre-filter comment so it explains why genre filters are intentionally omitted for now: the current live genre data is fetched per song and is not normalized enough yet to support trustworthy comparison filtering.
 
+### Final review follow-up fixes
+
+- Updated country shared/unique song paging so `totalCount` returns the stored-procedure raw total instead of the partial enriched/resolved count.
+- Passed abort signals through Discovery/metadata fetch helpers that already accepted a signal.
+- Added safe logging around background cache writes so fire-and-forget cache failures are visible in backend logs.
+- Restored Country Profile and Country Comparison song-row handoff into Hidden Gems after the cleanup pass removed the callback path. Clicking a song row again passes song title, artist, preview index, and Deezer track ID to Hidden Gems.
+- Fixed Hidden Gems browser refresh behavior for URLs such as `/hidden-gems?country=iso-us&year=2025`. A valid route country/year now wins over the temporary session handoff marker, so refresh stays on the selected Hidden Gems page instead of reopening the intro popup.
+- Left Discovery Map country-list behavior unchanged after a hover/list-scroll experiment proved too risky for the final branch.
+
+### Local runbook updates
+
+- Documented local-only `EXPO_PUBLIC_API_BASE_URL` usage for mobile/LAN testing.
+- Documented the mixed local testing setup where SQL Server can run in Docker on macOS, SSMS can run through Windows 11 in Parallels, and the API/Expo app run on macOS.
+- Clarified why `localhost` is not enough for phone testing in that setup and why personal LAN IPs should not be committed into source.
+
+### Deployment reminder
+
+- Frontend API base URL and backend CORS origins were identified as deployment-dependent configuration items.
+- No deployment URL/CORS code changes were made because the deployment target is not decided yet.
+- Before deployment, configure the frontend API base URL and backend allowed origins for the real deployed URLs.
+
 ### Not included
 
 - No frontend UX changes were made.
@@ -39,6 +60,7 @@ This branch completed the requested final code review cleanup pass. The scope wa
 - `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` passed.
 - `npm run typecheck` passed.
 - `dotnet build` passed.
+- `git diff --check` passed after the final follow-up fixes.
 - Final cleanup scan found no actionable `TODO`, `FIXME`, `HACK`, `XXX`, `console.log`, `debugger`, `@ts-ignore`, `@ts-expect-error`, `eslint-disable`, `NotImplementedException`, `MySqlRepository`, or `MySqlConnector` references. The remaining `debuggerHost` text is a legitimate Expo field name, not a debugger statement.
 
 ---
