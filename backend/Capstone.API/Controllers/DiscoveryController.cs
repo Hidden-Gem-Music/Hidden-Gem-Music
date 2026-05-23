@@ -1,6 +1,7 @@
 using Capstone.API.Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Capstone.API.Controllers
 {
@@ -12,17 +13,22 @@ namespace Capstone.API.Controllers
     [Route("api/discovery")]
     public class DiscoveryController : ControllerBase
     {
+        private const string AvailableYearsCacheKey = "discovery-controller-available-years";
+
         private readonly IGlobeRepository _repo;
         private readonly IMetadataRepository _metadataRepo;
+        private readonly IMemoryCache _memoryCache;
         private readonly ILogger<DiscoveryController> _logger;
 
         public DiscoveryController(
             IGlobeRepository repo,
             IMetadataRepository metadataRepo,
+            IMemoryCache memoryCache,
             ILogger<DiscoveryController> logger)
         {
             _repo = repo;
             _metadataRepo = metadataRepo;
+            _memoryCache = memoryCache;
             _logger = logger;
         }
 
@@ -35,13 +41,20 @@ namespace Capstone.API.Controllers
         {
             try
             {
-                var availableYears = (await _metadataRepo.GetAvailableYearsAsync(cancellationToken)).ToHashSet();
-                if (!availableYears.Contains(year))
+                var availableYears = await _memoryCache.GetOrCreateAsync(AvailableYearsCacheKey, async entry =>
                 {
-                    return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
-                }
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+                    return (await _metadataRepo.GetAvailableYearsAsync(cancellationToken)).ToHashSet();
+                }) ?? new HashSet<int>();
 
-                var result = await _repo.GetGlobeSummaryAsync(year, cancellationToken);
+                if (!availableYears.Contains(year))
+                    return BadRequest(new { message = $"Year {year} is unavailable in this dataset." });
+
+                var result = await _memoryCache.GetOrCreateAsync($"discovery-globe::{year}", async entry =>
+                {
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
+                    return await _repo.GetGlobeSummaryAsync(year, cancellationToken);
+                });
                 return Ok(result);
             }
             catch (SqlException ex)

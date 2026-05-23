@@ -40,25 +40,17 @@ BEGIN
         LEFT JOIN DIM_Artist a
             ON a.artist_id = bsa.artist_id
         WHERE scp.chart_year = @Year
+          AND EXISTS (
+                SELECT 1
+                FROM SongCountryChart scc
+                WHERE scc.song_id    = scp.song_id
+                  AND scc.country_id = @CountryId
+                  AND scc.chart_year = @Year
+              )
           AND (
-                (@ListType = 'shared'
-                 AND scp.country_count > 1
-                 AND NOT EXISTS (
-                    SELECT 1
-                    FROM HiddenGems hg
-                    WHERE hg.country_id = @CountryId
-                      AND hg.song_id = scp.song_id
-                      AND hg.chart_year = @Year
-                 ))
+                (@ListType = 'shared' AND scp.country_count > 1)
                 OR
-                (@ListType = 'unique'
-                 AND scp.country_count = 1
-                 AND NOT EXISTS (
-                    SELECT 1
-                    FROM HiddenGems hg
-                    WHERE hg.song_id = scp.song_id
-                      AND hg.chart_year = @Year
-                 ))
+                (@ListType = 'unique' AND scp.country_count = 1)
               )
     )
     SELECT

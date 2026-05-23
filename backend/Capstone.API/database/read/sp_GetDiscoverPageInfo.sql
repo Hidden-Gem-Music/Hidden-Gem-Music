@@ -11,10 +11,14 @@
 --              05/19/2026 — Added top_song_name to SELECT (issue #148).
 --                           Requires ALTER TABLE + sp_PopulateTopSongByCountryYear
 --                           re-run before deploying — see populate SP header.
+--              05/21/2026 — Added SongCountryChart EXISTS filter to exclude countries
+--                           with no Top 200 data for the requested year (e.g. Andorra,
+--                           Viral-50-only).
 -- Description: One lightweight row per country for the Discovery Map and country
 --              sidebar list. Returns country metadata, hidden gem count for the year,
 --              and most-charted song/album/artist from TopSongByCountryYear.
---              Reads only pre-computed tables (Country, HiddenGems, TopSongByCountryYear).
+--              Reads only pre-computed tables (Country, HiddenGems, TopSongByCountryYear,
+--              SongCountryChart).
 -- EXEC sp_GetDiscoverPageInfo @Year = 2021;
 -- =============================================
 
@@ -48,5 +52,10 @@ BEGIN
         ON tscy.country_id = c.country_id
        AND tscy.chart_year = @Year
     WHERE c.iso_code IS NOT NULL
+      AND EXISTS (
+            SELECT 1 FROM SongCountryChart scc
+            WHERE scc.country_id = c.country_id
+              AND scc.chart_year = @Year
+          )
     ORDER BY c.full_name;
 END;

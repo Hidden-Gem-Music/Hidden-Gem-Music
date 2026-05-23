@@ -3,6 +3,143 @@
 
 ---
 
+## 2026-05-21 — Cache Clearing Required After Every Backend or SP Change
+
+**Tester:** Leena Komenski
+**Fix owner:** ⚠️ Flagged for Eli
+**Scope:** `FileBackedDiscoverySampleCacheService`, `FileBackedPresentationDataCacheService`, `DiscoveryController` (`IMemoryCache`)
+
+### What was noticed
+
+Every SP or backend code change requires manually deleting cache files and restarting the server before the effect is visible. The two-layer cache (file-backed JSON + `IMemoryCache`) is good for production performance but makes iterative QA and debugging significantly slower.
+
+### Cache locations to clear
+
+- `backend\Capstone.API\Data\discovery_samples_cache.json` (and `.tmp` if present)
+- `backend\Capstone.API\Data\presentation_data_cache.json`
+- `backend\Capstone.API\live_song_enrichment_cache\live_song_cache.json`
+- In-memory cache (`IMemoryCache`) — cleared only by server restart
+
+### ⚠️ Eli — consider a dev cache bypass
+
+A flag (e.g. environment variable or `appsettings.Development.json` setting) that disables or shortens cache TTLs in development would make local QA much faster without affecting production behavior.
+
+---
+
+## 2026-05-21 — Viral 50 Leaking into CountryYearStats for Top-200-Absent Countries
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `sp_PopulateCountryYearStats.sql`
+
+### What was noticed
+
+Andorra's country profile KPI showed 682 total songs, 557 shared, 125 unique, 81% overlap — despite no songs ever loading in the shared or unique song lists. Andorra is the only country in the dataset with chart entries but no Top 200 data.
+
+### Root cause
+
+`sp_PopulateCountryYearStats` queried `ChartEntry` without filtering out Viral 50 (`chart_type_id = 2`). Countries like Andorra that have Viral 50 data but no Top 200 presence got inflated KPI numbers. The shared/unique classification comes from `SongCountryPresence` (Top 200 only), so those numbers don't describe the country's own charting behavior — they describe the global Top 200 popularity of songs that happened to trend virally there. The "unique" count in particular is meaningless: it counted songs unique to one other country's Top 200, not unique to Andorra.
+
+`SongCountryChart` correctly excludes Viral 50, so song lists were empty — producing the visible inconsistency of a non-zero KPI with no songs displayed.
+
+### Fix applied
+
+Added `AND ce.chart_type_id != 2` to `SongsPerCountryYear` CTE in `sp_PopulateCountryYearStats`, consistent with `sp_PopulateSongCountryPresence` and `sp_PopulateSongCountryChart`.
+
+### Steps to apply
+
+1. Run updated `sp_PopulateCountryYearStats.sql` in SSMS to update the SP.
+2. `EXEC sp_PopulateCountryYearStats;`
+3. Delete `presentation_data_cache.json` and restart the server.
+
+### Note on affected countries
+
+Andorra is the only country in the dataset with chart entries but no Top 200 data — all other countries either have Top 200 data or no chart entries at all. Andorra will now show no profile data, which is correct given its data is entirely Viral 50 and cannot support the app's Discovery Gap metrics.
+
+### ⚠️ Follow-up — verify raw data for Andorra
+
+Check the raw Kaggle CSV for `AD` rows with `chart_type_id = 1` (Top 200). If Top 200 rows exist in the source file but aren't in the database, the data can be ingested and Andorra will work correctly. If no Top 200 rows exist in the source, the current behavior is correct and no further action is needed.
+
+---
+
+## 2026-05-21 — Discovery Map Genre/Language Sampling Fixes
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `CountryRepository.cs`, `sp_GetCountrySongsPaged.sql`
+
+### What was noticed
+
+- Discovery Map showed identical genres (e.g. Alternative, R&B, Pop) for nearly every country in every year.
+- Country profile page genres did not match the genres of the country's own top songs — e.g. Australia 2023 showed "Classical" while none of its top songs were Classical.
+- Some countries (Egypt, Saudi Arabia, Morocco, Andorra) showed no genre or language at all.
+- Some variation in language across countries but far less than expected.
+
+### Root causes
+
+**1. `sp_GetCountrySongsPaged` not applied to database** — The SP was updated in this branch but not yet run in SSMS. The database still had the old query, which pulled from a global song pool with no country filter → same songs → same genres for all countries.
+
+**2. Deezer rate limiting from parallel prefix scans** — Commit `013b796` made the three genre prefix scans run in parallel. With 16 countries requested at once, this created up to 144 concurrent Deezer calls, exceeding the 50/4.9s rate limiter and causing Egypt, Saudi Arabia, Morocco, and Andorra to return no genre or language data. The rate limiter was known to handle individual call bursts correctly — the oversight was not accounting for how parallelizing the prefix scans multiplied the burst size when many countries load simultaneously.
+
+### Fixes applied
+
+- **Ran `sp_GetCountrySongsPaged.sql` in SSMS** — primary fix for identical genres across all countries.
+- **Reverted prefix scans to sequential** in `GetCountryGenreSampleAsync` — fixes missing genre/language data for non-Latin-alphabet countries.
+- **Deezer fallback investigated, not changed** — splitting `SelectBestTrackMatch` into strict (genre sampling) and permissive (Hidden Gems) paths was prototyped and reverted. The SP fix is the root cause; the original `FirstOrDefault()` fallback is preserved.
+
+### Steps to apply
+
+1. Run updated `sp_GetCountrySongsPaged.sql` in SSMS (required — root cause of same-genres-everywhere).
+2. Delete `backend\Capstone.API\Data\discovery_samples_cache.json` and restart the server.
+3. Delete `backend\Capstone.API\live_song_enrichment_cache\live_song_cache.json` if any bad fallback matches are cached from before this fix (optional but recommended for a clean slate).
+
+### ⚠️ Eli — profile page genre source: review requested
+
+`GetCountryProfileAsync` currently calls `GetCountryGenreSampleAsync` (your original prefix-based approach) for `SampleGenres`. During this investigation an alternative was prototyped and reverted — flagging for your review:
+
+**Option A (current — Eli's original):** `GetCountryGenreSampleAsync` — prefix heuristic samples from the full catalog for genre diversity. Costs extra Deezer calls on profile load; genres may not match the specific top songs shown on screen.
+
+**Option B (prototyped, reverted):** Derive `SampleGenres` from the already-enriched `TopSharedSongs` + `TopUniqueSongs` directly. Zero extra Deezer calls; genres always match the visible songs. Risk: top shared songs are ordered by `country_count DESC` (most globally popular), so genres may skew toward mainstream Pop/R&B and miss local genres that don't chart globally.
+
+Kept Option A on the assumption that genre diversity was intentional. Please confirm.
+
+### How to test
+
+1. Open Discovery Map for 2021 — confirm countries show different genres from each other.
+2. Open a country profile — confirm the listed genres match those on the visible top song cards.
+3. Check Egypt or Saudi Arabia — may show fewer genres than English-speaking countries due to Deezer match confidence on non-Latin titles; this is expected.
+
+---
+
+## 2026-05-21 — Country Profile KPI Card Label Improvements
+
+**Tester:** TBD
+**Fix owner:** ⚠️ Frontend change needed — flagged for Eli
+**Scope:** Frontend Country Detail page — KPI summary cards
+
+### What was noticed
+
+The KPI card labels on the country profile page don't clearly communicate what they're showing to a new viewer:
+
+| Current label | Suggested label | Notes |
+|---|---|---|
+| Songs in this view | **Total songs charted** | "In this view" is ambiguous — clarify it's the total for the country/year |
+| Loved in This Country | **X unique songs** | Show the actual count; "Loved in This Country" reads like a section heading, not a stat |
+| Loved Here and Elsewhere | **X shared songs** | Same — lead with the number, label describes what it counts |
+| _(overlap % card)_ | See options below | Currently shows `overlap_pct` with label "% of this view" — misleading |
+
+### ⚠️ Eli — overlap percentage card copy
+
+`overlap_pct` = `shared_count / total_charted` — the percentage of this country's charting songs that also appeared in at least one other country's charts that year. The current label "% of this view" doesn't explain this. Suggested options (or choose something else entirely):
+
+- **"of songs here also charted abroad"** — plain and accurate
+- **"international chart overlap"** — short, reads like a stat label
+- **"of this year's chart crossed borders"** — more expressive
+
+No backend changes needed — `overlap_pct` is already returned in the profile response from `CountryYearStats`.
+
+---
+
 ## 2026-05-21 — Issue #135: 2023 Limited Data Disclaimer
 
 **Tester:** mp3li / Codex-assisted verification
@@ -41,10 +178,280 @@
 
 ---
 
+## 2026-05-19 / 2026-05-21 — Wrong-Country Songs in Country Profile and Comparison Pages
+
+**Tester:** Leena Komenski; Eli (independent confirmation for USA 2025)
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `sp_GetCountryProfile.sql`, `sp_GetCountrySongsPaged.sql`, `sp_GetCountryComparison.sql`, `SongCountryChart` (new table), `sp_PopulateSongCountryChart.sql`, `presentation_data_cache.json`
+
+### What was noticed
+
+Country Profile pages for Japan (JP) and Brazil (BR) for 2020 displayed Swedish and Polish songs (Maximillian, Benjamin Ingrosso, Szpaku, TIX) as "top unique songs," with those artists listed as country favorites. Eli independently flagged that USA 2025 showed unrecognized artists in "Favorite Artists" and songs he didn't recognize in the "Loved Here" section — he noted the results appeared "more year/global SongCountryPresence based rather than explicitly songs that charted in this selected country."
+
+### Root cause
+
+`SongCountryPresence` tracks `(song_id, chart_year, country_count)` — a global count with no `country_id` column. There is no way to ask "did this song chart in Japan?" from that table. All three SPs used `HiddenGems` as a proxy: if a song is not in country X's HiddenGems list, treat it as charting in X. This proxy is fundamentally broken for unique songs.
+
+`sp_PopulateHiddenGems` uses `@MinCountries = 3`, so only songs charting in 3+ countries are written to `HiddenGems`. Songs with `country_count = 1` or `2` are never in HiddenGems for any country. For the unique songs queries (`country_count = 1`), the `NOT EXISTS (HiddenGems)` clause was always true for every country — it never filtered anything. Every globally-unique regional song qualified as "unique to" any requested country.
+
+Additionally, `sp_GetCountrySongsPaged` (the paginated "Loved Here" / "Loved Here and Elsewhere" source) had the same structural flaw in its unique branch. `sp_GetCountryComparison` RS4 and RS5 ("unique to A" / "unique to B") used the same HiddenGems anti-join pattern with the same limitation.
+
+An earlier partial fix (2026-05-19) added a `country_id` filter to the `NOT EXISTS` clause in `sp_GetCountryProfile`, but this did not change the results — since `country_count = 1` songs are never in HiddenGems regardless, the filter was a no-op.
+
+### Fix applied (2026-05-21)
+
+Created `SongCountryChart (song_id, country_id, chart_year)` — a pre-computed lookup table derived from `ChartEntry` (Top 200 only, `chart_type_id != 2` for Viral 50 exclusion, consistent with `sp_PopulateSongCountryPresence`). Populated by `sp_PopulateSongCountryChart`.
+
+Replaced the HiddenGems proxy with a direct join/exists on `SongCountryChart` in all three SPs:
+
+```sql
+-- sp_GetCountryProfile (shared and unique songs):
+JOIN SongCountryChart scc
+    ON scc.song_id    = scp.song_id
+   AND scc.country_id = @CountryId
+   AND scc.chart_year = @Year
+
+-- sp_GetCountrySongsPaged (both branches):
+AND EXISTS (
+    SELECT 1 FROM SongCountryChart scc
+    WHERE scc.song_id    = scp.song_id
+      AND scc.country_id = @CountryId
+      AND scc.chart_year = @Year
+)
+
+-- sp_GetCountryComparison RS4/RS5 (anti-join via LEFT JOIN / WHERE IS NULL):
+WITH InA AS (SELECT scc.song_id FROM SongCountryChart scc WHERE scc.country_id = @CountryIdA ...)
+WITH NotInB AS (SELECT scc.song_id FROM SongCountryChart scc WHERE scc.country_id = @CountryIdB ...)
+```
+
+`SongCountryChart` has a clustered PK on `(song_id, country_id, chart_year)` for song-first joins, and `IX_SongCountryChart_Country_Year` on `(country_id, chart_year)` for country-first lookups in the comparison SP CTEs.
+
+### Steps to apply
+
+1. In SSMS, uncomment and run the `CREATE TABLE` + `CREATE INDEX` block from `sp_PopulateSongCountryChart.sql`.
+2. Run the rest of that file to create the SP, then `EXEC sp_PopulateSongCountryChart;`
+3. Run `sp_GetCountryProfile.sql`, `sp_GetCountrySongsPaged.sql`, and `sp_GetCountryComparison.sql` in SSMS.
+4. Delete `backend\Capstone.API\Data\presentation_data_cache.json` and restart the server.
+
+### How to test
+
+1. Load Japan 2020 and Brazil 2020 country profiles — unique songs and favorite artists should reflect locally charted artists.
+2. Load USA 2025 — "Loved Here" and "Favorite Artists" should show recognizable US chart artists.
+3. Load a comparison pair with culturally distinct countries (e.g. JP vs. BR 2020) — "unique to A" and "unique to B" lists should contain artists plausibly from those markets.
+4. Spot-check a DS2 year (2024 or 2025) for a non-English-speaking country (e.g. TR, AR, KR) to confirm local artists appear.
+
+---
+
+## 2026-05-19 — Controller Response Caching (Comparison, Discovery, Metadata)
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `ComparisonController.cs`, `DiscoveryController.cs`, `MetadataController.cs`
+
+### What was investigated
+
+Network tab on the Discovery page showed `countries?year=2020` and `years` both taking ~3.78–3.79 s on cold load. Comparison page took ~20 s total for a first load despite `sp_GetCountryComparison` running near-instantly in SSMS after the performance fixes.
+
+Three controllers had no caching at all — every request hit the database directly:
+
+- **`DiscoveryController`** — called `GetAvailableYearsAsync` and `GetGlobeSummaryAsync` on every request with no caching. `GetGlobeSummaryAsync` returns 46.4 kB of globe summary data and was the source of the 3.79 s cold hit.
+- **`MetadataController`** — `GetAvailableYears` called `GetAvailableYearsAsync` directly on every request. No caching.
+- **`ComparisonController`** — `IsAvailableYearAsync` called `GetAvailableYearsAsync` on every comparison request with no cache. The comparison result itself was never cached — every `/api/comparison` hit ran the full SP.
+
+Compare to `CountryController`, which caches available years in `IMemoryCache` (5-minute TTL) and caches full profile responses in `IPresentationDataCacheService` (file-backed, survives restarts).
+
+### Fixes applied
+
+**`DiscoveryController`:**
+- Added `IMemoryCache` dependency.
+- Available years check: `IMemoryCache.GetOrCreateAsync` with 5-minute TTL.
+- Globe summary result: `IMemoryCache.GetOrCreateAsync` with 30-minute TTL keyed by year (`discovery-globe::{year}`).
+
+**`MetadataController`:**
+- Added `IMemoryCache` dependency.
+- Years response: `IMemoryCache.GetOrCreateAsync` with 5-minute TTL.
+
+**`ComparisonController`:**
+- Added `IMemoryCache` and `IPresentationDataCacheService` dependencies.
+- `IsAvailableYearAsync`: now uses `IMemoryCache.GetOrCreateAsync` with 5-minute TTL (same pattern as `CountryController`).
+- `GetCountryComparison`: checks `IPresentationDataCacheService` before hitting the SP; writes result to file-backed cache after first load.
+- `GetComparisonHiddenGems`: same file-backed cache check/write.
+
+### Expected behavior after fix
+
+- **Second load** of any comparison pair or discovery globe year: near-instant (file-backed cache for comparison, memory cache for globe/years).
+- **First load after server restart**: `countries?year=X` and `years` still hit DB once per year per restart (~3.8 s), then serve from memory. Comparison pairs still hit DB once, then serve from file-backed cache across restarts.
+
+### How to test
+
+1. Restart server with a cleared `presentation_data_cache.json`.
+2. Load the Discovery page — `countries?year=X` will be slow on first load; navigate away and back — should be near-instant on second load.
+3. Load a comparison pair (e.g. SE/VN 2020) — first load slow; second load should be instant regardless of server restart.
+4. Confirm `/api/metadata/years` returns the same data as before.
+
+---
+
+## 2026-05-19 — sp_GetCountryComparison Performance Analysis
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski
+**Scope:** `sp_GetCountryComparison.sql`, `HiddenGems` table indexes
+
+### What was investigated
+
+Comparison page cold-first-load was taking ~20 seconds for uncached country pairs (e.g. SE/VN 2020). Unlike Country Profile, `ComparisonController` and `ComparisonRepository` use no presentation data cache and no Deezer enrichment — the full 20 seconds is pure DB query time for `sp_GetCountryComparison`.
+
+### Issues identified in the SP
+
+**1. `NOT EXISTS` correlated subqueries with likely missing index (highest impact)**
+
+Result sets 3, 4, and 5 all use this pattern for every row scanned from `SongCountryPresence`:
+
+```sql
+AND NOT EXISTS (
+    SELECT 1 FROM HiddenGems hg
+    WHERE hg.country_id = @CountryIdA
+      AND hg.song_id    = scp.song_id
+      AND hg.chart_year = @Year
+)
+```
+
+Without a composite index on `HiddenGems (country_id, chart_year, song_id)`, SQL Server scans the table for each row. Adding the index turns this into a seek.
+
+**2. Double join to `SongCountryPresence` in result set 3**
+
+`InA` already reads from `SongCountryPresence`, but the main SELECT joins it again to get `country_count` for `ORDER BY`. Carrying `country_count` through the CTE eliminates the second scan:
+
+```sql
+WITH InA AS (
+    SELECT scp.song_id, scp.country_count  -- add country_count here
+    FROM SongCountryPresence scp
+    WHERE ...
+)
+-- then remove the second JOIN to SongCountryPresence in the SELECT
+```
+
+**3. Optional: rewrite `NOT EXISTS` as anti-join**
+
+SQL Server usually handles these equivalently, but an explicit `LEFT JOIN / WHERE IS NULL` sometimes produces a better plan when the optimizer is uncertain about selectivity.
+
+### Recommended fixes (in order of impact)
+
+```sql
+-- 1. Add covering index (run in SSMS)
+CREATE INDEX IX_HiddenGems_Country_Year_Song
+    ON HiddenGems (country_id, chart_year, song_id);
+
+-- 2. Update the SP — carry country_count through InA CTE, drop the second SongCountryPresence join in result set 3
+-- 3. Optional — rewrite NOT EXISTS as LEFT JOIN anti-join in result sets 3, 4, 5
+```
+
+### Status
+
+All three fixes applied (2026-05-19):
+- Index `IX_HiddenGems_Country_Year_Song` added to `HiddenGems`
+- `country_count` carried through `InA` CTE; redundant `SongCountryPresence` join removed from result set 3
+- `NOT EXISTS` rewritten as `LEFT JOIN / WHERE IS NULL` anti-join in result sets 3, 4, and 5
+
+Index alone reduced cold-load time by ~2 s (~20 s → ~18 s). Retest with all three changes applied to confirm total improvement.
+
+---
+
+## 2026-05-19 — CountryRepository Parallel Deezer Enrichment
+_(updated 2026-05-21 — items 3 and 4 revised; see 2026-05-21 Discovery Map Genre/Language Sampling Fixes)_
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `CountryRepository.cs`
+
+### What was fixed
+
+Cold-cache Country Profile page loads were taking 15–20 seconds. Unlike Comparison, Country Profile enriches song results with Deezer API data (artist images, album art, genres, preview URLs). This enrichment was sequential — each song awaited its own Deezer calls before the next one started. With ~20 songs across the shared and unique lists, each requiring up to 3 Deezer API calls (~200 ms each), the enrichment alone accounted for 8–12 seconds per request.
+
+Four changes were made to `CountryRepository.cs`:
+
+**1. `EnrichSongRowsAsync` — parallel enrichment**
+
+Changed from sequential `foreach await` to `Task.WhenAll`. All songs in a list now enrich concurrently. The `DeezerSongEnrichmentService` has a built-in sliding window rate limiter (50 req / 4.9 s), but this only throttles individual calls — it does not prevent burst overload when many countries are loaded simultaneously on the Discovery Map.
+
+**2. `GetHiddenGemsPreviewAsync` — parallel enrichment**
+
+Changed from sequential `foreach await` to `Task.WhenAll` over all raw rows, with deduplication and limit applied in a post-filter pass over the results.
+
+**3. `GetCountryGenreSampleAsync` — parallel prefix scans** ⚠️ reverted 2026-05-21
+
+The three prefix scans ("B", "I", "Y") were changed to run concurrently. In practice, with 16 countries loading simultaneously on the Discovery Map, this created up to 144 burst Deezer calls, exceeding the rate limiter window and causing countries at the back of the queue to return no genre or language data. **Reverted to sequential prefix scans** in the 2026-05-21 genre sampling fix.
+
+**4. `GetCountryProfileAsync` — parallel sub-operations**
+
+Shared songs enrichment and unique songs enrichment run together via `Task.WhenAll`. Genre sampling was later removed from this `Task.WhenAll` (2026-05-21) — the profile now derives genres from the already-enriched top songs instead of making a separate sampling pass.
+
+**Dead code removed**
+
+`FindDistinctLanguageForPrefixAsync` and `FillRemainingDistinctLanguagesAsync` (~150 lines) were async duplicates of the synchronous language methods. They were never called — `GetCountryLanguageSampleAsync` uses the synchronous versions. Both deleted.
+
+### Expected improvement
+
+Cold-cache country profile enrichment: ~8–12 s (sequential) → ~1–2 s (parallel, rate-limited). The DB query time and any remaining Deezer bottleneck still apply — improvement is specifically to the song enrichment phase.
+
+### How to test
+
+1. Identify a country/year not in `presentation_data_cache.json` (e.g. a country not in Eli's warmed set).
+2. Load the Country Profile page and time the first load.
+3. Compare against the same country/year before this change (or against a cached country as a baseline for DB-only latency).
+4. Verify genre samples, hidden gems preview, and top songs all still display correctly.
+5. Check that hidden gems preview deduplication still works (no duplicate songs in the preview widget).
+
+### Verification
+
+- `dotnet build Capstone.API.csproj` passed with 0 C# errors.
+- Correctness testing: Leena Komenski (Windows) — pending.
+
+---
+
+## 2026-05-19 — CountryController Validation Outside try/catch Fix
+
+**Tester:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `CountryController.cs`
+
+### What was fixed
+
+Three categories of issues in `CountryController.cs`:
+
+**1. `ValidateInputsAsync` called outside try/catch**
+
+In `GetCountryProfile`, `GetHiddenGemsPreview`, and `GetCountrySongs`, `ValidateInputsAsync` was called before the `try` block. `ValidateInputsAsync` calls `_metadataRepo.GetAvailableYearsAsync()` — a DB call. If that call threw, the exception was not caught by any handler, producing a silent (unlogged) 500 response. Moved inside the `try` block in all three methods.
+
+**2. Year validation outside try/catch in `GetCountryGenreSamples` and `GetCountryLanguageSamples`**
+
+These two endpoints had an inline `_memoryCache.GetOrCreateAsync` → `GetAvailableYearsAsync()` block before their `try` blocks. Same silent-500 risk. Moved inside `try`.
+
+**3. `GetAvailableYearsAsync()` called without `CancellationToken`**
+
+Every call to `GetAvailableYearsAsync()` throughout the controller was missing the request cancellation token. Cancelling the HTTP request would not abort the in-flight DB call.
+
+### How it was fixed
+
+Extracted a private `IsAvailableYearAsync(int year, CancellationToken)` helper that holds the single `IMemoryCache.GetOrCreateAsync` + `GetAvailableYearsAsync(cancellationToken)` call. `ValidateInputsAsync` now calls the helper (and also accepts a `CancellationToken`). `GetCountryGenreSamples` and `GetCountryLanguageSamples` call the helper directly inside their `try` blocks. All five action method call sites pass `cancellationToken`.
+
+### How to test
+
+1. Load a valid Country Profile page — should load normally.
+2. Load with an invalid year (e.g. `?year=1900`) — should return 400 with a year-unavailable message.
+3. Load with an invalid country code (e.g. `/api/country/ZZZ`) — should return 400 with country-code message.
+4. Confirm no regressions on genre-samples and language-samples endpoints.
+
+### Verification
+
+- `dotnet build Capstone.API.csproj` passed with 0 C# errors.
+
+---
+
 ## 2026-05-19 — Discovery Map Showing "No Song Data" for DS1 Years (Issue #148)
 
 **Tester:** Eli (reviewer, PR #137 — flagged in PR review comments, not in this log)
-**Fix owner:** Leena Komenski
+**Fix owner:** Leena Komenski / Claude-assisted implementation
 **Branch:** `148-bug-sp-unknown-song-with-unknown-album`
 **Scope:** `sp_PopulateTopSongByCountryYear`, `sp_GetDiscoverPageInfo`, `TopSongByCountryYear` table, `GlobeRepository.cs`, `CountryGlobeSummary.cs`, `api.ts`, `apiMappers.ts`, `discoveryApi.ts`, `GlobeView.tsx`, `CountryCard.tsx`
 
@@ -114,6 +521,130 @@ SELECT
 FROM DIM_Song
 WHERE song_id IN (SELECT DISTINCT song_id FROM ChartEntry WHERE YEAR(snapshot_date) BETWEEN 2017 AND 2021);
 ```
+
+## 2026-05-19 — Country/Comparison Slow First-Load Investigation (Mac / Docker SQL Server)
+
+**Tester:** Leena Komenski
+**Fix owner:** Pending (see long-term recommendations below)
+**Scope:** Country Profile and Comparison pages, `sp_GetCountryProfile`, Docker SQL Server execution plan cache, `FileBackedPresentationDataCacheService`, `SaveAsync` blocking pattern
+
+### What was investigated
+
+After the `05.15_HiddenGemMusic.bak` restore, Country Profile and Comparison pages loaded unusably slowly for mp3li on Mac — several minutes per page. mp3li noted this in his timeline document immediately after the restore on May 15 and built the file-backed cache services and presentation-data warmer tools (commit `6f4b76d`) as a workaround. The loading optimization branch (`cfe2fa7`) was suspected as the cause but investigation showed otherwise.
+
+### Root cause
+
+**The `.bak` restore wiped mp3li's Docker SQL Server execution plan cache.**
+
+SQL Server does not store execution plans in backup files. Plans live in-memory only and are cleared whenever a database is restored. Before the restore, mp3li's Docker SQL Server had warm, locally-compiled plans for `sp_GetCountryProfile` and related country/comparison stored procedures. Those plans had been adapted over time to his container's memory and CPU constraints.
+
+After restoring Leena's `.bak`, SQL Server recompiled all plans from cold using the statistics embedded in the Windows backup. Statistics generated on a native Windows SQL Server machine can lead the optimizer to choose memory-intensive plans (hash joins, large sort operations) that run efficiently on a full-RAM Windows installation but exceed Docker's constrained container memory — causing those operations to spill to disk and run orders of magnitude slower.
+
+This is why:
+
+- The Discovery page was **fast** after the restore — `sp_GetDiscoverPageInfo` was optimized in the same branch to read from the pre-computed `TopSongByCountryYear` table, so it is near-instant regardless of plan quality.
+- Country/Comparison pages were **slow** — `sp_GetCountryProfile` is a complex aggregation SP that is sensitive to plan choice and Docker memory limits on a cold compile.
+- The loading optimization branch code changes themselves (parallelizing genre-sample fetching in the backend, deduplicating the `loadAvailableYears` promise in the frontend) were **not** the cause.
+
+### Secondary issue: `SaveAsync` blocks HTTP responses
+
+The `FileBackedPresentationDataCacheService.SaveAsync` and `FileBackedDiscoverySampleCacheService.SaveFavoriteArtistsAsync` calls in `CountryController.cs` are `await`ed before `return Ok(result)`. This means every cold-cache request waits for both file writes to complete — and those writes serialize through a `SemaphoreSlim(1, 1)` — before the client gets a response. This adds latency on top of slow DB queries rather than running in the background.
+
+### Loading veil behavior (expected but worth noting)
+
+The glassy section loading covers added in `6f4b76d` are each tied to an individual loading state flag (`initialLoadingProfile`, `initialLoadingUnique`, `initialLoadingShared`, `initialLoadingPreview`). The veils are semi-transparent overlays, so underlying placeholder/skeleton content is visible through them while data loads. Veils do not clear until their controlling flag is set to `false`, which only happens when the HTTP response arrives. Because `SaveAsync` is awaited before the response is sent, slow DB queries + serialized file writes on a cold Docker instance compound into minutes of total wait — all veils remain up for the full duration.
+
+### Long-term recommendations
+
+**1. Increase Docker Desktop memory allocation (highest impact, no code change)**
+
+In Docker Desktop on macOS → Settings → Resources, increase the memory limit to 8 GB or more. SQL Server defaults to using up to 80% of available container memory for its buffer pool. More memory means hash joins and sort operations stay in RAM instead of spilling to disk, and cold plan compilation produces efficient plans even from cold start.
+
+**2. Run `sp_updatestats` after every `.bak` restore**
+
+After each database restore, run the following in SSMS before starting app work:
+
+```sql
+USE HiddenGemMusic;
+EXEC sp_updatestats;
+```
+
+This rebuilds statistics from the actual data in the Docker instance rather than using the Windows-generated statistics embedded in the backup. The optimizer then compiles plans suited to the Docker environment.
+
+**3. Fix `SaveAsync` to not block HTTP responses**
+
+In `CountryController.cs`, fire the cache-write calls as background tasks so the response returns immediately after the DB query completes:
+
+```csharp
+// Current (blocks response until writes finish):
+await _discoverySampleCache.SaveFavoriteArtistsAsync(normalizedCode, year, favoriteArtists, cancellationToken);
+await _presentationDataCache.SaveAsync(cacheKey, result, cancellationToken);
+return Ok(result);
+
+// Recommended (response returns immediately; cache writes complete in background):
+if (favoriteArtists.Count > 0)
+    _ = _discoverySampleCache.SaveFavoriteArtistsAsync(normalizedCode, year, favoriteArtists);
+_ = _presentationDataCache.SaveAsync(cacheKey, result);
+return Ok(result);
+```
+
+The same pattern applies to the hidden gems preview and songs endpoints in the same file. This does not fix slow DB queries but removes the extra serialized file-write latency stacked on top of them on every cold-cache request.
+
+### Current workaround
+
+The presentation-data warmer scripts (`tools/presentation_data_prep.py`, `tools/fill_discovery_samples_cache.py`) pre-populate the file-backed cache JSON files before a session. With warm cache files, country and comparison profile requests return from the JSON file without hitting the database at all, which is fast regardless of Docker plan quality. Warmers should be run after any `.bak` restore and before demo or testing sessions until the Docker memory and `sp_updatestats` fixes are in place.
+
+**Note:** The file-backed cache services and warmer tools exist solely as a workaround for the slow cold-query problem described above. If the root cause is resolved (Docker memory increased and/or `sp_updatestats` run after restores), Country and Comparison pages will load at normal speed directly from the database and the warmers become redundant. The `FileBackedPresentationDataCacheService`, `FileBackedDiscoverySampleCacheService`, and associated warmer scripts can be removed at that point.
+
+---
+
+## 2026-05-19 — CountryController `SaveAsync` Fire-and-Forget Fix
+
+**Tester:** Leena Komenski, pending mp3li
+**Fix owner:** Leena Komenski / Claude-assisted implementation
+**Scope:** `CountryController.cs` — `GetCountryProfile`, `GetHiddenGemsPreview`, `GetCountrySongs`, `GetCountryGenreSamples`, `GetCountryLanguageSamples`
+
+### What was fixed
+
+Per the investigation documented above, file-backed cache writes were `await`ed before returning HTTP responses, adding serialized file-write latency on top of every cold-cache DB query. All five save calls were changed to fire-and-forget using the `_ =` discard pattern so the response returns as soon as the DB result is ready.
+
+The `CancellationToken` parameter was also dropped from each fire-and-forget call. Passing a request-scoped token to a background write would cancel the write the moment the HTTP response completed, defeating the purpose of the background save.
+
+Changes made in `backend/Capstone.API/Controllers/CountryController.cs`:
+
+| Endpoint | Call changed |
+|---|---|
+| `GetCountryProfile` | `SaveFavoriteArtistsAsync` |
+| `GetCountryProfile` | `SaveAsync` (presentation cache) |
+| `GetHiddenGemsPreview` | `SaveAsync` (presentation cache) |
+| `GetCountrySongs` | `SaveAsync` (presentation cache) |
+| `GetCountryGenreSamples` | `SaveGenresAsync` (inside `GetOrCreateAsync` factory) |
+| `GetCountryLanguageSamples` | `SaveLanguagesAsync` (inside `GetOrCreateAsync` factory) |
+
+### How to test
+
+**Correctness (Leena — Windows):**
+
+Test against a country/year combination not already present in the cache (so a real DB fetch is triggered) rather than deleting the cache files — the cache files contain mp3li's warmed data and should not be cleared for this test.
+
+1. Identify a country/year that is not in `presentation_data_cache.json` (or use a fresh branch without the cache files).
+2. Open that Country Profile page — data should load normally.
+3. Navigate away, then back to the same country — second load should be instant, confirming the background write succeeded and the cache was populated.
+4. Confirm the JSON file now contains an entry for that country/year.
+
+If the second load is still slow, the fire-and-forget write failed silently and needs investigation.
+
+**Note on the warmers:** If the root cause fix (Docker memory / `sp_updatestats`) is in place before this test is run, the file-backed cache services may not be needed at all — see the note in the root cause investigation entry above.
+
+**Performance (mp3li — Mac / Docker SQL Server):**
+
+First load of a Country Profile or Comparison page on a cold cache should now return data as soon as the DB query completes, without the additional wait for serialized file writes on top. Compare cold first-load time before and after pulling this change.
+
+### Verification
+
+- `dotnet build Capstone.API.csproj` passed with 0 warnings and 0 errors.
+- Correctness testing: Leena Komenski (Windows).
+- Performance testing: mp3li (Mac / Docker SQL Server) — pending.
 
 ---
 

@@ -59,7 +59,7 @@ const creditSections: CreditSection[] = [
       "Migrated the database mid-project from a transactional structure to a star-schema data warehouse — redesigning the schema, moving all data without loss, and rebuilding the stored procedure suite against the new structure.",
       "Designed and implemented the index strategy and pre-computation architecture that makes the app fast — including all summary tables populated once and read instantly at runtime.",
       "Authored the full SQL stored procedure suite powering every data insight in the app, and maintained sole ownership of database health throughout the project.",
-      "Ran multiple systematic data quality investigations — diagnosing aggregation mismatches, left-censored artifacts, date-parameter bugs, and Viral 50 / Top 200 conflation across the discovery gap pipeline.",
+      "Ran multiple systematic data quality investigations across the pipeline — diagnosing structural and correctness flaws end-to-end, from aggregation errors and schema mismatches to wrong data surfacing in live screens.",
       "Resolved each investigation end-to-end: live schema changes, stored procedure rewrites, and full summary-table repopulation in dependency order — often tracing root cause from a frontend symptom all the way back to the query layer.",
       "Optimized backend performance through pre-computed summary tables, backend parallelization, and frontend API caching — turning multi-second loads into near-instant responses.",
       "Scaffolded the complete .NET 9 backend — controllers, repository interfaces, data models, and DTOs — giving mp3li the foundation to build the app's feature endpoints on top of.",

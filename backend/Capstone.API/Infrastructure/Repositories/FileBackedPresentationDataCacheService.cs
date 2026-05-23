@@ -86,9 +86,19 @@ namespace Capstone.API.Infrastructure.Repositories
                 return;
             }
 
-            await using var stream = File.OpenRead(_cachePath);
-            var entries = await JsonSerializer.DeserializeAsync<List<PresentationDataCacheEntry>>(stream, JsonOptions, cancellationToken)
-                ?? new List<PresentationDataCacheEntry>();
+            List<PresentationDataCacheEntry> entries;
+            try
+            {
+                await using var stream = File.OpenRead(_cachePath);
+                entries = await JsonSerializer.DeserializeAsync<List<PresentationDataCacheEntry>>(stream, JsonOptions, cancellationToken)
+                    ?? new List<PresentationDataCacheEntry>();
+            }
+            catch (JsonException)
+            {
+                // File was truncated mid-write (e.g. server stopped between File.Create and flush).
+                // Discard it and start fresh.
+                entries = new List<PresentationDataCacheEntry>();
+            }
 
             _entriesByKey = entries
                 .Where(entry => !string.IsNullOrWhiteSpace(entry.Key))
@@ -106,8 +116,13 @@ namespace Capstone.API.Infrastructure.Repositories
                 .OrderBy(entry => entry.Key)
                 .ToList();
 
-            await using var stream = File.Create(_cachePath);
-            await JsonSerializer.SerializeAsync(stream, entries, JsonOptions, cancellationToken);
+            // Write to a temp file first so an interrupted write never corrupts the real cache.
+            var tempPath = _cachePath + ".tmp";
+            await using (var stream = File.Create(tempPath))
+            {
+                await JsonSerializer.SerializeAsync(stream, entries, JsonOptions, cancellationToken);
+            }
+            File.Move(tempPath, _cachePath, overwrite: true);
         }
     }
 }

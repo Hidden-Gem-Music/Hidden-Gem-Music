@@ -24,6 +24,7 @@ BEGIN
             ce.song_id
         FROM ChartEntry ce
         WHERE ce.country_id IS NOT NULL
+          AND ce.chart_type_id != 2
         GROUP BY
             ce.country_id,
             YEAR(ce.snapshot_date),
