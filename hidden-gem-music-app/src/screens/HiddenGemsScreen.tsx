@@ -10,12 +10,10 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleProp,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
-  TextStyle,
   ViewStyle,
 } from "react-native";
 
@@ -1133,7 +1131,6 @@ export function HiddenGemsScreen({
   const previewUrl = previewSong?.spotifySearchUrl?.trim() ?? "";
   const previewPlayer = useAudioPlayer(null, { updateInterval: 200 });
   const previewStatus = useAudioPlayerStatus(previewPlayer);
-  const isPreviewPlaying = previewSongId === selectedSong.id && previewStatus.playing;
   const isPreviewBuffering =
     previewSongId === selectedSong.id &&
     Boolean(previewUrl) &&

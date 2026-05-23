@@ -9,7 +9,6 @@ type Props = {
   countries: Country[];
   allCountries?: Country[];
   isLoading?: boolean;
-  activeCountryId?: string;
   hoveredCountryId?: string | null;
   selectedCountryIds?: string[];
   selectedYear?: number;
@@ -19,14 +18,10 @@ type Props = {
   onChangeYear?: (year: number) => void;
   title: string;
   subtitle?: string;
-  rightActionLabel?: string;
   onRightAction?: () => void;
   showHeader?: boolean;
   frameStyle?: StyleProp<ViewStyle>;
   selectOnHover?: boolean;
-  genreSummaryByCountryCode?: Record<string, string | undefined>;
-  genreLoadingByCountryCode?: Record<string, boolean | undefined>;
-  loadingText?: string;
   onEnsureGenreSample?: (countryCode: string) => void;
   onEnsureLanguageSample?: (countryCode: string) => void;
   isActive?: boolean;
@@ -36,7 +31,6 @@ export function GlobePanel({
   countries,
   allCountries,
   isLoading = false,
-  activeCountryId,
   hoveredCountryId,
   selectedCountryIds,
   selectedYear,
@@ -46,20 +40,14 @@ export function GlobePanel({
   onChangeYear,
   title,
   subtitle,
-  rightActionLabel = "All Filters",
   onRightAction,
   showHeader = true,
   frameStyle,
   selectOnHover = true,
-  genreSummaryByCountryCode,
-  genreLoadingByCountryCode,
-  loadingText,
   onEnsureGenreSample,
   onEnsureLanguageSample,
   isActive,
 }: Props) {
-  const activeCountry = countries.find((country) => country.id === activeCountryId);
-
   return (
     <View style={styles.wrapper}>
       {showHeader ? (
@@ -78,7 +66,6 @@ export function GlobePanel({
           <GlobeView
             countries={countries}
             allCountries={allCountries}
-            activeCountry={activeCountry}
             externalHoveredCountryId={hoveredCountryId}
             selectedCountryIds={selectedCountryIds}
             selectedYear={selectedYear}
@@ -88,9 +75,6 @@ export function GlobePanel({
             onChangeYear={onChangeYear}
             onFiltersPress={onRightAction}
             selectOnHover={selectOnHover}
-            genreSummaryByCountryCode={genreSummaryByCountryCode}
-            genreLoadingByCountryCode={genreLoadingByCountryCode}
-            loadingText={loadingText}
             onEnsureGenreSample={onEnsureGenreSample}
             onEnsureLanguageSample={onEnsureLanguageSample}
             isActive={isActive}

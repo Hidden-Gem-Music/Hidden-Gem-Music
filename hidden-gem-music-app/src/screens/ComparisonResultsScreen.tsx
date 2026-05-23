@@ -37,7 +37,6 @@ export type Props = {
   availableCountries: Country[];
   selectedYear: number;
   onBack: () => void;
-  onChangeYear: (year: number) => void;
   onChangeCountryAtIndex: (index: number, countryId: string) => void;
   onOpenCountry: (countryId: string) => void;
   onOpenHiddenGemsForCountry: (
@@ -97,8 +96,6 @@ type CountryProfileViewModel = {
 
 const vibeTerms = ["Radio Lift", "Night Signal", "Late Echo", "City Current", "Bright Repeat", "Afterglow Cut"];
 const hiddenTerms = ["Buried Signal", "Quiet Circuit", "Glass Room", "Moon Static", "Deep Receiver", "Soft Relay"];
-const genreChartColors = ["#4F5978", "#64718F", "#7786A4", "#90A0BC", "#AAB8D0", "#C6D2E5"];
-const languageChartColors = ["#51607E", "#68789A", "#8292B0", "#9FADD0"];
 const carouselBackdropColors = ["#B86A72", "#8B9BC0", "#8B5E7A", "#627F8A", "#C28C5E", "#7A7EB0"];
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
 const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
@@ -237,44 +234,6 @@ function formatListWithAnd(items: string[]) {
     return `${cleaned[0]} and ${cleaned[1]}`;
   }
   return `${cleaned.slice(0, -1).join(", ")}, and ${cleaned[cleaned.length - 1]}`;
-}
-
-function collectUniqueGenresFromSongs(songs: SongPreview[], limit: number) {
-  const seen = new Set<string>();
-  const results: string[] = [];
-
-  songs.slice(0, limit).forEach((song) => {
-    song.genres
-      .map((genre) => genre.trim())
-      .filter((genre) => genre.length > 0 && genre.toLowerCase() !== "unknown")
-      .forEach((genre) => {
-        const normalized = genre.toLowerCase();
-        if (seen.has(normalized)) {
-          return;
-        }
-        seen.add(normalized);
-        results.push(genre);
-      });
-  });
-
-  return results;
-}
-
-function getLanguageSampleList(languages: string[]) {
-  const cleaned = languages.map((language) => language.trim()).filter((language) => language.length > 0);
-  if (cleaned.length >= 3) {
-    return cleaned.slice(0, 3);
-  }
-
-  if (cleaned.length === 2) {
-    return [cleaned[0], cleaned[1], cleaned[1]];
-  }
-
-  if (cleaned.length === 1) {
-    return [cleaned[0], cleaned[0], cleaned[0]];
-  }
-
-  return ["Unknown", "Unknown", "Unknown"];
 }
 
 function dedupeSongPreviews(songs: SongPreview[]) {
@@ -910,7 +869,14 @@ function MainComparisonArea({
               key={`${title}-${song.title}-${song.artist}-${index}`}
               style={styles.songRowShell}
               accessibilityRole={undefined}
-              onPress={() => {}}
+              onPress={() => {
+                onOpenHiddenGems({
+                  songTitle: song.title,
+                  artist: song.artist,
+                  previewIndex: index,
+                  deezerTrackId: song.deezerTrackId,
+                });
+              }}
               onHoverIn={() => setHoveredSongKey(`${title}-${index}`)}
               onHoverOut={() => setHoveredSongKey((current) => (current === `${title}-${index}` ? null : current))}
               onPressIn={() => setPressedSongKey(`${title}-${index}`)}
@@ -1953,7 +1919,6 @@ export function ComparisonResultsScreen({
   availableCountries,
   selectedYear,
   onBack,
-  onChangeYear,
   onChangeCountryAtIndex,
   onOpenCountry,
   onOpenHiddenGemsForCountry,

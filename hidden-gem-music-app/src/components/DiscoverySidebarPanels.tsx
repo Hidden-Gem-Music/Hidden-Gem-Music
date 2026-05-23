@@ -20,9 +20,7 @@ type Props = {
   autoScrollSignal?: number;
   selectedYear?: number;
   genreSummaryByCountryCode?: Record<string, string | undefined>;
-  genreLoadingByCountryCode?: Record<string, boolean | undefined>;
   languageSummaryByCountryCode?: Record<string, string | undefined>;
-  languageLoadingByCountryCode?: Record<string, boolean | undefined>;
   loadingText?: string;
   onEnsureGenreSample?: (countryCode: string) => void;
   onEnsureLanguageSample?: (countryCode: string) => void;
@@ -43,9 +41,7 @@ export function DiscoverySidebarPanels({
   autoScrollSignal,
   selectedYear,
   genreSummaryByCountryCode,
-  genreLoadingByCountryCode,
   languageSummaryByCountryCode,
-  languageLoadingByCountryCode,
   loadingText = "Loading...",
   onEnsureGenreSample,
   onEnsureLanguageSample,

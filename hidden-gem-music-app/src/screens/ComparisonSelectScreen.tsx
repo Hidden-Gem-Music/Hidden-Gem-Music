@@ -226,7 +226,6 @@ function ComparisonBlurb({
 
 function ComparisonSidebarPanels({
   visibleCountries,
-  totalCountries,
   selectedCountryIds,
   onToggleCountry,
   onClearSelections,
@@ -234,10 +233,8 @@ function ComparisonSidebarPanels({
   onChangeFilter,
   regionOptions,
   languageOptions,
-  genreOptions,
 }: {
   visibleCountries: Country[];
-  totalCountries: number;
   selectedCountryIds: string[];
   onToggleCountry: (countryId: string) => void;
   onClearSelections: () => void;
@@ -245,7 +242,6 @@ function ComparisonSidebarPanels({
   onChangeFilter: (key: keyof ComparisonFilters, value: string[]) => void;
   regionOptions: string[];
   languageOptions: string[];
-  genreOptions: string[];
 }) {
   const { width } = useWindowDimensions();
   const isCompact = width < 980;
@@ -534,11 +530,9 @@ function ComparisonSidebarPanels({
               {renderInlineFilterRow("Hidden Gems", "hiddenGems", ["All", "Only Show Countries with Hidden Gems", "Show Countries Without Hidden Gems", "Most Hidden Gems to Least", "Least Hidden Gems to Most"])}
               {renderInlineFilterRow("Region", "region", ["All", ...regionOptions])}
               {renderInlineFilterRow("Language", "language", ["All", ...languageOptions])}
-              {/* Genre filters are intentionally commented out for now.
+              {/* Genre filters are intentionally omitted for now.
                   The current live genre data is API-fetched per song and is not normalized
-                  enough yet to support trustworthy comparison filtering. Keep this row here
-                  for a future normalized-genre iteration instead of deleting it. */}
-              {/* {renderInlineFilterRow("Genre", "genre", ["All", ...genreOptions])} */}
+                  enough yet to support trustworthy comparison filtering. */}
             </ScrollView>
             {showFilterScrollbar ? (
               <View
@@ -764,13 +758,6 @@ export function ComparisonSelectScreen({
         .sort((a, b) => a.localeCompare(b)),
     [countries]
   );
-  const genreOptions = useMemo(
-    () =>
-      Array.from(new Set(countries.flatMap((country) => country.genres ?? [])))
-        .filter((value) => value.trim().toLowerCase() !== "unknown")
-        .sort((a, b) => a.localeCompare(b)),
-    [countries]
-  );
   const filteredCountries = useMemo(() => {
       const filtered = countries.filter((country) => {
         // Include only countries that have live app data for this year.
@@ -858,7 +845,6 @@ export function ComparisonSelectScreen({
       <GlobePanel
         countries={visibleCountries}
         allCountries={countries}
-        activeCountryId={selectedCountryIds.find((countryId) => visibleCountries.some((country) => country.id === countryId))}
         selectedCountryIds={selectedCountryIds}
         selectedYear={comparisonYear ?? selectedYear}
         onSelectCountry={onToggleCountry}
@@ -874,7 +860,6 @@ export function ComparisonSelectScreen({
     <View style={[styles.rightColumn, isStacked ? styles.columnStacked : null]}>
       <ComparisonSidebarPanels
         visibleCountries={visibleCountries}
-        totalCountries={countries.length}
         selectedCountryIds={selectedCountryIds}
         onToggleCountry={onToggleCountry}
         onClearSelections={onClearSelections}
@@ -885,7 +870,6 @@ export function ComparisonSelectScreen({
         }}
         regionOptions={regionOptions}
         languageOptions={languageOptions}
-        genreOptions={genreOptions}
       />
       {visibleCountries.length === 0 ? (
         <Text style={styles.emptyStateText}>No countries match these filters.</Text>

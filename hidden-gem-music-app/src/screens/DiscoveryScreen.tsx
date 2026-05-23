@@ -64,113 +64,6 @@ function formatGenreSummary(genres: string[]) {
   return "";
 }
 
-function DiscoveryYearDropdown({
-  selectedYear,
-  years,
-  onChangeYear,
-}: {
-  selectedYear: number;
-  years: number[];
-  onChangeYear: (year: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [hoveredYear, setHoveredYear] = useState<number | null>(null);
-  const [hoveredButton, setHoveredButton] = useState(false);
-  const [pressedButton, setPressedButton] = useState(false);
-  const dropdownRef = useRef<View>(null);
-  const showButtonGradient = open || hoveredButton || pressedButton;
-
-  useEffect(() => {
-    if (Platform.OS !== "web" || !open || typeof document === "undefined") {
-      return;
-    }
-
-    const handleDocumentMouseDown = (event: MouseEvent) => {
-      const targetNode = event.target as Node | null;
-      const clickedInside = Boolean((dropdownRef.current as any)?.contains?.(targetNode));
-      if (!clickedInside) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleDocumentMouseDown);
-    return () => {
-      document.removeEventListener("mousedown", handleDocumentMouseDown);
-    };
-  }, [open]);
-
-  return (
-    <View ref={dropdownRef} style={styles.mobileYearDropdownWrap}>
-      {open ? <Pressable style={styles.mobileYearDropdownDismissLayer} onPress={() => setOpen(false)} /> : null}
-      <Pressable
-        onPress={() => setOpen((current) => !current)}
-        onHoverIn={() => setHoveredButton(true)}
-        onHoverOut={() => setHoveredButton(false)}
-        onPressIn={() => setPressedButton(true)}
-        onPressOut={() => setPressedButton(false)}
-        style={styles.mobileYearDropdownShell}
-      >
-        {showButtonGradient ? (
-          <LinearGradient
-            colors={pressedButton ? activeGradient : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]}
-            locations={[0, 0.34, 1]}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.mobileYearDropdownGradient}
-          />
-        ) : null}
-        <View style={[styles.mobileYearDropdownButton, showButtonGradient ? styles.mobileYearDropdownButtonActive : null]}>
-          <Text style={[styles.mobileYearDropdownText, showButtonGradient ? styles.mobileYearDropdownTextActive : null]}>
-            {selectedYear}
-          </Text>
-          <Text style={[styles.mobileYearDropdownChevron, showButtonGradient ? styles.mobileYearDropdownTextActive : null]}>
-            {open ? "-" : "+"}
-          </Text>
-        </View>
-      </Pressable>
-      {open ? (
-        <Panel style={styles.mobileYearDropdownMenu}>
-          <SecondarySurfaceFill />
-          <ScrollView style={styles.mobileYearDropdownScroll} contentContainerStyle={styles.mobileYearDropdownContent}>
-            {years.slice().sort((a, b) => b - a).map((yearOption) => {
-              const active = yearOption === selectedYear;
-              const hovered = hoveredYear === yearOption;
-              const showOptionGradient = active || hovered;
-              return (
-                <Pressable
-                  key={`mobile-year-${yearOption}`}
-                  onHoverIn={() => setHoveredYear(yearOption)}
-                  onHoverOut={() => setHoveredYear((current) => (current === yearOption ? null : current))}
-                  onPress={() => {
-                    onChangeYear(yearOption);
-                    setOpen(false);
-                  }}
-                  style={styles.mobileYearDropdownOptionShell}
-                >
-                  {showOptionGradient ? (
-                    <LinearGradient
-                      colors={active ? activeGradient : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]}
-                      locations={[0, 0.34, 1]}
-                      start={{ x: 0, y: 0.5 }}
-                      end={{ x: 1, y: 0.5 }}
-                      style={styles.mobileYearDropdownGradient}
-                    />
-                  ) : null}
-                  <View style={[styles.mobileYearDropdownOption, showOptionGradient ? styles.mobileYearDropdownOptionActive : null]}>
-                    <Text style={[styles.mobileYearDropdownOptionText, showOptionGradient ? styles.mobileYearDropdownTextActive : null]}>
-                      {yearOption}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </Panel>
-      ) : null}
-    </View>
-  );
-}
-
 export function DiscoveryScreen({
   isActive = true,
   isLoading = false,
@@ -201,7 +94,6 @@ export function DiscoveryScreen({
   const [selectedFilterYears, setSelectedFilterYears] = useState<number[]>([selectedYear]);
   const [genrePrefetchCount, setGenrePrefetchCount] = useState(initialDiscoverySamplePrefetchCount);
   const [genreSummaryByCountryCode, setGenreSummaryByCountryCode] = useState<Record<string, string>>({});
-  const [genreLoadingByCountryCode, setGenreLoadingByCountryCode] = useState<Record<string, boolean>>({});
   const [languageSummaryByCountryCode, setLanguageSummaryByCountryCode] = useState<Record<string, string>>({});
   const [languageLoadingByCountryCode, setLanguageLoadingByCountryCode] = useState<Record<string, boolean>>({});
   const genreRequestControllersRef = useRef<AbortController[]>([]);
@@ -289,9 +181,7 @@ export function DiscoveryScreen({
   const visibleSelectedCountryId = filteredCountries.some((country) => country.id === selectedCountryId)
     ? selectedCountryId
     : filteredCountries[0]?.id ?? selectedCountryId;
-  const anyDiscoveryGenreLoading = Object.values(genreLoadingByCountryCode).some(Boolean);
   const anyDiscoveryLanguageLoading = Object.values(languageLoadingByCountryCode).some(Boolean);
-  const discoveryLoadingText = useLoadingText(anyDiscoveryGenreLoading || anyDiscoveryLanguageLoading);
   const discoveryLanguageLoadingText = useLoadingText(anyDiscoveryLanguageLoading);
   const visibleSelectedCountryCode = filteredCountries.find((country) => country.id === visibleSelectedCountryId)?.code;
   const selectedLanguageSummary =
@@ -333,13 +223,6 @@ export function DiscoveryScreen({
       }
 
       nextCodes.forEach((code) => requestedGenreCodesRef.current.add(code));
-      setGenreLoadingByCountryCode((current) => {
-        const next = { ...current };
-        nextCodes.forEach((code) => {
-          next[code] = true;
-        });
-        return next;
-      });
 
       const controller = new AbortController();
       genreRequestControllersRef.current.push(controller);
@@ -372,13 +255,6 @@ export function DiscoveryScreen({
             return;
           }
 
-          setGenreLoadingByCountryCode((current) => {
-            const next = { ...current };
-            nextCodes.forEach((code) => {
-              delete next[code];
-            });
-            return next;
-          });
           genreRequestControllersRef.current = genreRequestControllersRef.current.filter((entry) => entry !== controller);
         });
     },
@@ -465,7 +341,6 @@ export function DiscoveryScreen({
     genreRequestControllersRef.current = [];
     requestedGenreCodesRef.current = new Set();
     setGenreSummaryByCountryCode({});
-    setGenreLoadingByCountryCode({});
     languageRequestControllersRef.current.forEach((controller) => controller.abort());
     languageRequestControllersRef.current = [];
     requestedLanguageCodesRef.current = new Set();
@@ -481,7 +356,6 @@ export function DiscoveryScreen({
 
     genreRequestControllersRef.current.forEach((controller) => controller.abort());
     genreRequestControllersRef.current = [];
-    setGenreLoadingByCountryCode({});
     languageRequestControllersRef.current.forEach((controller) => controller.abort());
     languageRequestControllersRef.current = [];
     setLanguageLoadingByCountryCode({});
@@ -528,9 +402,7 @@ export function DiscoveryScreen({
         onHoverCountryChange={Platform.OS === "web" ? setHoveredListCountryId : undefined}
         autoScrollSignal={listAutoScrollSignal}
         genreSummaryByCountryCode={displayGenreSummaryByCountryCode}
-        genreLoadingByCountryCode={genreLoadingByCountryCode}
         languageSummaryByCountryCode={languageSummaryByCountryCode}
-        languageLoadingByCountryCode={languageLoadingByCountryCode}
         loadingText="Loading..."
         onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
         onEnsureLanguageSample={(countryCode) => ensureCountryLanguageSamples([countryCode])}
@@ -546,7 +418,6 @@ export function DiscoveryScreen({
           countries={filteredCountries}
           allCountries={filteredCountries}
           isLoading={isLoading}
-          activeCountryId={visibleSelectedCountryId}
           hoveredCountryId={Platform.OS === "web" ? hoveredListCountryId : null}
           selectedYear={selectedYear}
           availableYears={timelineYears}
@@ -556,9 +427,6 @@ export function DiscoveryScreen({
           title="Discovery Map"
           onRightAction={() => setAllFiltersOpen(true)}
           showHeader={false}
-          genreSummaryByCountryCode={displayGenreSummaryByCountryCode}
-          genreLoadingByCountryCode={genreLoadingByCountryCode}
-          loadingText={discoveryLoadingText}
           onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
           onEnsureLanguageSample={(countryCode) => ensureCountryLanguageSamples([countryCode])}
           isActive={isActive}
@@ -999,105 +867,6 @@ const styles = StyleSheet.create({
   },
   globePanelWrap: {
     position: "relative",
-  },
-  mobileYearDropdownOverlay: {
-    position: "absolute",
-    top: 14,
-    left: 14,
-    zIndex: 12,
-  },
-  mobileYearDropdownWrap: {
-    position: "relative",
-    zIndex: 30,
-  },
-  mobileYearDropdownDismissLayer: {
-    position: "absolute",
-    top: -1200,
-    left: -1200,
-    width: 3200,
-    height: 3200,
-    zIndex: 25,
-  },
-  mobileYearDropdownShell: {
-    borderRadius: 14,
-    overflow: "hidden",
-    zIndex: 30,
-  },
-  mobileYearDropdownGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  mobileYearDropdownButton: {
-    minHeight: 40,
-    minWidth: 108,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.button,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  mobileYearDropdownButtonActive: {
-    backgroundColor: "transparent",
-  },
-  mobileYearDropdownText: {
-    color: colors.border,
-    fontFamily: typefaces.condensed,
-    fontSize: 15,
-    lineHeight: 18,
-  },
-  mobileYearDropdownTextActive: {
-    color: colors.textLight,
-  },
-  mobileYearDropdownChevron: {
-    color: colors.border,
-    fontFamily: typefaces.condensed,
-    fontSize: 22,
-    lineHeight: 22,
-  },
-  mobileYearDropdownMenu: {
-    position: "absolute",
-    top: 46,
-    left: 0,
-    width: 120,
-    maxHeight: 250,
-    padding: 0,
-    overflow: "hidden",
-    elevation: 9999,
-    backgroundColor: "transparent",
-    zIndex: 40,
-  },
-  mobileYearDropdownScroll: {
-    maxHeight: 250,
-  },
-  mobileYearDropdownContent: {
-    padding: 8,
-    gap: 8,
-  },
-  mobileYearDropdownOptionShell: {
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  mobileYearDropdownOption: {
-    minHeight: 38,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.button,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-  mobileYearDropdownOptionActive: {
-    backgroundColor: "transparent",
-  },
-  mobileYearDropdownOptionText: {
-    color: colors.border,
-    fontFamily: typefaces.body,
-    fontSize: 15,
-    lineHeight: 18,
   },
   columnStacked: {
     width: "100%",

@@ -8,7 +8,7 @@ import { fetchWithTimeoutAndRetry } from "./fetchWithTimeout";
 const discoveryCountriesCache = new Map<number, Country[]>();
 const discoveryCountriesInFlight = new Map<number, Promise<Country[]>>();
 
-export function loadDiscoveryCountries(year: number, fallbackCountries: Country[], _signal?: AbortSignal): Promise<Country[]> {
+export function loadDiscoveryCountries(year: number, fallbackCountries: Country[], signal?: AbortSignal): Promise<Country[]> {
   const cached = discoveryCountriesCache.get(year);
   if (cached) {
     return Promise.resolve(cached);
@@ -23,7 +23,7 @@ export function loadDiscoveryCountries(year: number, fallbackCountries: Country[
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/discovery/countries?year=${year}`;
 
-  const promise = fetchWithTimeoutAndRetry(endpoint)
+  const promise = fetchWithTimeoutAndRetry(endpoint, {}, signal)
     .then((response) => {
       if (!response.ok) {
         throw new Error(`Discovery country request failed with status ${response.status}.`);

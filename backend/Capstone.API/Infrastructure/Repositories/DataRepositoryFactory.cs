@@ -38,8 +38,6 @@ namespace Capstone.API.Infrastructure.Interfaces.Repositories
 
             switch (dbProvider.Trim().ToLower())
             {
-                case "mysql":
-                    return new MySqlRepository(connectionString);
                 case "sqlserver":
                     return new SqlServerRepository(connectionString);
                 default:

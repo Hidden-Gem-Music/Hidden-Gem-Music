@@ -138,7 +138,7 @@ export async function loadHiddenGemsPage(
 
 let availableYearsPromise: Promise<number[]> | null = null;
 
-export function loadAvailableYears(_signal?: AbortSignal): Promise<number[]> {
+export function loadAvailableYears(signal?: AbortSignal): Promise<number[]> {
   if (availableYearsPromise !== null) {
     return availableYearsPromise;
   }
@@ -146,7 +146,7 @@ export function loadAvailableYears(_signal?: AbortSignal): Promise<number[]> {
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/metadata/years`;
 
-  availableYearsPromise = fetchWithTimeoutAndRetry(endpoint)
+  availableYearsPromise = fetchWithTimeoutAndRetry(endpoint, {}, signal)
     .then((response) => parseJsonResponse<unknown[]>(response, endpoint))
     .then((payload) =>
       payload

@@ -250,10 +250,6 @@ function rotateValues(values: string[], offset: number) {
   return Array.from({ length: 3 }, (_, index) => values[(offset + index) % values.length]);
 }
 
-function getCountrySeed(countryId: string) {
-  return countrySeeds.find((country) => country.id === countryId) ?? countrySeeds[0];
-}
-
 function buildCountryForYear(seed: CountrySeed, year: number): Country {
   const offset = getYearOffset(year, seed.id);
   const swing = ((offset * 17) % 33) - 16;

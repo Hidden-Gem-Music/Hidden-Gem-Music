@@ -1,6 +1,52 @@
 mp3li implementation timeline document
 
-Updated: May 22, 2026
+Updated: May 23, 2026
+
+Final Code Review Cleanup (May 23, 2026)
+- Objective:
+  - Complete the requested final code review and cleanup issue on branch `57-qa-final-code-review-cleanup`.
+  - Keep the scope limited to removing dead code and ensuring inline comments are complete.
+  - Avoid unrelated UX, SQL, API, or behavior changes while preparing the project for deployment.
+
+- Dead-code cleanup completed:
+  - Removed unused frontend state, props, imports, helper functions, and pass-through values from active screens/components.
+  - Removed stale Discovery Map mobile dropdown code that is no longer part of the rendered flow.
+  - Removed unused Country Profile and Country Comparison chart/helper code that was no longer referenced.
+  - Removed unused genre-loading pass-through props after confirming the current UI does not display those loading states.
+  - Removed the unused backend MySQL repository stub and unused `MySqlConnector` package reference because the active backend provider path is SQL Server.
+
+- Inline comment cleanup completed:
+  - Reviewed touched comments for accuracy and completeness.
+  - Clarified the Comparison Mode genre-filter comment so it explains that genre filters are intentionally omitted for now because live genre data is API-fetched per song and is not normalized enough yet for trustworthy comparison filtering.
+
+- Verification completed:
+  - Ran `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`; passed.
+  - Ran `npm run typecheck`; passed.
+  - Ran `dotnet build`; passed.
+  - Ran a final cleanup scan for actionable TODO/debug/dead-stub markers and found no actionable remaining references.
+
+- PR/documentation artifacts updated:
+  - Updated the professional QA log with the final code review cleanup entry.
+  - Updated this personal implementation timeline.
+  - Added the PR-ready branch summary in `my txts/PR_Issue_57_Final_Code_Review_Cleanup.md`.
+
+- Deployment reminder recorded:
+  - The final code review identified frontend API URL and backend CORS as deployment-dependent configuration items.
+  - No code change was made yet because the deployment target has not been decided.
+  - Before deployment, configure the frontend API base URL and backend allowed CORS origins for the real deployed URLs instead of relying on localhost/local Expo defaults.
+
+- Final review follow-up fixes completed:
+  - Updated country shared/unique song paging so `totalCount` reflects the stored-procedure raw total instead of a partial enriched count.
+  - Passed abort signals through Discovery/metadata fetch helpers that already accepted signal parameters.
+  - Added safe backend logging for fire-and-forget cache-write failures.
+  - Restored Country Profile and Country Comparison song-row navigation into Hidden Gems so selected songs can hand off title, artist, preview index, and Deezer track ID for preview targeting.
+  - Fixed Hidden Gems refresh behavior for URLs such as `/hidden-gems?country=iso-us&year=2025` so a valid country/year URL stays on the selected page instead of reopening the intro popup.
+  - Confirmed Discovery Map and Hidden Gems behavior were working again after leaving Discovery Map country-list behavior unchanged.
+
+- Local testing documentation expanded:
+  - Added local-only `EXPO_PUBLIC_API_BASE_URL` guidance for testers who need a different reachable backend host.
+  - Documented the mixed local setup used during testing: SQL Server in Docker on macOS, SSMS through Windows 11 in Parallels, and both the .NET API and Expo frontend running on macOS.
+  - Clarified why `localhost` is relative to the runtime making the request and why phone/mobile testing may require the Mac's LAN address.
 
 End-to-End QA Flow, Leena PR Follow-Through, and Frontend Polish (May 22, 2026)
 - Objective:

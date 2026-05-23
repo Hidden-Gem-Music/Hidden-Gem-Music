@@ -182,7 +182,7 @@ namespace Capstone.API.Infrastructure.Repositories
                 Items = results,
                 Page = safePage,
                 PageSize = safePageSize,
-                TotalCount = totalResolvedCount,
+                TotalCount = totalRawCount,
                 HasMore = hasMore
             };
         }
