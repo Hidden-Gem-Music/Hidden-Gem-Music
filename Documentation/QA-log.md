@@ -278,7 +278,7 @@ From a frontend UX perspective, `Loved in This Country` and `Loved Here and Else
 ## 2026-05-21 — Cache Clearing Required After Every Backend or SP Change
 
 **Tester:** Leena Komenski
-**Fix owner:** ⚠️ Flagged for Eli
+**Fix owner:** ⚠️ Flagged for Eli — reviewed 2026-05-22, deferred for deadline stability
 **Scope:** `FileBackedDiscoverySampleCacheService`, `FileBackedPresentationDataCacheService`, `DiscoveryController` (`IMemoryCache`)
 
 ### What was noticed
@@ -292,9 +292,9 @@ Every SP or backend code change requires manually deleting cache files and resta
 - `backend\Capstone.API\live_song_enrichment_cache\live_song_cache.json`
 - In-memory cache (`IMemoryCache`) — cleared only by server restart
 
-### ⚠️ Eli — consider a dev cache bypass
+### Eli — dev cache bypass (deferred)
 
-A flag (e.g. environment variable or `appsettings.Development.json` setting) that disables or shortens cache TTLs in development would make local QA much faster without affecting production behavior.
+A flag (e.g. environment variable or `appsettings.Development.json` setting) that disables or shortens cache TTLs in development would make local QA much faster without affecting production behavior. Reviewed 2026-05-22 — not added, deferred for deadline stability.
 
 ---
 
@@ -365,15 +365,15 @@ Check the raw Kaggle CSV for `AD` rows with `chart_type_id = 1` (Top 200). If To
 2. Delete `backend\Capstone.API\Data\discovery_samples_cache.json` and restart the server.
 3. Delete `backend\Capstone.API\live_song_enrichment_cache\live_song_cache.json` if any bad fallback matches are cached from before this fix (optional but recommended for a clean slate).
 
-### ⚠️ Eli — profile page genre source: review requested
+### Eli — profile page genre source: confirmed Option A (2026-05-22)
 
-`GetCountryProfileAsync` currently calls `GetCountryGenreSampleAsync` (your original prefix-based approach) for `SampleGenres`. During this investigation an alternative was prototyped and reverted — flagging for your review:
+`GetCountryProfileAsync` calls `GetCountryGenreSampleAsync` (prefix-based approach) for `SampleGenres`. During this investigation an alternative was prototyped and reverted — flagged for Eli's review:
 
-**Option A (current — Eli's original):** `GetCountryGenreSampleAsync` — prefix heuristic samples from the full catalog for genre diversity. Costs extra Deezer calls on profile load; genres may not match the specific top songs shown on screen.
+**Option A (current — confirmed):** `GetCountryGenreSampleAsync` — prefix heuristic samples from the full catalog for genre diversity. Costs extra Deezer calls on profile load; genres may not match the specific top songs shown on screen.
 
 **Option B (prototyped, reverted):** Derive `SampleGenres` from the already-enriched `TopSharedSongs` + `TopUniqueSongs` directly. Zero extra Deezer calls; genres always match the visible songs. Risk: top shared songs are ordered by `country_count DESC` (most globally popular), so genres may skew toward mainstream Pop/R&B and miss local genres that don't chart globally.
 
-Kept Option A on the assumption that genre diversity was intentional. Please confirm.
+Eli reviewed 2026-05-22 and kept Option A for deadline stability. No change made.
 
 ### How to test
 
@@ -385,28 +385,24 @@ Kept Option A on the assumption that genre diversity was intentional. Please con
 
 ## 2026-05-21 — Country Profile KPI Card Label Improvements
 
-**Tester:** TBD
-**Fix owner:** ⚠️ Frontend change needed — flagged for Eli
+**Tester:** mp3li
+**Fix owner:** mp3li — partially addressed 2026-05-22
 **Scope:** Frontend Country Detail page — KPI summary cards
 
 ### What was noticed
 
 The KPI card labels on the country profile page don't clearly communicate what they're showing to a new viewer:
 
-| Current label | Suggested label | Notes |
-|---|---|---|
-| Songs in this view | **Total songs charted** | "In this view" is ambiguous — clarify it's the total for the country/year |
-| Loved in This Country | **X unique songs** | Show the actual count; "Loved in This Country" reads like a section heading, not a stat |
-| Loved Here and Elsewhere | **X shared songs** | Same — lead with the number, label describes what it counts |
-| _(overlap % card)_ | See options below | Currently shows `overlap_pct` with label "% of this view" — misleading |
+| Label | Action taken |
+|---|---|
+| Songs in this view | Updated to **Songs in Selected View** (2026-05-22) |
+| % of this view | Updated to **% of selected view** (2026-05-22) |
+| Loved in This Country | Kept — intentionally mirrors the "Loved in This Country" song section below the KPIs |
+| Loved Here and Elsewhere | Kept — intentionally mirrors the "Loved Here and Elsewhere" song section below the KPIs |
 
-### ⚠️ Eli — overlap percentage card copy
+### Overlap percentage card copy
 
-`overlap_pct` = `shared_count / total_charted` — the percentage of this country's charting songs that also appeared in at least one other country's charts that year. The current label "% of this view" doesn't explain this. Suggested options (or choose something else entirely):
-
-- **"of songs here also charted abroad"** — plain and accurate
-- **"international chart overlap"** — short, reads like a stat label
-- **"of this year's chart crossed borders"** — more expressive
+`overlap_pct` = `shared_count / total_charted` — the percentage of this country's charting songs that also appeared in at least one other country's charts that year. Updated label "% of selected view" is an improvement over "% of this view" but still does not explain what the stat represents. Further copy improvement is a future iteration item — would require broader UI changes for web and mobile.
 
 No backend changes needed — `overlap_pct` is already returned in the profile response from `CountryYearStats`.
 
