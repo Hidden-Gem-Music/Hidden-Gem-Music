@@ -42,7 +42,6 @@ type ExpandedPanel = "list" | "filters";
 type ComparisonFilters = {
   popularity: string[];
   region: string[];
-  language: string[];
   genre: string[];
   sort: string[];
   hiddenGems: string[];
@@ -232,7 +231,6 @@ function ComparisonSidebarPanels({
   filters,
   onChangeFilter,
   regionOptions,
-  languageOptions,
 }: {
   visibleCountries: Country[];
   selectedCountryIds: string[];
@@ -241,7 +239,6 @@ function ComparisonSidebarPanels({
   filters: ComparisonFilters;
   onChangeFilter: (key: keyof ComparisonFilters, value: string[]) => void;
   regionOptions: string[];
-  languageOptions: string[];
 }) {
   const { width } = useWindowDimensions();
   const isCompact = width < 980;
@@ -526,10 +523,9 @@ function ComparisonSidebarPanels({
               scrollEventThrottle={16}
             >
               {renderInlineFilterRow("Sort By", "sort", ["A--Z", "Z--A"])}
-              {renderInlineFilterRow("Popularity", "popularity", ["Biggest Hits", "Fast Rising Songs", "All Songs"])}
+              {renderInlineFilterRow("Popularity: (Coming Soon!)", "popularity", ["Biggest Hits", "Fast Rising Songs", "All Songs"])}
               {renderInlineFilterRow("Hidden Gems", "hiddenGems", ["All", "Only Show Countries with Hidden Gems", "Show Countries Without Hidden Gems", "Most Hidden Gems to Least", "Least Hidden Gems to Most"])}
               {renderInlineFilterRow("Region", "region", ["All", ...regionOptions])}
-              {renderInlineFilterRow("Language", "language", ["All", ...languageOptions])}
               {/* Genre filters are intentionally omitted for now.
                   The current live genre data is API-fetched per song and is not normalized
                   enough yet to support trustworthy comparison filtering. */}
@@ -735,7 +731,6 @@ export function ComparisonSelectScreen({
   const [filters, setFilters] = useState<ComparisonFilters>({
     popularity: ["All Songs"],
     region: ["All"],
-    language: ["All"],
     genre: ["All"],
     sort: ["A--Z"],
     hiddenGems: ["Only Show Countries with Hidden Gems"],
@@ -749,13 +744,6 @@ export function ComparisonSelectScreen({
           )
         )
       ).sort((a, b) => a.localeCompare(b)),
-    [countries]
-  );
-  const languageOptions = useMemo(
-    () =>
-      Array.from(new Set(countries.flatMap((country) => country.languages ?? [])))
-        .filter((value) => value.trim().toLowerCase() !== "unknown")
-        .sort((a, b) => a.localeCompare(b)),
     [countries]
   );
   const filteredCountries = useMemo(() => {
@@ -776,12 +764,6 @@ export function ComparisonSelectScreen({
           }
         }
         if (!filters.region.includes("All") && !filters.region.includes(country.region)) {
-          return false;
-        }
-        if (
-          !filters.language.includes("All") &&
-          !filters.language.some((language) => (country.languages ?? []).includes(language))
-        ) {
           return false;
         }
         if (!filters.genre.includes("All") && !filters.genre.some((genre) => (country.genres ?? []).includes(genre))) {
@@ -813,7 +795,7 @@ export function ComparisonSelectScreen({
 
       return filtered;
     },
-    [comparisonYear, countries, filters.genre, filters.hiddenGems, filters.language, filters.popularity, filters.region, filters.sort, selectedYear]
+    [comparisonYear, countries, filters.genre, filters.hiddenGems, filters.popularity, filters.region, filters.sort, selectedYear]
   );
   const visibleCountries = filteredCountries;
 
@@ -869,7 +851,6 @@ export function ComparisonSelectScreen({
           setFilters((current) => ({ ...current, [key]: value }));
         }}
         regionOptions={regionOptions}
-        languageOptions={languageOptions}
       />
       {visibleCountries.length === 0 ? (
         <Text style={styles.emptyStateText}>No countries match these filters.</Text>

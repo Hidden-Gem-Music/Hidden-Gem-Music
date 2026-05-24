@@ -1609,9 +1609,9 @@ export function HiddenGemsScreen({
               <Text style={styles.blurbBody}>
                 Hidden gems are songs that are loved in this country, but have not spread as widely
                 {isBlurbStacked ? " " : "\n"}across other countries as of your selected year. Select optional
-                filter(s), a country, and a year to view that country&apos;s Hidden Gems. Hover over the selected
-                song&apos;s CD to view the previous, play, and skip buttons. Click play to listen to a 30-second
-                preview of the song.
+                filter(s), a country, and a year to view that country&apos;s Hidden Gems. Use Previous and Next
+                buttons under the selected song&apos;s CD and the List View to navigate and discover Hidden Gems.
+                Click Play to listen to a 30-second preview of the song.
               </Text>
             </View>
             <View style={[styles.blurbRightRail, isBlurbStacked ? styles.blurbRightRailStacked : null]}>

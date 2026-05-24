@@ -9,9 +9,25 @@ export type LanguageEnrichedSong = {
 };
 
 const languageMatchCache = new Map<string, ApiLanguageSongMatch | null>();
+const NON_LANGUAGE_LABELS = new Set([
+  "another language goes here",
+  "instrumental",
+  "loading",
+  "loading...",
+  "n/a",
+  "none",
+  "other",
+  "this song is an instrumental",
+  "unknown",
+]);
 
 export function formatLanguageLabel(language: string) {
   return language.trim().replace(/\s+\([a-z]{2,3}\)$/i, "");
+}
+
+function isUsableLanguageLabel(language: string) {
+  const normalized = language.trim().toLowerCase();
+  return normalized.length > 0 && !NON_LANGUAGE_LABELS.has(normalized);
 }
 
 function normalizeLookupValue(value: string | null | undefined) {
@@ -111,7 +127,7 @@ export function collectUniqueLanguagesFromSongs(songs: LanguageEnrichedSong[], l
   songs.slice(0, limit).forEach((song) => {
     (song.languages ?? [])
       .map(formatLanguageLabel)
-      .filter((language) => language.length > 0 && language.toLowerCase() !== "unknown" && language.toLowerCase() !== "loading...")
+      .filter(isUsableLanguageLabel)
       .forEach((language) => {
         const normalized = language.toLowerCase();
         if (seen.has(normalized)) {
@@ -128,7 +144,7 @@ export function collectUniqueLanguagesFromSongs(songs: LanguageEnrichedSong[], l
 export function formatLanguageAndMore(languages: string[]) {
   const seen = new Set<string>();
   const cleaned = languages.map(formatLanguageLabel).filter((language) => {
-    if (language.length === 0) {
+    if (!isUsableLanguageLabel(language)) {
       return false;
     }
     const normalized = language.toLowerCase();

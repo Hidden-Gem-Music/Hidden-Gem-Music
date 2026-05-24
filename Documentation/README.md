@@ -26,7 +26,12 @@ Shared repository-level documentation lives in:
 Current scope here includes:
 
 - repository documentation map
+- deployment platform selection and setup plan
 - shared QA/regression log used by project contributors
+
+The deployment platform decision record is:
+
+- `Documentation/deployment-platform-selection-plan.md`
 
 The shared QA log is:
 

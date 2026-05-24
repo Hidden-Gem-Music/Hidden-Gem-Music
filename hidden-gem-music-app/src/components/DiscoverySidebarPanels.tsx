@@ -290,8 +290,10 @@ export function DiscoverySidebarPanels({
     );
   };
 
+  const isFilterPanelExpandedWeb = isWeb && expandedPanel === "filters";
+
   return (
-    <View style={[styles.frame, !isWeb ? styles.frameNative : null]}>
+    <View style={[styles.frame, isFilterPanelExpandedWeb ? styles.frameFiltersExpandedWeb : null, !isWeb ? styles.frameNative : null]}>
       <Panel style={[styles.section, expandedPanel === "filters" ? styles.sectionExpanded : styles.sectionCollapsed]}>
         <SecondarySurfaceFill />
         <Pressable style={styles.sectionHeader} onPress={() => handleSectionPress("filters")}>
@@ -300,7 +302,7 @@ export function DiscoverySidebarPanels({
               {isNarrowHeader ? "Pre-Selected\nFilters" : "Pre-Selected Filters"}
             </Text>
             <Text style={[styles.sectionHelper, isNarrowHeader ? styles.sectionHelperStacked : null]}>
-              Select optional pre-selected filters here and use the All Filters button on the map for more filters.
+              Coming Soon: Select optional pre-selected filters here and use the All Filters button on the map for more filters.
             </Text>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "filters" ? "−" : "+"}</Text>
@@ -454,6 +456,10 @@ const styles = StyleSheet.create({
     maxHeight: 824,
     gap: 16,
     alignSelf: "stretch",
+  },
+  frameFiltersExpandedWeb: {
+    minHeight: 680,
+    maxHeight: 680,
   },
   frameNative: {
     minHeight: 0,
