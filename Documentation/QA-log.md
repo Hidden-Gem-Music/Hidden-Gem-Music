@@ -3,6 +3,79 @@
 
 ---
 
+## 2026-05-23 — Issue 160 README Screenshots and GIF Assets
+
+**Tester:** mp3li / Codex-assisted asset preparation
+**Fix owner:** mp3li
+**Branch:** `160-add-screenshots-and-gifs-for-readme-and-documentation-use`
+**Scope:** README/documentation-facing screenshots, header GIF, and visual asset organization
+
+### What was handled
+
+This branch completed the visual asset preparation issue for future README and documentation work. The app screenshots and GIF are organized under stable documentation folders so the README, demo guide, user guide, and presentation materials can reference selected assets later without relying on timestamped or temporary capture folders.
+
+### Assets added
+
+- Added `Documentation/GIFs/header-app-flow.gif`.
+- Added 41 screenshots under `Documentation/Screenshots/`.
+- Covered the major app areas:
+  - Welcome
+  - Discovery Map
+  - Country Profile
+  - Hidden Gems
+  - Comparison Mode
+  - Comparison Results
+  - Discovery Dashboard
+  - Credits
+- Included hover, selected, filtered, play-state, scrolled, and dashboard story-section screenshots where available.
+
+### Asset organization cleanup
+
+- Moved README/documentation-facing visual assets into `Documentation/Screenshots/` and `Documentation/GIFs/`.
+- Removed the older tracked `Documents/Hidden Gem Music Web Screenshots/` files after the stable documentation folders were added.
+- Kept the separate `Documents/Hidden Gem Music Web Screenshots (Pre-Presentation-Release)/` folder local/untracked.
+
+### Not included
+
+- No README rewrite was completed as part of this issue.
+- No final "How to Use Hidden Gem Music" guide was written.
+- No app code or backend behavior changed.
+
+### Verification
+
+- Confirmed all requested GIF source screenshots existed before generating the GIF.
+- Confirmed `Documentation/GIFs/header-app-flow.gif` exists and is about 1.8 MB at 1200x676.
+- Confirmed the committed asset set includes 42 tracked files under `Documentation/Screenshots/` and `Documentation/GIFs/`.
+
+---
+
+## 2026-05-23 — Issue 54 Documentation Header Correction
+
+**Tester:** mp3li / Codex-assisted documentation cleanup
+**Fix owner:** mp3li
+**Branch:** `54-docs-readme-deployment-guide`
+**Scope:** Deployment plan metadata/header wording correction
+
+### What was handled
+
+This branch corrected the header metadata in `Documentation/deployment-platform-selection-plan.md` so the deployment plan describes team membership and the specific deployment/integration deliverable ownership more accurately.
+
+### Documentation corrected
+
+- Replaced the broad owner/date header with:
+  - `Team: mp3li and Leena Komenski`
+  - `Plan owner: mp3li - Software Development deployment/integration deliverable`
+  - `Documentation date: 2026-05-23`
+- Kept the deployment decision content unchanged.
+- Merged the correction back into `development`.
+
+### Verification
+
+- Confirmed the PR diff only changed `Documentation/deployment-platform-selection-plan.md`.
+- Confirmed `54-docs-readme-deployment-guide` and `144-deployment` were updated to match the latest `origin/development` after the correction merge.
+
+---
+
 ## 2026-05-23 — Issue 49 Deploy Cloud Platform Selection Plan and Minimal UI Fixes
 
 **Tester:** mp3li / Codex-assisted implementation
