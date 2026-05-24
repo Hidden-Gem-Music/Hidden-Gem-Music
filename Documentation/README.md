@@ -39,6 +39,11 @@ The shared QA log is:
 
 Each QA entry should include ownership fields such as `Tester` and `Fix owner` when applicable.
 
+Shared visual documentation assets live in:
+
+- `Documentation/Screenshots/` for app screenshots
+- `Documentation/GIFs/` for app flow GIFs
+
 ### Frontend documentation
 
 Frontend implementation documentation lives in:
