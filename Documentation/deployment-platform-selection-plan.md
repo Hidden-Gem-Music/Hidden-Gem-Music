@@ -1,8 +1,9 @@
 # Hidden Gem Music Deployment Platform Selection Plan
 
 **Project:** Hidden Gem Music Discovery Platform - SOFT290 Capstone
-**Owner:** mp3li - Software Development / Deployment and Integration
-**Date:** 2026-05-23
+**Team:** mp3li and Leena Komenski
+**Plan owner:** mp3li - Software Development deployment/integration deliverable
+**Documentation date:** 2026-05-23
 **Status:** Selected for implementation
 
 ---
