@@ -2,6 +2,59 @@ mp3li implementation timeline document
 
 Updated: May 23, 2026
 
+README Screenshot/GIF Assets and Documentation Header Correction (May 23, 2026)
+- Objective:
+  - Complete Issue 160 by preparing visual assets for future README, demo-guide, user-guide, and documentation use.
+  - Correct the deployment platform selection plan header so it accurately describes the team and the specific deployment/integration deliverable ownership.
+  - Keep the work scoped to documentation/assets, without rewriting the README or changing app/backend behavior.
+
+- README-facing visual assets completed:
+  - Added `Documentation/GIFs/header-app-flow.gif`.
+  - Added 41 README/documentation-facing screenshots under `Documentation/Screenshots/`.
+  - Captured representative visual states for:
+    - Welcome
+    - Discovery Map
+    - Country Profile
+    - Hidden Gems
+    - Comparison Mode
+    - Comparison Results
+    - Discovery Dashboard
+    - Credits
+  - Included screenshots for hover, selected, filtered, play-state, scrolled, and dashboard story-section states where available.
+  - Built the header GIF from the requested app-flow sequence, ending with Credits sections, and kept it GitHub-friendly at about 1.8 MB and 1200x676.
+
+- Asset organization completed:
+  - Moved README/documentation-facing screenshots into `Documentation/Screenshots/`.
+  - Added the GIF under `Documentation/GIFs/`.
+  - Removed the older tracked `Documents/Hidden Gem Music Web Screenshots/` files after the stable documentation folders were added.
+  - Left `Documents/Hidden Gem Music Web Screenshots (Pre-Presentation-Release)/` local and untracked as a separate pre-presentation capture copy.
+
+- Local issue/PR artifacts completed:
+  - Added `my txts/Issue_160_Add_Screenshots_And_GIFs_For_README_And_Documentation_Use.md`.
+  - Added `my txts/PR_Issue_160_Add_Screenshots_And_GIFs_For_README_And_Documentation_Use.md`.
+  - Updated the PR draft to include a full filename list for the GIF and all screenshots.
+  - Kept `my txts/` local-only and out of the commit.
+
+- Documentation correction completed:
+  - Updated `Documentation/deployment-platform-selection-plan.md` so the header now says:
+    - `Team: mp3li and Leena Komenski`
+    - `Plan owner: mp3li - Software Development deployment/integration deliverable`
+    - `Documentation date: 2026-05-23`
+  - Kept the deployment platform decision content unchanged.
+  - Merged the neutral documentation correction back into `development`.
+
+- Branch sync and preservation completed:
+  - Updated `54-docs-readme-deployment-guide` with the documentation correction and merged it into `development`.
+  - Updated `144-deployment` to match the latest `origin/development`.
+  - Confirmed the committed screenshot/GIF assets remain tracked under `Documentation/Screenshots/` and `Documentation/GIFs/`.
+  - Confirmed the untracked pre-presentation screenshot folder remains present while switching between the docs and deployment branches.
+
+- Verification completed:
+  - Confirmed all requested GIF source screenshots existed before generating the GIF.
+  - Confirmed 42 tracked files exist under `Documentation/Screenshots/` and `Documentation/GIFs/`.
+  - Confirmed the final documentation-header PR diff only changed `Documentation/deployment-platform-selection-plan.md`.
+  - Confirmed `54-docs-readme-deployment-guide` and `144-deployment` were both up to date with `origin/development`.
+
 Deploy Cloud Platform Selection Plan and Minimal UI Fixes (May 23, 2026)
 - Objective:
   - Complete Issue 49 by selecting and documenting a realistic cloud deployment platform plan for the capstone deployment/integration deliverable.
