@@ -57,10 +57,11 @@ namespace Capstone.API.Infrastructure.Repositories
 
                 totalRawCount = RowValueReader.AsIntAny(rows[0], "total_count", "TotalCount");
 
-                foreach (var row in rows)
+                var enrichedBatch = await Task.WhenAll(
+                    rows.Select(row => _deezerSongEnrichmentService.EnrichHiddenGemAsync(MapRow(row), cancellationToken)));
+
+                foreach (var enriched in enrichedBatch)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var enriched = await _deezerSongEnrichmentService.EnrichHiddenGemAsync(MapRow(row), cancellationToken);
                     if (enriched is null)
                     {
                         continue;

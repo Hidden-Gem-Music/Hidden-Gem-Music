@@ -1,6 +1,901 @@
 mp3li implementation timeline document
 
-Updated: May 10, 2026
+Updated: May 24, 2026
+
+Deployment Prep Access Code Entry Gate (May 24, 2026)
+- Objective:
+  - Prepare the app for official deployment-day limited early access.
+  - Add an access-code entry layer before the normal Welcome experience.
+  - Keep the access layer visually identical to the existing Welcome popup structure so the transition from access entry to normal Welcome feels like a second layer of the same experience.
+  - Preserve separate mobile and web spacing rules after mobile testing showed the two layouts needed different vertical treatment.
+
+- Access-code gate completed:
+  - Added `hidden-gem-music-app/src/config/accessGate.ts`.
+  - Set the current deployment prep access code to `COMMENCEMENT`.
+  - Stored the accepted code value in local storage instead of storing a simple accepted/not-accepted flag.
+  - Made code changes automatically invalidate older accepted codes, so users who entered a previous code are locked out again when the code changes.
+  - Added the access layer inside the existing Welcome popup flow before the normal Welcome view appears.
+  - Kept the same logo, Hidden Gem Music title, and helper/about text in both the access layer and the normal Welcome layer.
+  - Added the deployment-facing message: Hidden Gem Music is currently in limited early access and is only available to invited testers and supporters who are given an access code.
+  - Styled only the words `limited early access` with the app's existing pink accent.
+  - Added the `Access code:` label, code input, invalid-code message area, and `Enter Hidden Gems Music` action.
+  - Changed the invalid-code message to `Access code invalid.`
+  - Reserved permanent space for the invalid-code message so a wrong code does not move the input or button.
+
+- Welcome/access styling completed:
+  - Reworked the access layer spacing through the existing Welcome popup instead of using a new modal size or shape.
+  - Kept web and mobile popup sizing separate so the mobile fixes do not change the approved web layout.
+  - Adjusted mobile Welcome sizing so both the access-code layer and normal Welcome layer have enough vertical room for the button.
+  - Added mobile keyboard avoidance so the popup lifts when the code input is focused.
+  - Updated the access input focus state to use the app's existing pink/list-hover-style treatment instead of a browser/default green outline.
+  - Updated the reusable welcome/action button defaults so borders and label text use the app's existing dark text color.
+  - Updated app search input focus styling to match the same app-owned pink/list-hover focus treatment.
+
+- Mobile Discovery launch fallback completed:
+  - Investigated the mobile-only moment after leaving Welcome for Discovery where the app header and mobile nav appeared before the Discovery screen content.
+  - Avoided adding a new modal overlay on top of the access popup.
+  - Added a mobile-only plain `Loading...` fallback in the screen area after Welcome closes and before Discovery finishes appearing, so the app area is not just the background during that short native route transition.
+
+- Deployment branch prep completed:
+  - Continued work on the dedicated `deployment` branch.
+  - Kept local screenshot archive artifacts untracked.
+  - Prepared local-only issue and PR markdown drafts in `my txts/` for the deployment access-code work and broader deployment-prep branch summary.
+
+- Verification completed:
+  - Ran `npm run typecheck`; passed.
+  - Confirmed the code gate can be retested by changing the configured code because previous accepted codes no longer count.
+  - Confirmed the docs/PR/issue drafts are separate from the app commit scope where requested.
+
+README Screenshot/GIF Assets and Documentation Header Correction (May 23, 2026)
+- Objective:
+  - Complete Issue 160 by preparing visual assets for future README, demo-guide, user-guide, and documentation use.
+  - Correct the deployment platform selection plan header so it accurately describes the team and the specific deployment/integration deliverable ownership.
+  - Keep the work scoped to documentation/assets, without rewriting the README or changing app/backend behavior.
+
+- README-facing visual assets completed:
+  - Added `Documentation/GIFs/header-app-flow.gif`.
+  - Added 41 README/documentation-facing screenshots under `Documentation/Screenshots/`.
+  - Captured representative visual states for:
+    - Welcome
+    - Discovery Map
+    - Country Profile
+    - Hidden Gems
+    - Comparison Mode
+    - Comparison Results
+    - Discovery Dashboard
+    - Credits
+  - Included screenshots for hover, selected, filtered, play-state, scrolled, and dashboard story-section states where available.
+  - Built the header GIF from the requested app-flow sequence, ending with Credits sections, and kept it GitHub-friendly at about 1.8 MB and 1200x676.
+
+- Asset organization completed:
+  - Moved README/documentation-facing screenshots into `Documentation/Screenshots/`.
+  - Added the GIF under `Documentation/GIFs/`.
+  - Removed the older tracked `Documents/Hidden Gem Music Web Screenshots/` files after the stable documentation folders were added.
+  - Left `Documents/Hidden Gem Music Web Screenshots (Pre-Presentation-Release)/` local and untracked as a separate pre-presentation capture copy.
+
+- Local issue/PR artifacts completed:
+  - Added `my txts/Issue_160_Add_Screenshots_And_GIFs_For_README_And_Documentation_Use.md`.
+  - Added `my txts/PR_Issue_160_Add_Screenshots_And_GIFs_For_README_And_Documentation_Use.md`.
+  - Updated the PR draft to include a full filename list for the GIF and all screenshots.
+  - Kept `my txts/` local-only and out of the commit.
+
+- Documentation correction completed:
+  - Updated `Documentation/deployment-platform-selection-plan.md` so the header now says:
+    - `Team: mp3li and Leena Komenski`
+    - `Plan owner: mp3li - Software Development deployment/integration deliverable`
+    - `Documentation date: 2026-05-23`
+  - Kept the deployment platform decision content unchanged.
+  - Merged the neutral documentation correction back into `development`.
+
+- Branch sync and preservation completed:
+  - Updated `54-docs-readme-deployment-guide` with the documentation correction and merged it into `development`.
+  - Updated `144-deployment` to match the latest `origin/development`.
+  - Confirmed the committed screenshot/GIF assets remain tracked under `Documentation/Screenshots/` and `Documentation/GIFs/`.
+  - Confirmed the untracked pre-presentation screenshot folder remains present while switching between the docs and deployment branches.
+
+- Verification completed:
+  - Confirmed all requested GIF source screenshots existed before generating the GIF.
+  - Confirmed 42 tracked files exist under `Documentation/Screenshots/` and `Documentation/GIFs/`.
+  - Confirmed the final documentation-header PR diff only changed `Documentation/deployment-platform-selection-plan.md`.
+  - Confirmed `54-docs-readme-deployment-guide` and `144-deployment` were both up to date with `origin/development`.
+
+Deploy Cloud Platform Selection Plan and Minimal UI Fixes (May 23, 2026)
+- Objective:
+  - Complete Issue 49 by selecting and documenting a realistic cloud deployment platform plan for the capstone deployment/integration deliverable.
+  - Keep the deployment plan aligned with the current app architecture: Expo web frontend, .NET 9 API, and SQL Server database.
+  - Apply only small, low-risk UI/copy cleanup items that were appropriate before presentation/deployment.
+
+- Deployment platform decision completed:
+  - Selected a hybrid Cloudflare deployment approach:
+    - Cloudflare Pages for the Expo web frontend at `https://hiddengemmusicapp.mp3li.online`.
+    - Cloudflare Tunnel for the iMac-hosted .NET API at `https://api-hiddengemmusicapp.mp3li.online`.
+    - SQL Server remains private on the iMac/local Docker setup and is not exposed publicly.
+  - Documented why Cloudflare Pages is appropriate even though the frontend exports as static files: the browser bundle is static, but the app remains interactive through JavaScript and API calls.
+  - Documented why GitHub Pages is not the selected path: it can host static frontend files, but it does not fit the broader Cloudflare DNS/Tunnel/API routing workflow as cleanly.
+  - Documented Cloudflare Pages Free limits and Cloudflare Tunnel practical boundaries so the plan does not overpromise hosting behavior.
+
+- Deployment readiness changes completed:
+  - Added `Documentation/deployment-platform-selection-plan.md` as the shared platform decision and setup plan.
+  - Updated `Documentation/README.md` so the deployment decision record appears in the repository documentation map.
+  - Added `npm run export:web` to the frontend package scripts for Cloudflare Pages builds.
+  - Added `hidden-gem-music-app/public/_redirects` so Cloudflare Pages serves the Expo SPA entrypoint on direct route refreshes.
+  - Updated backend production CORS to allow `https://hiddengemmusicapp.mp3li.online`.
+  - Added forwarded-header handling for the Cloudflare Tunnel loopback proxy path so the API can understand the original HTTPS request before HTTPS redirection runs.
+
+- Minimal UI/copy fixes completed:
+  - Removed language filters from Discovery Map's All Filters popup and Comparison Mode's Add Your Filters panel while leaving language display/enrichment intact elsewhere.
+  - Marked Discovery Map's Pre-Selected Filters helper text as "Coming Soon".
+  - Reduced the web-only Discovery Map Pre-Selected Filters expanded sidebar height so it no longer leaves as much empty room under the preset options.
+  - Updated Hidden Gems helper copy to describe Previous/Next, List View, and Play behavior instead of hover-only CD controls.
+  - Marked the Comparison Mode Popularity filter label as coming soon.
+  - Filtered non-language placeholders such as `Another language goes here`, `Instrumental`, `Unknown`, and loading text out of Country/Comparison language summary text while preserving the Hidden Gems big-CD language display behavior.
+
+- Follow-up documentation artifact created:
+  - Added a local issue draft for the future README screenshot/GIF documentation pass in `my txts/Issue_Add_README_Screenshots_GIFs_And_How_To_Use_Guide.md`.
+  - The issue asks for a README header GIF, screenshots throughout the README, a "How to Use Hidden Gem Music" guide, hover/click-state captures, and documentation-oriented screenshots for every major screen and function.
+
+- Verification completed:
+  - Ran `npm run typecheck`; passed.
+  - Ran `dotnet build`; passed.
+  - Ran `npm run export:web`; passed and confirmed `_redirects` is copied into `dist`.
+  - Ran `git diff --check`; passed.
+
+Final Code Review Cleanup (May 23, 2026)
+- Objective:
+  - Complete the requested final code review and cleanup issue on branch `57-qa-final-code-review-cleanup`.
+  - Keep the scope limited to removing dead code and ensuring inline comments are complete.
+  - Avoid unrelated UX, SQL, API, or behavior changes while preparing the project for deployment.
+
+- Dead-code cleanup completed:
+  - Removed unused frontend state, props, imports, helper functions, and pass-through values from active screens/components.
+  - Removed stale Discovery Map mobile dropdown code that is no longer part of the rendered flow.
+  - Removed unused Country Profile and Country Comparison chart/helper code that was no longer referenced.
+  - Removed unused genre-loading pass-through props after confirming the current UI does not display those loading states.
+  - Removed the unused backend MySQL repository stub and unused `MySqlConnector` package reference because the active backend provider path is SQL Server.
+
+- Inline comment cleanup completed:
+  - Reviewed touched comments for accuracy and completeness.
+  - Clarified the Comparison Mode genre-filter comment so it explains that genre filters are intentionally omitted for now because live genre data is API-fetched per song and is not normalized enough yet for trustworthy comparison filtering.
+
+- Verification completed:
+  - Ran `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`; passed.
+  - Ran `npm run typecheck`; passed.
+  - Ran `dotnet build`; passed.
+  - Ran a final cleanup scan for actionable TODO/debug/dead-stub markers and found no actionable remaining references.
+
+- PR/documentation artifacts updated:
+  - Updated the professional QA log with the final code review cleanup entry.
+  - Updated this personal implementation timeline.
+  - Added the PR-ready branch summary in `my txts/PR_Issue_57_Final_Code_Review_Cleanup.md`.
+
+- Deployment reminder recorded:
+  - The final code review identified frontend API URL and backend CORS as deployment-dependent configuration items.
+  - No code change was made yet because the deployment target has not been decided.
+  - Before deployment, configure the frontend API base URL and backend allowed CORS origins for the real deployed URLs instead of relying on localhost/local Expo defaults.
+
+- Final review follow-up fixes completed:
+  - Updated country shared/unique song paging so `totalCount` reflects the stored-procedure raw total instead of a partial enriched count.
+  - Passed abort signals through Discovery/metadata fetch helpers that already accepted signal parameters.
+  - Added safe backend logging for fire-and-forget cache-write failures.
+  - Restored Country Profile and Country Comparison song-row navigation into Hidden Gems so selected songs can hand off title, artist, preview index, and Deezer track ID for preview targeting.
+  - Fixed Hidden Gems refresh behavior for URLs such as `/hidden-gems?country=iso-us&year=2025` so a valid country/year URL stays on the selected page instead of reopening the intro popup.
+  - Confirmed Discovery Map and Hidden Gems behavior were working again after leaving Discovery Map country-list behavior unchanged.
+
+- Local testing documentation expanded:
+  - Added local-only `EXPO_PUBLIC_API_BASE_URL` guidance for testers who need a different reachable backend host.
+  - Documented the mixed local setup used during testing: SQL Server in Docker on macOS, SSMS through Windows 11 in Parallels, and both the .NET API and Expo frontend running on macOS.
+  - Clarified why `localhost` is relative to the runtime making the request and why phone/mobile testing may require the Mac's LAN address.
+
+End-to-End QA Flow, Leena PR Follow-Through, and Frontend Polish (May 22, 2026)
+- Objective:
+  - Bring the new `39-qa-end-to-end-flow` branch into a verified state after Leena's Issue 147 PR was merged into development.
+  - Apply and validate the required local database follow-through from Leena's PR without claiming ownership of the SQL/backend stored-procedure changes.
+  - Complete the small frontend follow-up items that were appropriate to handle before deployment while keeping larger UX changes out of scope.
+
+- Database and cache follow-through completed from Leena's merge:
+  - Confirmed the branch includes Leena's Issue 147 database/backend work for country profile, country comparison, Discovery Map, and Top-200-only country/year correctness.
+  - Walked through the required SSMS application order for the new/updated stored procedures and affected population procedures.
+  - Ran the one-time `SongCountryChart` DDL/index setup in SSMS.
+  - Ran the affected stored-procedure definitions in SSMS.
+  - Ran only the required population procedures:
+    - `EXEC sp_PopulateSongCountryChart;`
+    - `EXEC sp_PopulateCountryYearStats;`
+    - `EXEC sp_PopulateTopSongByCountryYear;`
+  - Cleared stale file-backed presentation/discovery caches so the app would not continue serving old incorrect country/song data after the stored-procedure updates.
+
+- SSMS validation completed:
+  - `SongCountryChart` populated successfully with `518452` rows.
+  - Confirmed Andorra returns `0` Top 200 rows in `SongCountryChart`.
+  - Confirmed Andorra returns no rows in `CountryYearStats`, which is correct because the dataset only has Viral 50 rows for Andorra.
+  - Confirmed `TopSongByCountryYear` now includes `song_name` values for populated country/year rows.
+  - Confirmed the population sanity outputs returned expected year coverage for `SongCountryChart` and `TopSongByCountryYear`.
+
+- Frontend updates completed:
+  - Increased the desktop/web Discovery Map glassy blurb height so the third hover row, `Top album`, is visible instead of clipped.
+  - Kept the mobile Discovery Map blurb sizing unchanged by only adjusting the default/web styles; mobile continues to use its existing mobile-specific height/body overrides.
+  - Updated two Country Profile KPI labels:
+    - `Songs in This View` -> `Songs in Selected View`
+    - `% of this view` -> `% of selected view`
+  - Kept `Loved in This Country` and `Loved Here and Elsewhere` unchanged because those KPI labels intentionally mirror the matching song sections lower on the page and help connect summary cards to the detailed lists.
+  - Broadened header search so it can include all API-valid countries across available years instead of only the currently selected year's country pool.
+  - Removed the search overlay's 25-result display cap so the search list can show the full country list rather than truncating valid countries.
+  - Preserved the corrected behavior where countries with no Top 200 app data, such as Andorra, should not appear as selectable search results.
+
+- KPI label rationale documented:
+  - The changed labels now refer to the user's selected country/year view, which is the context used to reach the Country Profile page and generate the displayed stats.
+  - Longer labels such as "total songs in this country/year" were intentionally avoided because the stat represents songs in the app's selected dataset, not every song that exists for that country and year.
+  - The cards are compact responsive UI elements across multiple layout widths, so broader explanatory text should be treated as a future UI iteration requiring web/mobile QA rather than a small label-only change.
+
+- End-to-end flow testing completed:
+  - Completed a full end-to-end navigation flow test across the app.
+  - Verified that the main user paths route to the expected screens.
+  - Verified that selected country/year context is preserved where applicable.
+  - Verified that pages bring users to the intended destination screens during normal app navigation.
+
+- Verification completed:
+  - Ran `dotnet build` after clearing stale cache files; backend build passed.
+  - Ran `npm run typecheck` after frontend updates; frontend TypeScript checking passed.
+
+- PR/documentation artifacts updated:
+  - Updated professional QA documentation with this branch's database follow-through, frontend fixes, and end-to-end test notes.
+  - Updated this personal implementation timeline.
+  - Added the PR-ready branch summary in `my txts/PR_39_QA_End_To_End_Flow.md`.
+
+Issue 135 - 2023 Data Disclaimer (May 21, 2026)
+- Objective:
+  - Add a visible, lightweight notice anywhere the user actively views 2023 because the 2023 dataset is incomplete and can skew results.
+  - Keep the notice small and consistent with the current app style instead of adding a large disruptive banner.
+
+- Frontend implementation completed:
+  - Added a reusable `YearDataDisclaimer` component that renders only when the active viewed year is `2023`.
+  - Used the app's existing gem icon, gradient, border, typography, and compact callout styling for the notice.
+  - Added the notice to Discovery Map, Country Detail, Hidden Gems, Comparison Mode, and Comparison View.
+  - Right-aligned the notice on Discovery Map, Country Detail, Hidden Gems, and Comparison Mode.
+  - In Comparison View, each country pane checks its own selected year so the warning appears only in panes currently viewing 2023.
+  - Kept the message concise: `2023 has limited data and may slightly skew results. New data coming soon.`
+
+- PR/documentation artifacts updated:
+  - Updated professional QA documentation with Issue 135 testing steps.
+  - Updated frontend architecture documentation to record the shared 2023 disclaimer component.
+  - Updated the PR markdown in `my txts/PR_Issue_135_2023_Data_Disclaimer.md`.
+
+- Verification completed:
+  - Ran frontend TypeScript checking after the Issue 135 changes.
+
+Credits Screen Content Completion for mp3li Portion (May 17, 2026)
+- Objective:
+  - Complete mp3li's portion of the premade Credits screen sections without guessing Leena's preferred wording.
+  - Keep the existing Credits screen layout and lower links/work panels while replacing the main placeholder contribution text.
+
+- Credits content updates completed:
+  - Replaced the placeholder Credits page blurb with final page-purpose copy.
+  - Refactored the Credits contribution content into structured per-person data with role, summary, bullets, pending state, and optional links.
+  - Completed mp3li's contribution section with detailed professional credit content covering visual design, UX flow, frontend architecture, screen implementation, additional-data integration, tooling, documentation, QA, backend integration verification, SQL handoff support, branch workflow support, and presentation-readiness work.
+  - Clarified that Leena originally created the Discovery Dashboard and mp3li's Dashboard work was frontend polish, naming/navigation updates, and the native/mobile adaptation without Recharts.
+  - Left Leena's contribution section as `Contribution Summary Pending` with neutral wording until they provide preferred copy or update the section directly.
+  - Added mp3li link rows for Linktree, Patreon, GitHub, TikTok, and Reddit.
+  - Kept Leena's lower links/work panel as a future placeholder.
+  - Increased Credits card and link text sizes for readability.
+  - Styled link rows with permanent accent treatment plus hover and press states.
+  - Removed the large forced empty space at the bottom of the contribution panel.
+
+- PR/documentation artifacts updated:
+  - Updated the PR markdown in `my txts/PR_Complete_Credits_Screen_Content.md`.
+  - Updated professional QA and frontend documentation for the Credits content behavior.
+
+- Verification completed:
+  - Ran frontend TypeScript checking after the final Credits changes.
+
+Discovery Dashboard Mobile Adaptation and Welcome Routing Fixes (May 17, 2026)
+- Objective:
+  - Adapt the Discovery Dashboard for mobile/native use without changing the intended desktop web dashboard experience.
+  - Preserve the narrow-web dashboard structure on mobile while replacing web-only Recharts charts with mobile-native chart components.
+  - Fix mobile welcome/dashboard navigation issues found during hands-on Expo testing.
+
+- Mobile Discovery Dashboard implementation completed:
+  - Rebuilt the native `DashboardScreen.tsx` from the prior simplified mobile placeholder into a full mobile Discovery Dashboard experience.
+  - Matched the web dashboard's narrow layout structure, including hero, country selector, KPI cards, Chapters 1-4, chart cards, warning tags, CTA rows, Chapter 4 song/CD reference, conclusion cards, and About This Data.
+  - Implemented native chart components with React Native views and gradients instead of Recharts.
+  - Added vertical bar/histogram and horizontal ranking chart behavior for the mobile dashboard chapters.
+  - Added tap-based selected states and value panels so mobile users can inspect chart values without hover.
+  - Preserved real API-backed dashboard data instead of introducing fake mobile-only chart data.
+
+- Mobile interaction and layout fixes completed:
+  - Added Dashboard CTA callbacks so mobile dashboard buttons can open Discovery Map, Hidden Gems, and Comparison paths.
+  - Fixed Welcome button routing so choosing Discovery Dashboard no longer flashes through Discovery Map first.
+  - Updated compact/native Welcome presentation so the header, breadcrumbs, and mobile bottom nav remain visible and usable while the Welcome panel is active.
+  - Kept wide web Welcome behavior as the approved translucent modal over the Discovery Globe.
+  - Added animated `Loading Discovery Dashboard...` loading text for both native/mobile and web dashboard loading paths.
+  - Fixed clipped dashboard numbers by adding breathing room to large display-number styles.
+  - Fixed KPI flip-card resizing by giving KPI cards fixed heights on native mobile and resized/mobile-width web.
+
+- Documentation updated:
+  - Updated personal timeline with the mobile dashboard adaptation and follow-up testing fixes.
+  - Updated frontend architecture documentation to record the Dashboard web/native split and compact Welcome behavior.
+  - Updated screen data-flow documentation to describe native mobile Dashboard chart/data behavior.
+  - Updated interaction/loading documentation to record the compact/native Welcome rules and feature-specific Dashboard loading text.
+  - Updated the QA log with the mobile dashboard verification pass.
+
+- Verification completed:
+  - User tested on Expo native mobile.
+  - User tested resized-to-mobile web behavior.
+  - Ran frontend TypeScript checking after the final fixes.
+
+Language Data UI Integration, Discovery Sample Caching, and Presentation Prep Tool (May 17, 2026)
+- Objective:
+  - Complete the first presentation-ready app integration for the language dataset produced by `mp3li Additional Data Getter v2`.
+  - Keep the first iteration file-backed instead of adding a database table before presentation.
+  - Add local presentation-prep support so the demo can use warmed data for the highest-priority 2024 and 2025 flows while preserving the long-term plan to move stable data into the database.
+
+- Backend language integration completed:
+  - Added a compact file-backed language dataset under the backend `Data/` path.
+  - Added a language lookup service that loads the compact language file once and matches by normalized song title plus normalized artist name.
+  - Added backend language endpoints for visible song lookup and country/year language samples.
+  - Kept missing language matches, missing lyrics, failed Genius pages, and detection failures non-blocking.
+
+- Discovery Map language and loading behavior completed:
+  - Replaced coming-soon language copy with sampled country/year language summaries.
+  - Matched the existing genre sample behavior by using preferred title prefixes and skipping duplicate language values where possible.
+  - Removed detector-code display from the UI wording, so summaries display as language names.
+  - Added backend file-backed Discovery sample caching for genre/language/favorite-artist samples.
+  - Updated Discovery list loading so cached genre/language samples can populate visible rows quickly after a frontend restart instead of waiting for each row to be hovered.
+  - Kept hovered/selected countries prioritized so user interaction still resolves first.
+  - Preserved globe-to-list focus behavior while preventing list-hover auto-scroll loops.
+
+- Country Detail and Comparison View updates completed:
+  - Replaced language placeholder text with sample-based language copy.
+  - Updated wording so language sections describe languages featured in loved songs rather than claiming complete country-wide language averages.
+  - Changed loved-genre wording to use sample genres consistently.
+  - Decoupled stat squares and genre/language summary sections from slower downstream data so those sections render as soon as their own data is available.
+  - Added backend presentation-cache support for country profile, country song-list, and country hidden-gem preview payloads so warmed country/comparison demo data can be reused when present.
+
+- Hidden Gems updates completed:
+  - Enriched loaded Hidden Gems rows with language data.
+  - Added the Genius lyrics row as the last metadata item under the big CD when a valid lyrics URL exists.
+  - Hid the language and lyrics rows for failed/no-match language cases.
+  - Preserved instrumental handling by showing "This song is an instrumental" for both language and lyrics when the language output marks the song as instrumental.
+  - Adjusted the Hidden Gems list scrollbar so it no longer interferes with pagination controls.
+  - Added backend presentation-cache support for warmed Hidden Gems page payloads.
+
+- Presentation prep and local reliability work completed:
+  - Added `tools/presentation_data_prep.py` as an interactive presentation data prep tool.
+  - The tool supports Discovery Map, Country Pages, and Hidden Gems prep modes.
+  - The tool prompts for country ranges and years so it can be used for 2024/2025 presentation prep or broader future data pulls.
+  - Current presentation plan is to preload Discovery Map data for 2024 and 2025 and preload the first 20 countries for 2024 and 2025 for Country Detail / Comparison View demo paths.
+  - The local presentation setup will include three thumb-drive backups of the required project and local data files as a fallback for presentation setup issues.
+
+- Documentation and PR artifacts updated:
+  - Updated the personal timeline with this language-data and presentation-prep work.
+  - Updated frontend screen data-flow documentation to record language endpoints, frontend/backend cache behavior, Discovery prefetching, and the presentation prep tool.
+  - Updated backend project integration endpoint documentation to record language endpoints, local file-backed language data, Discovery sample caching, presentation response caching, and the prep tool.
+  - Updated the PR markdown in `my txts/PR_Implement_Language_Data_Across_the_App.md`.
+
+- Verification completed:
+  - Ran Python compile checks for the presentation/cache helper scripts.
+  - Ran backend `dotnet build`.
+  - Ran frontend TypeScript checking.
+  - Ran `git diff --check`.
+
+Dashboard Issue 128 Frontend Polish, Discovery Dashboard Rename, and PR Handoff (May 15, 2026)
+- Objective:
+  - Complete the clear frontend/UI portions of Dashboard Issue 128 after the restored database was verified.
+  - Keep database-owner work separate by documenting the isolation-ranking `TOP 20` finding instead of changing the stored procedure in this pass.
+  - Produce a PR markdown handoff that separates completed work from clarification-needed items.
+
+- Dashboard country selector changes:
+  - Updated the "See where your country fits in" selector so its dropdown can include all countries with app data across available metadata years, not only the current top-20 isolation ranking response.
+  - Kept isolation scores visible only where the Dashboard ranking API actually returns them.
+  - For app-data countries that do not have a returned isolation score, the dropdown now leaves the right side blank instead of showing a confusing placeholder label.
+  - Selected countries without a returned ranking show honest "app data available / no isolation ranking returned" messaging rather than fake score values.
+
+- Dashboard visual fixes completed:
+  - Added balanced spacing below the Chapter 1 Discovery Gap Distribution explanation.
+  - Increased the first four Chapter 1 KPI flip cards and changed them from one row of four into a larger two-by-two layout.
+  - Increased KPI card front/back typography and made the `flip ↻` hint placement consistent.
+  - Increased section divider numbers and headings, then added more spacing below them after review.
+  - Added more spacing under the Chapter 2 isolation-score explanation.
+  - Replaced the Chapter 3 stacked plus/minus display with a single inline signed value such as `+6 pts` or `-6 pts`.
+  - Removed the phrase "then a 22-month silence."
+  - Increased the conclusion stat cards while keeping them in a two-by-two square-card layout.
+
+- Chapter 4 art/API work:
+  - Added CD case art to Chapter 4 / THE CEILING using the existing `CdCaseArt` component.
+  - Extended the Dashboard peak-reach API model with `albumArtUrl`.
+  - Reused the existing backend Deezer enrichment service to resolve peak-song album art.
+  - Added a known cover-art fallback for the current peak-reach song so the CD case does not remain blank when live enrichment misses the art.
+
+- Navigation/name cleanup:
+  - Renamed the Dashboard nav label to `Discovery Dashboard`.
+  - Moved `Discovery Dashboard` directly after `Discovery Map` in the web header nav and mobile bottom nav.
+  - Updated the Welcome screen copy and buttons so `Discovery Dashboard` appears directly after `Discovery Map`.
+  - Updated the mobile/native fallback Dashboard heading to `Discovery Dashboard`.
+  - Noted in the PR handoff that the team has discussed wanting a catchier dashboard name, but has not settled on one yet.
+
+- Clarification/data-owner items documented in the PR markdown:
+  - "Adjust wording on explanation" needs exact target text or replacement wording.
+  - "Conclusion card - make KPI cards a carousel?" needs a screenshot or target behavior because the conclusion only has four stat cards.
+  - "Add data sources to About this data" needs exact source labels from the data owner.
+  - "Adjust isolation scores by country graph to include all countries" appears to require changing `sp_GetIsolationRanking` from `SELECT TOP 20` to all country rows with isolation-score data; documented as "Potential SQL direction" instead of changing the stored procedure.
+
+- Files updated for Issue 128:
+  - `hidden-gem-music-app/src/screens/DashboardScreen.web.tsx`
+  - `hidden-gem-music-app/src/screens/DashboardScreen.tsx`
+  - `hidden-gem-music-app/src/components/AppHeader.tsx`
+  - `hidden-gem-music-app/src/components/MobileBottomNav.tsx`
+  - `hidden-gem-music-app/src/screens/WelcomeScreen.tsx`
+  - `hidden-gem-music-app/src/types/api.ts`
+  - `backend/Capstone.API/Infrastructure/Repositories/DashboardRepository.cs`
+  - `backend/Capstone.API/Models/Dashboard/PeakReachKpi.cs`
+  - `Documents/PR_Issue_128.md`
+
+- Verification completed:
+  - Ran `npm run typecheck` after implementation and follow-up visual adjustments.
+  - Ran `dotnet build Capstone.API.csproj` after the peak-reach API/model change.
+  - Ran `git diff --check`.
+  - User verified the dropdown behavior, histogram spacing, KPI cards, section headers, Chapter 2 spacing, Chapter 3 signed value, removed phrase, and Chapter 4 CD art follow-up behavior during the iteration.
+
+New Local Database Restore, Post-Restore Verification, and UI Regression Fixes (May 15, 2026)
+- Objective:
+  - Restore Leena's updated `05.15_HiddenGemMusic.bak` into the local Docker-hosted SQL Server database before starting Issue 128 dashboard work.
+  - Verify the existing backend and frontend still worked against the new database before making issue-specific changes.
+  - Fix only the regressions found during the post-restore smoke test before returning to planned issue work.
+
+- Local DB restore workflow completed:
+  - Backed up the current local `HiddenGemMusic` database in SSMS before restore.
+  - Copied Leena's backup from macOS Downloads into the Docker SQL Server container:
+    - source file: `/Users/stellar/Downloads/05.15_HiddenGemMusic.bak`
+    - container: `capstone-sql`
+    - container restore path: `/var/opt/mssql/backup/05.15_HiddenGemMusic.bak`
+  - Used `RESTORE FILELISTONLY` to confirm logical names:
+    - `HiddenGemMusic`
+    - `HiddenGemMusic_log`
+  - Restored the backup over the existing local `HiddenGemMusic` database name so the app's existing local connection path could stay unchanged.
+  - Confirmed the restored schema uses `dbo.Country` rather than the older `DIM_Country` name for countries.
+
+- Database sanity checks after restore:
+  - `dbo.Country`: 246 rows
+  - `dbo.DIM_Song`: 240,848 rows
+  - `dbo.DIM_Artist`: 103,015 rows
+  - `dbo.HiddenGems`: 2,585,433 rows
+  - `dbo.IsolationScoreByCountry`: 546 rows
+
+- Browser/API smoke test completed against the restored DB:
+  - `GET /api/metadata/years` returned `2017, 2018, 2019, 2020, 2021, 2023, 2024, 2025`.
+  - `GET /api/discovery/countries?year=2025` returned the restored country list and country-level 2025 hidden-gem data where available.
+  - Dashboard endpoints returned JSON for:
+    - overlap rate
+    - discovery gap
+    - gap distribution
+    - isolation leader
+    - isolation ranking
+    - peak reach
+    - overlap trend
+  - Frontend smoke testing confirmed Dashboard, Discovery, Country 2025, Hidden Gems 2025, and Comparison 2025 could still load.
+
+- Post-restore observations recorded before Issue 128 work:
+  - Dashboard isolation ranking currently returns only 20 countries; this matches the upcoming issue scope and was not fixed in this verification pass.
+  - Dashboard overlap rate returned `songsIn2Plus: 0` while `overlapPct` was nonzero; this was flagged as a likely output-mapping or stored-procedure result issue for later approval-gated work.
+  - Hidden Gems loaded much faster after the DB/update work, but first-load Country/Comparison paths could still feel slower for uncached countries because those screens perform more profile/list/enrichment work before all sections settle.
+
+- Bug fixed: Discovery Map gradients disappeared after Dashboard-to-Discovery navigation:
+  - Symptom:
+    - Navigating from Dashboard to Discovery sometimes made countries with data lose their normal fill/gradient until a hard refresh.
+    - Hovered countries also lost the active gradient.
+  - Cause:
+    - The map SVG used fixed gradient IDs such as `map-country-data-fill` and `map-country-active-fill`.
+    - On web route transitions, SVG `url(#...)` references could resolve against stale/missing paint definitions.
+  - Fix:
+    - `GlobeView.tsx` now generates per-instance SVG gradient IDs with `useId`.
+    - Country fill references now point to those unique IDs so map fills survive route transitions.
+
+- Bug fixed: Hidden Gems art loading ended before CD/artist images appeared:
+  - Symptom:
+    - Favorite Artists CDs could sit as blank placeholder-color cases long after the glassy loading veil disappeared.
+    - The previous spinner behavior had disappeared for parts of the screen because page-level loading ended before individual images finished loading.
+  - Cause:
+    - Favorite Artists used the hidden-gems song-list loading boolean, but the artist section depends on the separate country-profile request.
+    - CD image loading was not tracked independently from API data loading.
+  - Fix:
+    - `HiddenGemsScreen.tsx` now tracks country-profile loading separately for the Favorite Artists section.
+    - Favorite Artists stay in the glassy/loading state until profile data arrives.
+    - Favorite Artists can reuse loaded hidden-gems song artist images when the profile row is missing the image URL.
+    - `CdCaseArt.tsx` and mini CD rendering now keep an individual spinner/dim overlay until each actual image finishes loading or errors.
+
+- Files updated in this follow-up:
+  - `hidden-gem-music-app/src/components/globe/GlobeView.tsx`
+  - `hidden-gem-music-app/src/components/CdCaseArt.tsx`
+  - `hidden-gem-music-app/src/screens/HiddenGemsScreen.tsx`
+  - `Documents/mp3li implementation timeline document.txt`
+  - `Documentation/QA-log.md`
+  - `hidden-gem-music-app/Documentation/interaction-loading-and-overlay-rules.md`
+  - `hidden-gem-music-app/Documentation/screen-data-flow.md`
+
+- Verification completed:
+  - Ran `npm run typecheck` after the Discovery Map gradient fix.
+  - Ran `npm run typecheck` after the Hidden Gems image-loading fixes.
+  - User verified the Discovery Map gradient issue was fixed.
+  - User verified the Hidden Gems favorite-artist/CD loading fix worked.
+
+Hidden Gems Direct Navigation, Code Review Fixes, and Documentation Follow-Up (May 15, 2026)
+- Objective:
+  - Complete the Issue 125 follow-up after hands-on review confirmed the Hidden Gems country/year selection prompt now behaves correctly on reload and direct navigation.
+  - Address the code-review findings immediately instead of leaving them as future cleanup.
+  - Preserve the approved Hidden Gems visual direction while removing confusing loading/header/breadcrumb states.
+  - Update the personal timeline and professional documentation so the final branch behavior is traceable.
+
+- Hidden Gems direct-navigation behavior:
+  - Direct `/hidden-gems` navigation now opens the Hidden Gems intro prompt when the route does not have a confirmed country/year context.
+  - In-app navigation from Country pages or hidden-gem previews still opens the intended country/year Hidden Gems page instead of forcing the prompt.
+  - Added a session handoff marker so app-driven Hidden Gems navigation can be distinguished from a fresh direct/reload path.
+  - Kept the prompt country list scoped to countries with real hidden-gem availability.
+
+- Header, breadcrumb, and route-label cleanup:
+  - Fixed the issue where Hidden Gems year changes could make the header and breadcrumb say `Loading country...` even after the page data had loaded.
+  - Fixed the follow-on issue where returning from Hidden Gems to Country could leave the Country header/breadcrumb stuck on `Loading country...`.
+  - Added stable country-name fallback behavior so route/header labels use known country metadata while the selected year's API country pool reloads.
+  - Added ISO/world-map fallback for API ids such as `iso-ar`, so the UI keeps showing `Argentina` instead of briefly flashing `AR`.
+  - Preserved full country names for Country, Hidden Gems, Comparison, document titles, and breadcrumb labels.
+
+- Hidden Gems loading and overlay polish:
+  - Added the same glassy/dimmed `Loading...` veil treatment to the Hidden Gems song list, now-playing panel, and favorite-artists section while they load.
+  - Replaced the app-wide `Loading hidden gems...` message with neutral `Loading...` wording to stay consistent with the rest of the app.
+  - Kept the existing Hidden Gems layout, controls, labels, and section structure intact.
+
+- Code review and optimization fixes:
+  - Split the country filtering helper into general app-data filtering and Hidden-Gems-specific filtering.
+  - General Discovery/Country/Comparison country pools no longer depend on `hiddenSongs > 0`.
+  - Hidden Gems dropdown/prompt choices still require hidden-gem availability.
+  - Tightened `fetchWithTimeoutAndRetry` so aborts and timeouts are not retried as duplicate long-running requests.
+  - Kept retry behavior limited to likely transient network fetch failures.
+
+- Welcome navigation fix:
+  - Fixed the bad behavior where clicking `Welcome` from another page could show the Welcome modal over the current Country page.
+  - Welcome navigation now resets back to the normal Welcome-over-Discovery state instead of stacking over whichever page was active.
+
+- Files updated in this follow-up:
+  - `hidden-gem-music-app/App.tsx`
+  - `hidden-gem-music-app/src/data/countryDisplay.ts`
+  - `hidden-gem-music-app/src/data/fetchWithTimeout.ts`
+  - `hidden-gem-music-app/src/screens/HiddenGemsScreen.tsx`
+  - `Documents/mp3li implementation timeline document.txt`
+  - `Documentation/QA-log.md`
+  - `hidden-gem-music-app/Documentation/routing-state-and-navigation.md`
+  - `hidden-gem-music-app/Documentation/screen-data-flow.md`
+  - `hidden-gem-music-app/Documentation/interaction-loading-and-overlay-rules.md`
+  - `hidden-gem-music-app/Documentation/frontend-architecture.md`
+
+- Verification completed:
+  - Ran `npm run typecheck -- --noEmit` after implementation fixes.
+  - User verified direct Hidden Gems prompt behavior.
+  - User verified in-app Hidden Gems navigation behavior.
+  - User verified Hidden Gems reload/handoff behavior.
+  - User verified the neutral loading behavior and basic backend data loading.
+  - User verified the glassy Hidden Gems section loading treatment looked correct.
+  - User verified the country-name fallback no longer shows `Loading country...` or flashes country codes.
+  - User verified Welcome navigation no longer appears over the wrong page.
+
+- Commit/push status:
+  - Committed implementation fixes as `7998de5 Implemented code review and optimization changes`.
+  - Pushed to branch `125-bug-bug-hidden-gems-countryyear-selection-prompt-does-not-appear-on-reload-or-direct-navigation`.
+
+Interactive Discovery Map Completion, Code Review Stabilization, and PR-Readiness Pass (May 15, 2026)
+- Objective:
+  - Bring the broader interactive Discovery Map / map-or-globe issue into a PR-ready state after the web and mobile Discovery Map behavior was tested repeatedly on the user's devices.
+  - Treat the remaining work as edge-case testing rather than known blocking implementation gaps.
+  - Fold the code-review stabilization findings into the same branch so the PR includes both the feature completion work and the immediate risk mitigation work.
+  - Keep the approved UI intact: no visual redesign, no control removal, and no Discovery Map layout changes beyond already-approved stabilization fixes.
+
+- Runtime testing confirmed by the user before documentation/PR finalization:
+  - Discovery Map still opens normally.
+  - Discovery Map keeps the 2025 default-year behavior.
+  - Welcome and Comparison shared buttons still show pressed styling and navigate.
+  - Comparison year dropdown includes 2025 when metadata returns it.
+  - Comparison with 2025 no longer fails because of the old stale 2021 backend cap.
+  - The user confirmed repeated hands-on testing on their own devices until the known Discovery Map issues were no longer reproducing.
+
+- Code review risks addressed in this pass:
+  - Removed full generated enrichment outputs from git tracking while keeping the local files on disk.
+  - Added `tools/song_data_enrichment/output/` to `.gitignore`.
+  - Updated tool documentation to make clear that full generated output/state files are local runtime artifacts, not source-of-truth project code.
+  - Replaced stale hard-coded Comparison backend year validation (`1975..2021`) with metadata-backed available-year validation through `IMetadataRepository`.
+  - Kept invalid Comparison years returning `400`, but now based the decision on the dataset years returned by metadata instead of a fixed old range.
+  - Updated backend API documentation so Comparison year validation matches the current metadata-backed behavior.
+  - Restored shared native `ActionButton` behavior so actions fire from normal `Pressable onPress` instead of a timer started on `onPressIn`.
+  - Preserved the same button visuals, labels, gradients, pressed styling, and layout while making cancelled/dragged-away native presses safer.
+  - Added `npm run typecheck` so the frontend has a named verification script instead of relying only on the raw TypeScript command.
+  - Added `backend/Capstone.API/appsettings.Local.example.json` with placeholder values only, so local backend setup has a committed template without exposing private machine credentials.
+
+- Documentation updated in this pass:
+  - Updated the personal timeline with the Discovery Map completion and stabilization work.
+  - Updated `Documentation/QA-log.md` with the stabilization follow-up and user runtime confirmation.
+  - Updated frontend documentation dates and clarified current shared button interaction rules.
+  - Updated frontend architecture / interaction docs to reflect the completed shared Discovery/Comparison map path and current edge-testing status.
+  - Updated backend current API documentation for metadata-backed Comparison year validation.
+  - Updated backend local run/testing docs for the local config example.
+  - Updated tool docs for ignored generated enrichment output.
+  - Replaced the broader interactive-map PR markdown so it now represents the full issue as functionally completed with edge-case testing next.
+
+- Main implementation files touched by the code-review stabilization portion:
+  - `.gitignore`
+  - `backend/Capstone.API/Controllers/ComparisonController.cs`
+  - `backend/Capstone.API/appsettings.Local.example.json`
+  - `hidden-gem-music-app/src/components/ActionButton.tsx`
+  - `hidden-gem-music-app/package.json`
+  - `tools/README.md`
+  - `tools/song_data_enrichment/README.md`
+
+- Verification completed after stabilization edits:
+  - Ran `git diff --check`.
+  - Ran `npm run typecheck`.
+  - Ran `dotnet build`.
+  - Verified `git ls-files tools/song_data_enrichment/output` returns no tracked output files.
+  - Verified the local generated output files still exist on disk in `tools/song_data_enrichment/output/`.
+  - Attempted endpoint curl verification from the sandbox; the sandbox backend run did not open port `5140`, so endpoint curl verification was completed through the user's local runtime testing instead.
+
+- Final status:
+  - The interactive map/globe issue can be represented as functionally implemented for the current app scope.
+  - Discovery Map behavior is accepted on the user's tested devices.
+  - Comparison map/year flow is aligned with metadata years, including 2025.
+  - Remaining recommendation is edge-case testing, not another known implementation pass.
+
+Discovery Map Default-Year, Web Polish, and Mobile Interaction Stabilization Pass (May 14, 2026)
+- Objective:
+  - Stabilize the current app-owned Discovery Map experience across web and mobile after repeated real-device/runtime review exposed differences between what technically compiled and what actually felt usable.
+  - Keep the already-approved web and mobile layout direction intact wherever possible, and correct only the specific regressions found during hands-on review.
+  - Preserve the shared responsive frontend path rather than splitting Discovery into separate web/mobile screen trees.
+
+- Default-year behavior:
+  - Changed the Discovery Map default load year to `2025`.
+  - Corrected the mismatch where the Discovery data was functionally using 2025 while the timeline slider visually appeared to be sitting on 2024.
+  - Added 2025 into the frontend fallback/mock year scaffolding so the default year remains valid even before live API year metadata finishes loading.
+  - Adjusted route/year synchronization so the Discovery route does not accidentally pull the app back to an older route-param year during initial load.
+  - Preserved year params for screens that need year-specific route state, including Country, Hidden Gems, and Comparison flows.
+
+- Web Discovery Map corrections:
+  - Fixed year-changing behavior that could leave the app-level refreshing overlay stuck or visible over unrelated screens.
+  - Kept year refresh behavior scoped to the Discovery Map screen so leaving Discovery clears the Discovery refresh overlay state.
+  - Preserved the user's current map viewport when changing year instead of jumping the map back to a reset/default position.
+  - Corrected the country-list auto-highlight behavior so map hover syncs the matching country row into visible list position.
+  - Corrected inconsistent "No song data" handling where the list and map could disagree between "No song data" and an "Unknown song/album" display.
+  - Restored the web glassy blurb back to its compact visual scale after a mobile layout fix briefly made the web panel too large.
+  - Reaffirmed the glassy blurb heading color should use the app's light text token rather than raw white.
+
+- Discovery Map data-visibility behavior:
+  - Kept countries with year data visually distinct from countries without data.
+  - Preserved country borders for no-data countries on mobile so continent shapes remain readable instead of becoming blank merged land masses.
+  - On mobile, changed available/data countries to a solid dark-pink treatment and selected countries to the light-blue nav-side treatment.
+  - Kept no-data countries visually empty while retaining boundary lines so the background shows through but geography remains legible.
+
+- Mobile glassy blurb and map-layout stabilization:
+  - Reworked the mobile glassy blurb so it is positionally above the map rather than layered directly over the country shapes.
+  - Moved the map down under the blurb on mobile so the helper/details panel no longer impedes map interaction or hides country content.
+  - Restored the blurb heading line and separated the helper text under that line.
+  - Fixed the overlap where helper text was sitting directly on top of the `Discovery Map` heading and gem.
+  - Matched the mobile blurb heading size to the List View and Pre-Selected Filters section headings.
+  - Matched the mobile blurb helper/detail text size to country-listing and filter-button text.
+  - Reduced extra bottom space in the mobile helper-mode blurb without shrinking the approved text sizes.
+  - Added a shorter mobile detail-mode blurb height when the panel is showing country stats, since the country detail lines need less vertical space than the longer helper copy.
+  - Kept the web blurb compact and visually separate from the larger mobile-only blurb layout.
+
+- Mobile country list and filter popup corrections:
+  - Locked the mobile country-list panel into a bounded scrollable section like the web list instead of letting it stretch excessively down the page.
+  - Corrected the mobile list visibility glitch where the list could collapse into a thin black line until another section was expanded.
+  - Corrected mobile filter modal behavior so opening filters no longer only dimmed the screen with no visible content.
+  - Made the mobile year popup shorter and scrollable so top years such as 2025 remain reachable on the phone viewport.
+  - Ensured filter overlays do not persist incorrectly after navigating away from and back to Discovery.
+
+- Mobile map controls:
+  - Reworked mobile pan buttons, zoom buttons, and reset behavior so touch actions respond immediately enough to feel intentional.
+  - Removed an artificial delay from country-page navigation that made country taps feel frozen.
+  - Replaced transform-based mobile pan/zoom after it made the map and borders visibly blurry.
+  - Returned mobile pan/zoom to SVG viewBox movement so country borders stay crisp.
+  - Added visible press feedback to arrow, zoom, reset, and welcome route buttons so users can tell an action was accepted before heavier navigation/rendering work starts.
+  - Kept mobile reset visible even when the current map view is already at default, because hiding it made the control feel missing.
+  - Corrected reset default detection to compare against the real default map offset and zoom rather than comparing the map position against zero.
+
+- Mobile country tap behavior:
+  - Implemented the intended two-step mobile country interaction:
+    - first tap on a country previews/selects that same country and updates the glassy stat blurb,
+    - second tap on the same country opens the Country detail page.
+  - Fixed the regression where tapping a different second country could incorrectly open that different country instead of previewing it first.
+  - Fixed the regression where mobile country hit handling could fire both press-in and press events and accidentally act like two taps.
+  - Cleared stale highlighted-country state when returning from Country detail back to Discovery so the map does not remember a previous selected/highlighted country as if the user had just tapped it.
+
+- Welcome and route-transition behavior:
+  - Fixed the mobile welcome-to-Discovery route path that could feel unresponsive because the app waited for heavy underlying map work before visually dismissing the welcome overlay.
+  - Added guarded welcome button behavior so repeated taps do not enqueue multiple route actions.
+  - Fixed the React Navigation warning `The action 'GO_BACK' was not handled by any navigator` by checking whether the navigation stack can go back before calling `goBack`.
+  - Kept the fallback behavior safe by navigating to Discovery when the welcome screen has no back route to pop.
+  - Added mobile press styling to welcome buttons so route taps have immediate visible feedback.
+
+- App-owned map and screen-state decisions preserved during this pass:
+  - Kept `App.tsx` as the owner of selected year, selected country, Discovery year cache, route transitions, and loading overlay state.
+  - Kept `DiscoveryScreen.tsx` as the owner of Discovery filter/list layout behavior.
+  - Kept `GlobePanel.tsx` and `GlobeView.tsx` as the shared map seam instead of pushing map-specific behavior into unrelated screens.
+  - Kept the flat app-owned map direction and avoided returning to provider/WebView/native-map complexity.
+
+- Main files changed during this stabilization pass:
+  - `hidden-gem-music-app/App.tsx`
+  - `hidden-gem-music-app/src/screens/WelcomeScreen.tsx`
+  - `hidden-gem-music-app/src/screens/DiscoveryScreen.tsx`
+  - `hidden-gem-music-app/src/components/ActionButton.tsx`
+  - `hidden-gem-music-app/src/components/CountryCard.tsx`
+  - `hidden-gem-music-app/src/components/DiscoverySidebarPanels.tsx`
+  - `hidden-gem-music-app/src/components/YearSlider.tsx`
+  - `hidden-gem-music-app/src/components/globe/GlobePanel.tsx`
+  - `hidden-gem-music-app/src/components/globe/GlobeView.tsx`
+  - `hidden-gem-music-app/src/data/mockData.ts`
+
+- Verification completed after the final fixes:
+  - Ran `npx tsc --noEmit` from `hidden-gem-music-app`.
+  - Ran `git diff --check` from `hidden-gem-music-app`.
+  - Both checks passed after the final reset-button and mobile blurb height adjustments.
+  - Runtime behavior was iteratively reviewed through user hands-on feedback on mobile and web throughout the pass.
+
+- Documentation consolidation completed after the stabilization writeup:
+  - Moved the shared QA log out of temporary/personal `Documents/` and into durable root project documentation at `Documentation/QA-log.md`.
+  - Added ownership fields to QA entries so shared QA can be used by both mp3li and Leena.
+  - Folded the one-topic custom map document into `frontend-architecture.md`, `interaction-loading-and-overlay-rules.md`, and `frontend-styling-rules.md`.
+  - Folded the frontend glossary into `hidden-gem-music-app/Documentation/README.md`.
+  - Combined local environment and full-stack local testing into one runbook at `hidden-gem-music-app/Documentation/local-development-environment.md`.
+  - Deleted the redundant tiny docs after their useful content was merged:
+    - `hidden-gem-music-app/Documentation/custom-interactive-world-map.md`
+    - `hidden-gem-music-app/Documentation/frontend-glossary.md`
+    - `hidden-gem-music-app/Documentation/full-stack-local-testing.md`
+  - Reviewed and updated tool documentation:
+    - refreshed `tools/README.md`
+    - updated v1 enrichment flags for live progress, Deezer-only runs, chunk-runner modes, and source mode
+    - updated v2 getter docs for `genius_web_language`, `retry_failed`, source-specific behavior, and helper scripts
+  - Reviewed and updated backend API documentation:
+    - refreshed the backend API docs index
+    - confirmed the live controller inventory remains 7 controllers and 17 GET endpoints
+    - added the current shared cancellation/error-handling standard
+    - updated backend local testing notes for cancellation/error-handling checks
+    - corrected current project integration wording from Discovery Globe to Discovery Map where the doc described live frontend behavior
+
+- Final status at the end of this pass:
+  - Discovery Map default year behavior is fixed.
+  - Web glassy blurb sizing is restored.
+  - Mobile glassy blurb layout, typography, and detail/helper height behavior are aligned to the approved design direction.
+  - Mobile map boundaries remain visible and not blurry.
+  - Mobile map controls have press feedback and remain usable.
+  - Mobile reset is visible and styled.
+  - Mobile country tapping follows the required "same country twice opens details" behavior.
+  - Welcome-to-Discovery navigation no longer throws the unhandled `GO_BACK` warning and now gives visible button feedback.
+
+Flat Map Usability Correction Pass for Discovery and Comparison (May 11, 2026)
+- Replaced the short-lived orthographic globe attempt after real runtime review showed that the result was not usable:
+  - country borders were not readable enough,
+  - marker density overwhelmed the surface,
+  - scroll and gesture zoom behavior conflicted with practical browser usage,
+  - and tooltip/corner behavior was damaging the surrounding panel layout.
+- Reworked the renderer back into a normal flat map presentation while keeping the same shared `GlobeView` seam already wired into Discovery and Comparison.
+- Removed wheel zoom and pinch zoom so browser scroll no longer hijacks the page and mobile two-finger gestures are no longer required for map use.
+- Added explicit `+` and `-` zoom controls directly on the map so zoom behavior is deliberate and consistent across environments.
+- Tightened map colors back toward the existing app palette instead of the earlier generic blue-heavy treatment.
+- Reduced marker size substantially and changed marker visibility so the map does not flood with gems at the default zoom level.
+- Added a zoom-threshold rule so broad marker sets only appear once the user zooms in far enough for them to be useful.
+- Reduced card size and tightened the card field layout so card previews no longer dominate the whole map area.
+- Re-anchored card connectors so the cards visually attach to marker corners rather than reading like disconnected floating panels.
+- Restored panel overflow clipping after the earlier free-overflow experiment caused rounded-corner damage to the surrounding UI shell.
+- Reduced the overall globe-panel minimum height so the timeline and surrounding page content are not pushed down as aggressively by the map section.
+- Re-ran source type-checking and both Expo bundle exports after the flat-map correction pass to make sure the new interaction model still compiles for web and iOS JavaScript output.
+
+Current practical SSMS connection note for the Parallels Windows 11 workflow (May 11, 2026)
+- Confirmed the current working SSMS server name for the Windows 11 Parallels VM is `10.211.55.2,1433` when connecting to the SQL Server Docker container running on macOS.
+- Confirmed the backend local config on macOS should remain separate from that SSMS host detail because the backend can continue using its local-only `localhost,1433` path.
+- Removed the previously tracked full connection string from this timeline so the practical server-name reminder remains available without exposing the local SQL password in repo-tracked notes.
+
+Custom Circular World Map Replacement for Discovery and Comparison (May 11, 2026)
+- Objective:
+  - Replace the placeholder globe rendering in Discovery and Comparison with a real app-owned interactive world map that keeps browser and Expo Go support.
+  - Keep the surrounding screen structures stable instead of rewriting the full screens around a different navigation or layout model.
+  - Deliver the implementation together with the companion issue draft, feature documentation, timeline record, and PR draft so the work can be traced cleanly from planning through implementation.
+- Why this direction was chosen:
+  - Added investigation into native Mapbox/MapLibre paths first, but those paths introduced either WebView risk, dev-build-only native testing, paid/provider confusion, or reduced confidence around Expo Go support.
+  - Added a decision pivot toward an app-owned map surface after confirming that the actual user need was not live map-provider infrastructure, but rather:
+    - real country lines,
+    - country interaction cards,
+    - filtering visibility,
+    - drag/pan and zoom,
+    - and a visually controlled map experience across web and mobile.
+  - Added a flat circular world-map direction so the app can keep a globe-like visual identity without taking on a real 3D globe/provider dependency.
+
+Added world-geometry asset pipeline:
+- Added `react-native-svg` to support app-owned SVG map rendering inside the Expo app.
+- Added `d3-geo`, `world-atlas`, `world-countries`, and `topojson-client` to support a conversion pipeline from real world-country geometry into checked-in frontend assets.
+- Added `tools/generate_world_map_assets.mjs` so the world geometry is not hidden in manual local notes or one-off commands.
+- Added a generated frontend asset at `hidden-gem-music-app/src/assets/maps/worldMap50m.ts`.
+- Added projection metadata, country path data, and continent-outline path data into that generated asset so the runtime does not need an external map provider.
+- Added the geometry pipeline in a way that uses real 50m country boundary data while still keeping the final frontend runtime app-owned.
+- Chose the generated-asset route rather than keeping the frontend dependent on runtime package internals because:
+  - the asset can be tracked directly in the app,
+  - the rendering stays provider-free,
+  - and future visual tuning can happen without rethinking the whole data source question.
+
+Added coordinate ownership into the frontend country model:
+- Added explicit `lat` and `long` fields to the shared frontend `Country` type.
+- Added real coordinate values to the current mock-country seed data so the new map can still work with fallback/current app scaffolding.
+- Added live Discovery API mapping of backend `lat` and `long` values into the frontend country objects.
+- Kept the older placeholder `markerTop` and `markerLeft` values in place only as compatibility leftovers during the replacement pass.
+- Shifted the actual live map implementation away from those placeholder percentage markers and onto real geographic coordinates.
+
+Replaced the placeholder globe renderer with a custom world-map renderer:
+- Replaced the old placeholder continent-shape globe drawing in `GlobeView.tsx`.
+- Added a real country-boundary map rendered from the app-owned geometry asset.
+- Added thicker continent-outline rendering on top of the country layer.
+- Added a circular masked frame so the map still reads as globe-like even though the projection remains flat.
+- Added an atmospheric dark map base that fits the current app palette rather than looking like a generic navigation map.
+- Added dim-but-visible inactive country behavior so filtering does not collapse the world into an empty-looking surface.
+- Added real country hover/tap targeting through the new country-shape path layer.
+- Added map pan and zoom behavior inside the circular frame.
+- Added browser wheel zoom behavior and mobile pinch handling so the same overall feature remains usable across both environments.
+- Added a reset-view control so the user can easily return to the full-world framed view after panning/zooming.
+
+Added new marker and card behavior for the custom map:
+- Kept gem markers as the branded interaction point rather than switching to generic pins.
+- Added marker placement based on projected `lat` and `long` rather than fake percentage coordinates.
+- Added card behavior that keeps the gem visually on top while the card emerges from whichever corner best fits the available space.
+- Added country-card connection lines from the active gem to the card.
+- Added glass-panel card styling that preserves the app's current card language.
+- Added no-permanent-label behavior so the map stays dramatic and does not become cluttered with always-on country text.
+- Added hover-preview behavior on web and tap-first card behavior on mobile.
+- Kept card content aligned to the current globe-card field set:
+  - country
+  - region
+  - hidden gems
+  - genres
+  - languages
+  - album information
+
+Integrated the new map into Discovery without rewriting the screen:
+- Kept `DiscoveryScreen.tsx` as the state owner for Discovery filtering, sorting, selected year, and selected country behavior.
+- Added the broader Discovery country pool into the map props so nonmatching countries can remain dim but visible while the active filtered set stays emphasized.
+- Replaced only the map/globe section inside the existing shared globe panel seam rather than splitting the whole screen.
+- Preserved Discovery genre-sample prefetching and card-enrichment behavior through the new map interaction flow.
+- Kept the existing Discovery side-list and year/filter ownership intact while changing the map presentation under that seam.
+
+Integrated the new map into Comparison without rewriting the screen:
+- Kept `ComparisonSelectScreen.tsx` as the owner of comparison filters and selection state.
+- Added the broader comparison country pool into the map props so the screen can still show dimmed context outside the currently filtered result set.
+- Added ordered selected-country styling so country A and country B are visually distinct on the map.
+- Preserved the current comparison filtering and selection rules while replacing only the map area rendering.
+- Kept the map behavior aligned with comparison selection instead of turning it into a disconnected decorative element.
+
+Added companion documentation and project-writing artifacts:
+- Added a new issue draft in `my txts/Issue_Implement_Interactive_Map_Across_Web_and_Mobile.md`.
+- Wrote that issue draft around end results rather than locking implementation details or specific providers/libraries.
+- Added a new frontend feature document at `hidden-gem-music-app/Documentation/custom-interactive-world-map.md`.
+- Updated the frontend documentation index so the new map feature has an explicit source-of-truth entry.
+- Updated frontend architecture documentation to record the new shared map ownership seam.
+- Updated screen-data-flow documentation to record how Discovery and Comparison now feed the map.
+- Planned the final PR draft as part of the same deliverable set rather than leaving the handoff for later reconstruction.
+
+Tested and verified during implementation:
+- Added a TypeScript verification pass with `npx tsc --noEmit`.
+- Added a web bundle verification pass with `npx expo export --platform web`.
+- Added an iOS JavaScript bundle verification pass with `npx expo export --platform ios`.
+- Used those checks to confirm:
+  - the new geometry asset resolves,
+  - the custom map component compiles,
+  - the web bundle accepts the new renderer,
+  - and the iOS/Expo-side JavaScript bundle accepts the same feature path.
+- Kept the final verification wording separate from any claim of full hands-on Expo Go interaction testing, because this implementation environment validated bundling/compile behavior rather than live touch testing on a phone screen.
+
+Important implementation decisions made during this pass:
+- Chose Natural Earth 50m derived geometry as the default balance between visible country detail and manageable app asset size.
+- Chose app-owned generated geometry instead of a live provider/tiles path.
+- Chose a circular masked map direction first, then upgraded the runtime renderer into a real draggable globe projection while staying provider-free.
+- Chose one shared map seam in the existing globe component area instead of splitting the whole screens.
+- Chose dimmed full-world context instead of hiding nonmatching countries completely.
+- Chose gem markers and attached glass cards so the app retains its own visual identity.
+
+Renderer upgrade follow-up during the same map pass:
+- Added a renderer upgrade after the first completion pass so the final map becomes a true draggable globe rather than staying a flat circular map.
+- Replaced the flat projected runtime behavior with an orthographic globe projection.
+- Changed interaction from drag-to-pan into drag-to-rotate while preserving zoom.
+- Kept the same Discovery and Comparison integration seam, card behavior, marker behavior, and filtered-country rules so the product behavior remains consistent while the projection becomes globe-based.
+- Re-ran TypeScript and bundle verification after the globe-renderer change to make sure the new projection path still compiles for web and iOS JavaScript output.
 
 Mobile / Web Regression Elimination Pass After Additional-Data Stabilization (May 10, 2026)
 - Objective:
@@ -2534,8 +3429,10 @@ Backend Database Connection + Endpoint Validation + Mapper Alignment (April 29, 
   - Local main was updated from origin
   - `testing-endpoints` was merged forward with latest main
   - Local uncommitted backend changes were preserved through stash/restore flow
-- Connection string in backend development settings was updated to active working SQL host credentials:
-  - `Server=192.168.111.9,1433;Database=HiddenGemMusic;User Id=sa;Password=Capstone123!;TrustServerCertificate=True;`
+- Backend local SQL configuration was aligned to the active working Docker-hosted `HiddenGemMusic` database using local-only SQL authentication settings stored outside tracked docs.
+- SSMS connection context for the Windows 11 Parallels workflow was recorded as a separate practical note:
+  - backend on macOS continues using local-only backend config
+  - SSMS in Parallels must use the Mac-reachable SQL host address rather than assuming the same localhost meaning
 - Endpoint validation exposed a schema-alias mismatch between stored procedure outputs and backend mapping keys:
   - Stored procedures currently return fields such as `iso_code`, `full_name`, and `song_title`
   - Existing mapper expected `country_code`, `country_name`, and `song_name`

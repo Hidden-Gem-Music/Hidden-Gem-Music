@@ -11,10 +11,10 @@ import { spacing } from "../theme/spacing";
 import { typefaces } from "../theme/typography";
 
 const navItems: Array<{ label: string; route: ScreenRoute }> = [
-  { label: "Discovery Globe", route: "discovery" },
+  { label: "Discovery Map", route: "discovery" },
+  { label: "Discovery Dashboard", route: "dashboard" },
   { label: "Comparison Mode", route: "comparisonSelect" },
   { label: "Hidden Gems", route: "hiddenGems" },
-  { label: "Dashboard", route: "dashboard" },
   { label: "Credits", route: "credits" },
 ];
 

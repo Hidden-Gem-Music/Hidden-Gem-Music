@@ -6,6 +6,8 @@ This is a separate tool from:
 
 That original folder remains the v1 tool path. This v2 folder is the newer source-specific additional-data getter workflow.
 
+Last reviewed: 2026-05-14
+
 ## Purpose
 
 This tool processes the shared no-dupes song list and writes source-specific additional-data outputs and runtime state.
@@ -19,27 +21,30 @@ It is designed around:
 
 ## Current source options
 
-The tool currently supports three source modes:
+The tool currently supports four source modes:
 
 1. `deezer`
 2. `genius_api`
 3. `genius_web`
+4. `genius_web_language`
 
 Interactive source selection presents:
 
 1. Deezer
 2. Genius API
 3. Genius Web Scraping
+4. Language Getter from Genius Lyric URLs
 
 ## Current run modes
 
-The tool currently supports five run modes:
+The tool currently supports six run modes:
 
 1. `begin`
 2. `resume`
 3. `fill_missing`
 4. `retry_skipped`
-5. `smart_catch_up`
+5. `retry_failed`
+6. `smart_catch_up`
 
 Interactive mode selection presents:
 
@@ -52,6 +57,7 @@ Interactive mode selection presents:
 Important rule:
 
 - `smart_catch_up` is only valid when `--source genius_web` is used
+- `genius_web_language` only supports `begin`, `resume`, and `retry_failed`
 
 ## Current input behavior
 
@@ -85,6 +91,12 @@ The tool treats this file as the authoritative deduped song list.
 - output: `tools/mp3li_additional_data_getter_v2/output_genius_web`
 - state: `tools/mp3li_additional_data_getter_v2/state_genius_web`
 
+### Language Getter from Genius Lyric URLs
+
+- source data: `tools/mp3li_additional_data_getter_v2/output_genius_web/enriched_songs.csv`
+- output: `tools/mp3li_additional_data_getter_v2/output_genius_web/language_ready_matches.*`
+- state: `tools/mp3li_additional_data_getter_v2/state_genius_web_language`
+
 Each runtime path uses:
 
 - `run_state.json`
@@ -112,6 +124,7 @@ Current secret behavior:
 
 - `genius_api` requires `GENIUS_ACCESS_TOKEN`
 - `genius_web` does not require a Genius API token
+- `genius_web_language` does not require a Genius API token
 - Deezer app credentials are optional:
   - `DEEZER_APP_ID`
   - `DEEZER_APP_SECRET`
@@ -136,6 +149,12 @@ Example Genius Web smart catch-up run:
 cd "/Users/stellar/School/Music_Capstone/tools/mp3li_additional_data_getter_v2" && python3 main.py --source genius_web --mode smart_catch_up
 ```
 
+Example language getter test run:
+
+```bash
+cd "/Users/stellar/School/Music_Capstone/tools/mp3li_additional_data_getter_v2" && python3 main.py --source genius_web_language --mode begin --limit 20
+```
+
 ## CLI flags
 
 - `--input`
@@ -144,11 +163,13 @@ cd "/Users/stellar/School/Music_Capstone/tools/mp3li_additional_data_getter_v2" 
   - `deezer`
   - `genius_api`
   - `genius_web`
+  - `genius_web_language`
 - `--mode`
   - `begin`
   - `resume`
   - `fill_missing`
   - `retry_skipped`
+  - `retry_failed`
   - `smart_catch_up`
 - `--limit <n>`
   - optional row cap for test runs
@@ -193,6 +214,14 @@ Current focus:
 - attempt-trail tracking
 - deterministic skip classification
 - smart catch-up support for incomplete prior runs
+
+### Genius Web Language Getter
+
+Current focus:
+
+- reads lyric URLs from the Genius Web output
+- writes `language_ready_matches.*`
+- supports begin/resume/retry-failed language extraction passes
 
 ## Output shape notes
 

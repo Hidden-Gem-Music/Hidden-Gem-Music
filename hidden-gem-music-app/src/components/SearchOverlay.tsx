@@ -18,15 +18,16 @@ export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Pr
   const isMobileWidth = width < 980;
   const isNative = Platform.OS !== "web";
   const [query, setQuery] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
   const containerRef = useRef<View>(null);
 
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) {
-      return countries.slice(0, 25);
+      return countries;
     }
 
-    return countries.filter((country) => country.name.toLowerCase().includes(normalized)).slice(0, 25);
+    return countries.filter((country) => country.name.toLowerCase().includes(normalized));
   }, [countries, query]);
 
   useEffect(() => {
@@ -81,7 +82,9 @@ export function SearchOverlay({ visible, countries, onClose, onOpenCountry }: Pr
           onChangeText={setQuery}
           placeholder="Search for a country"
           placeholderTextColor={colors.textLight}
-          style={styles.input}
+          onFocus={() => setInputFocused(true)}
+          onBlur={() => setInputFocused(false)}
+          style={[styles.input, inputFocused ? styles.inputFocused : null]}
           autoFocus
         />
 
@@ -222,6 +225,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontFamily: typefaces.body,
     fontSize: 17,
+    ...(Platform.OS === "web"
+      ? ({
+          outlineColor: "rgba(169,176,209,0.92)",
+          outlineStyle: "none",
+          outlineWidth: 0,
+        } as any)
+      : null),
+  },
+  inputFocused: {
+    borderColor: "rgba(169,176,209,0.92)",
+    backgroundColor: "rgba(117,82,107,0.12)",
   },
   resultScroll: {
     maxHeight: 360,

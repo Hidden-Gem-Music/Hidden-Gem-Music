@@ -12,14 +12,19 @@ namespace Capstone.API.Controllers
     public class HiddenGemsController : ControllerBase
     {
         private readonly IHiddenGemsRepository _repo;
+        private readonly IPresentationDataCacheService _presentationDataCache;
         private readonly ILogger<HiddenGemsController> _logger;
 
         /// <summary>
         /// Initializes a new instance of HiddenGemsController.
         /// </summary>
-        public HiddenGemsController(IHiddenGemsRepository repo, ILogger<HiddenGemsController> logger)
+        public HiddenGemsController(
+            IHiddenGemsRepository repo,
+            IPresentationDataCacheService presentationDataCache,
+            ILogger<HiddenGemsController> logger)
         {
             _repo = repo;
+            _presentationDataCache = presentationDataCache;
             _logger = logger;
         }
 
@@ -47,7 +52,16 @@ namespace Capstone.API.Controllers
 
             try
             {
-                var result = await _repo.GetHiddenGemsAsync(code.ToUpper(), year, minCountries, page, pageSize, cancellationToken);
+                var normalizedCode = code.ToUpperInvariant();
+                var cacheKey = BuildPresentationCacheKey("hidden-gems", normalizedCode, year, minCountries, page, pageSize);
+                var cached = await _presentationDataCache.GetAsync(cacheKey, cancellationToken);
+                if (cached.HasValue)
+                {
+                    return Ok(cached.Value);
+                }
+
+                var result = await _repo.GetHiddenGemsAsync(normalizedCode, year, minCountries, page, pageSize, cancellationToken);
+                BackgroundTaskLogger.LogFailure(_presentationDataCache.SaveAsync(cacheKey, result), _logger, cacheKey);
                 return Ok(result);
             }
             catch (SqlException ex)
@@ -64,6 +78,11 @@ namespace Capstone.API.Controllers
                 _logger.LogError(ex, "Error getting hidden gems for {CountryCode} year {Year}", code, year);
                 return StatusCode(500, new { message = "An unexpected error occurred while retrieving hidden gems data." });
             }
+        }
+
+        private static string BuildPresentationCacheKey(string endpoint, params object[] parts)
+        {
+            return string.Join("::", new[] { endpoint }.Concat(parts.Select(part => part.ToString() ?? ""))).ToUpperInvariant();
         }
     }
 }

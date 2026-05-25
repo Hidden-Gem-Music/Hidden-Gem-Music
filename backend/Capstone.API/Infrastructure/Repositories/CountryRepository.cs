@@ -17,16 +17,19 @@ namespace Capstone.API.Infrastructure.Repositories
 
         private readonly IDataRepository _db;
         private readonly IDeezerSongEnrichmentService _deezerSongEnrichmentService;
+        private readonly ILanguageLookupService _languageLookupService;
 
         /// <summary>
         /// Initializes a new instance of CountryRepository using the default connection.
         /// </summary>
         public CountryRepository(
             IDataRepositoryFactory factory,
-            IDeezerSongEnrichmentService deezerSongEnrichmentService)
+            IDeezerSongEnrichmentService deezerSongEnrichmentService,
+            ILanguageLookupService languageLookupService)
         {
             _db = factory.Create("DefaultConnection");
             _deezerSongEnrichmentService = deezerSongEnrichmentService;
+            _languageLookupService = languageLookupService;
         }
 
         /// <inheritdoc/>
@@ -54,13 +57,19 @@ namespace Capstone.API.Infrastructure.Repositories
                 OverlapPct = RowValueReader.AsDecimalAny(stats, "overlap_pct")
             };
 
-            if (sets.Count > 1)
-                profile.TopSharedSongs = await EnrichSongRowsAsync(sets[1].Select(MapSong), limit: 10, cancellationToken);
+            var sharedSongsTask = sets.Count > 1
+                ? EnrichSongRowsAsync(sets[1].Select(MapSong), limit: 10, cancellationToken)
+                : Task.FromResult(new List<Song>());
+            var uniqueSongsTask = sets.Count > 2
+                ? EnrichSongRowsAsync(sets[2].Select(MapSong), limit: 10, cancellationToken)
+                : Task.FromResult(new List<Song>());
+            var genresTask = GetCountryGenreSampleAsync(countryCode, year, cancellationToken);
 
-            if (sets.Count > 2)
-                profile.TopUniqueSongs = await EnrichSongRowsAsync(sets[2].Select(MapSong), limit: 10, cancellationToken);
+            await Task.WhenAll(sharedSongsTask, uniqueSongsTask, genresTask);
 
-            profile.SampleGenres = (await GetCountryGenreSampleAsync(countryCode, year, cancellationToken)).ToList();
+            profile.TopSharedSongs = sharedSongsTask.Result;
+            profile.TopUniqueSongs = uniqueSongsTask.Result;
+            profile.SampleGenres = genresTask.Result.ToList();
 
             return profile;
         }
@@ -78,30 +87,24 @@ namespace Capstone.API.Infrastructure.Repositories
                 { "@Limit", rawLimit }
             }, cancellationToken);
 
-            var results = new List<CountryHiddenGemPreviewItem>();
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var row in rows)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var enriched = await EnrichPreviewItemAsync(MapHiddenGem(row), cancellationToken);
-                if (enriched is null)
-                {
-                    continue;
-                }
+            var enrichedItems = await Task.WhenAll(rows.Select(row => EnrichPreviewItemAsync(MapHiddenGem(row), cancellationToken)));
 
-                var songName = enriched.SongName?.Trim();
-                var artistName = enriched.ArtistName?.Trim();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var results = new List<CountryHiddenGemPreviewItem>();
+            foreach (var item in enrichedItems)
+            {
+                if (item is null)
+                    continue;
+
+                var songName = item.SongName?.Trim();
+                var artistName = item.ArtistName?.Trim();
                 var duplicateKey = $"{songName?.ToLowerInvariant()}||{artistName?.ToLowerInvariant()}";
                 if (string.IsNullOrWhiteSpace(songName) || string.IsNullOrWhiteSpace(artistName) || !seen.Add(duplicateKey))
-                {
                     continue;
-                }
 
-                results.Add(enriched);
+                results.Add(item);
                 if (results.Count >= requestedLimit)
-                {
                     break;
-                }
             }
 
             return results;
@@ -179,7 +182,7 @@ namespace Capstone.API.Infrastructure.Repositories
                 Items = results,
                 Page = safePage,
                 PageSize = safePageSize,
-                TotalCount = totalResolvedCount,
+                TotalCount = totalRawCount,
                 HasMore = hasMore
             };
         }
@@ -193,43 +196,131 @@ namespace Capstone.API.Infrastructure.Repositories
             foreach (var prefix in PreferredGenrePrefixes)
             {
                 var genre = await FindDistinctGenreForPrefixAsync(countryCode, year, prefix, seenGenres, cancellationToken);
-                if (string.IsNullOrWhiteSpace(genre))
-                {
-                    continue;
-                }
-
-                seenGenres.Add(genre);
-                selectedGenres.Add(genre);
+                if (!string.IsNullOrWhiteSpace(genre) && seenGenres.Add(genre))
+                    selectedGenres.Add(genre);
+                if (selectedGenres.Count >= 3)
+                    return selectedGenres;
             }
 
             if (selectedGenres.Count < 3)
-            {
                 await FillRemainingDistinctGenresAsync(countryCode, year, selectedGenres, seenGenres, cancellationToken);
-            }
 
             return selectedGenres;
         }
 
-        private async Task<List<Song>> EnrichSongRowsAsync(IEnumerable<Song> songs, int limit, CancellationToken cancellationToken)
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<string>> GetCountryLanguageSampleAsync(string countryCode, int year, CancellationToken cancellationToken = default)
         {
-            var results = new List<Song>();
-            foreach (var song in songs)
+            var selectedLanguages = new List<string>(3);
+            var seenLanguages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var candidateSongs = await LoadLanguageCandidateSongsAsync(countryCode, year, cancellationToken);
+
+            foreach (var prefix in PreferredGenrePrefixes)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var enriched = await EnrichSongAsync(song, cancellationToken);
-                if (enriched is null)
+                var language = FindDistinctLanguageForPrefix(candidateSongs, prefix, seenLanguages);
+                if (string.IsNullOrWhiteSpace(language))
                 {
                     continue;
                 }
 
-                results.Add(enriched);
-                if (results.Count >= limit)
+                seenLanguages.Add(language);
+                selectedLanguages.Add(language);
+            }
+
+            if (selectedLanguages.Count < 3)
+            {
+                FillRemainingDistinctLanguages(candidateSongs, selectedLanguages, seenLanguages);
+            }
+
+            return selectedLanguages;
+        }
+
+        private async Task<List<Song>> LoadLanguageCandidateSongsAsync(string countryCode, int year, CancellationToken cancellationToken)
+        {
+            var candidates = new List<Song>(RawSongBatchSize * 2);
+            foreach (var listType in new[] { "shared", "unique" })
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var rows = await _db.GetDataAsync("sp_GetCountrySongsPaged", new Dictionary<string, object?>
                 {
-                    break;
+                    { "@CountryCode", countryCode },
+                    { "@Year", year },
+                    { "@ListType", listType },
+                    { "@Offset", 0 },
+                    { "@PageSize", RawSongBatchSize }
+                }, cancellationToken);
+
+                candidates.AddRange(rows.Select(MapSong));
+            }
+
+            return candidates;
+        }
+
+        private string? FindDistinctLanguageForPrefix(IEnumerable<Song> songs, string prefix, HashSet<string> seenLanguages)
+        {
+            foreach (var song in songs)
+            {
+                if (!SongStartsWithPrefix(song.SongName, prefix))
+                {
+                    continue;
+                }
+
+                var language = FindFirstDistinctLanguage(song, seenLanguages);
+                if (!string.IsNullOrWhiteSpace(language))
+                {
+                    return language;
                 }
             }
 
-            return results;
+            return null;
+        }
+
+        private void FillRemainingDistinctLanguages(IEnumerable<Song> songs, List<string> selectedLanguages, HashSet<string> seenLanguages)
+        {
+            foreach (var song in songs)
+            {
+                if (selectedLanguages.Count >= 3)
+                {
+                    return;
+                }
+
+                var language = FindFirstDistinctLanguage(song, seenLanguages);
+                if (string.IsNullOrWhiteSpace(language))
+                {
+                    continue;
+                }
+
+                seenLanguages.Add(language);
+                selectedLanguages.Add(language);
+            }
+        }
+
+        private string? FindFirstDistinctLanguage(Song song, HashSet<string> seenLanguages)
+        {
+            var match = _languageLookupService.FindMatch(song);
+            if (match is null)
+            {
+                return null;
+            }
+
+            foreach (var language in match.Languages)
+            {
+                var trimmed = language.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed) || seenLanguages.Contains(trimmed))
+                {
+                    continue;
+                }
+
+                return trimmed;
+            }
+
+            return null;
+        }
+
+        private async Task<List<Song>> EnrichSongRowsAsync(IEnumerable<Song> songs, int limit, CancellationToken cancellationToken)
+        {
+            var enriched = await Task.WhenAll(songs.Select(song => EnrichSongAsync(song, cancellationToken)));
+            return enriched.Where(song => song is not null).Take(limit).ToList()!;
         }
 
         private async Task<Song?> EnrichSongAsync(Song song, CancellationToken cancellationToken)

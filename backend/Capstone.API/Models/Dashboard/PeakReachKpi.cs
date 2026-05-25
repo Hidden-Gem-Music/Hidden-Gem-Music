@@ -27,5 +27,10 @@ namespace Capstone.API.Models.Dashboard
         /// Gets or sets the date on which peak reach was recorded.
         /// </summary>
         public DateOnly? PeakDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets the resolved album artwork URL for the peak reach song.
+        /// </summary>
+        public string? AlbumArtUrl { get; set; }
     }
 }

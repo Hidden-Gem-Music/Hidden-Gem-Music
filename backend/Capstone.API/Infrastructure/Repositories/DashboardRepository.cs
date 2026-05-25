@@ -10,13 +10,17 @@ namespace Capstone.API.Infrastructure.Repositories
     public class DashboardRepository : IDashboardRepository
     {
         private readonly IDataRepository _db;
+        private readonly IDeezerSongEnrichmentService _deezerSongEnrichmentService;
 
         /// <summary>
         /// Initializes a new instance of DashboardRepository using the default connection.
         /// </summary>
-        public DashboardRepository(IDataRepositoryFactory factory)
+        public DashboardRepository(
+            IDataRepositoryFactory factory,
+            IDeezerSongEnrichmentService deezerSongEnrichmentService)
         {
             _db = factory.Create("DefaultConnection");
+            _deezerSongEnrichmentService = deezerSongEnrichmentService;
         }
 
         /// <inheritdoc/>
@@ -93,7 +97,8 @@ namespace Capstone.API.Infrastructure.Repositories
                 CountryName = AsString(row, "country_name"),
                 IsoCode = AsString(row, "iso_code"),
                 IsolationScore = AsDecimal(row, "isolation_score"),
-                IsolationTier = AsString(row, "isolation_tier")
+                IsolationTier = AsString(row, "isolation_tier"),
+                Region = AsString(row, "region")
             });
         }
 
@@ -104,12 +109,19 @@ namespace Capstone.API.Infrastructure.Repositories
             var row = rows.FirstOrDefault();
             if (row == null) return null;
 
+            var songTitle = AsString(row, "song_title");
+            var artistName = AsString(row, "artist_name");
+            var metadata = !string.IsNullOrWhiteSpace(songTitle) && !string.IsNullOrWhiteSpace(artistName)
+                ? await _deezerSongEnrichmentService.ResolveSongMetadataAsync(songTitle, artistName, cancellationToken)
+                : null;
+
             return new PeakReachKpi
             {
                 PeakCountryCount = AsInt(row, "peak_country_count"),
-                SongTitle = AsString(row, "song_title"),
-                ArtistName = AsString(row, "artist_name"),
-                PeakDate = AsNullableDateOnly(row, "peak_date")
+                SongTitle = songTitle,
+                ArtistName = artistName,
+                PeakDate = AsNullableDateOnly(row, "peak_date"),
+                AlbumArtUrl = metadata?.AlbumArtUrl
             };
         }
 

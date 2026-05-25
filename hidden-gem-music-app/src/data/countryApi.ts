@@ -1,11 +1,21 @@
-import type { ApiCountryGenreSample, ApiCountryHiddenGemPreview, ApiCountryProfile, ApiCountrySongsPage, ApiHiddenGemResponse } from "../types/api";
+import type {
+  ApiCountryGenreSample,
+  ApiCountryHiddenGemPreview,
+  ApiCountryLanguageSample,
+  ApiCountryProfile,
+  ApiCountrySongsPage,
+  ApiHiddenGemResponse,
+} from "../types/api";
 import { getApiBaseUrl } from "./apiBaseUrl";
+import { fetchWithTimeoutAndRetry } from "./fetchWithTimeout";
 
 const countryProfileCache = new Map<string, ApiCountryProfile>();
 const countryHiddenGemsPreviewCache = new Map<string, ApiCountryHiddenGemPreview[]>();
 const hiddenGemsPageCache = new Map<string, ApiHiddenGemResponse>();
 const countrySongsPageCache = new Map<string, ApiCountrySongsPage>();
 const countryGenreSampleCache = new Map<string, ApiCountryGenreSample>();
+const countryLanguageSampleCache = new Map<string, ApiCountryLanguageSample>();
+const countrySampleRequestSize = 16;
 
 function buildCountryYearKey(countryCode: string, year: number) {
   return `${countryCode.trim().toUpperCase()}::${year}`;
@@ -29,6 +39,18 @@ function buildCountryGenreSampleKey(countryCode: string, year: number) {
   return `${buildCountryYearKey(countryCode, year)}::genre-sample`;
 }
 
+function buildCountryLanguageSampleKey(countryCode: string, year: number) {
+  return `${buildCountryYearKey(countryCode, year)}::language-sample`;
+}
+
+function chunkCountryCodes(countryCodes: string[]) {
+  const chunks: string[][] = [];
+  for (let index = 0; index < countryCodes.length; index += countrySampleRequestSize) {
+    chunks.push(countryCodes.slice(index, index + countrySampleRequestSize));
+  }
+  return chunks;
+}
+
 async function parseJsonResponse<T>(response: Response, endpoint: string): Promise<T> {
   if (!response.ok) {
     throw new Error(`Request failed for ${endpoint} with status ${response.status}.`);
@@ -46,7 +68,7 @@ export async function loadCountryProfile(countryCode: string, year: number, sign
 
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/country/${countryCode}?year=${year}`;
-  const response = await fetch(endpoint, { signal });
+  const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
   const payload = await parseJsonResponse<ApiCountryProfile>(response, endpoint);
   countryProfileCache.set(cacheKey, payload);
   return payload;
@@ -108,24 +130,38 @@ export async function loadHiddenGemsPage(
 
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/hidden-gems/${countryCode}?year=${year}&minCountries=${minCountries}&page=${page}&pageSize=${pageSize}`;
-  const response = await fetch(endpoint, { signal });
+  const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
   const payload = await parseJsonResponse<ApiHiddenGemResponse>(response, endpoint);
   hiddenGemsPageCache.set(cacheKey, payload);
   return payload;
 }
 
-export async function loadAvailableYears(signal?: AbortSignal): Promise<number[]> {
+let availableYearsPromise: Promise<number[]> | null = null;
+
+export function loadAvailableYears(signal?: AbortSignal): Promise<number[]> {
+  if (availableYearsPromise !== null) {
+    return availableYearsPromise;
+  }
+
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/metadata/years`;
-  const response = await fetch(endpoint, { signal });
-  const payload = await parseJsonResponse<unknown[]>(response, endpoint);
 
-  return payload
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value))
-    .map((value) => Math.trunc(value))
-    .filter((value) => value > 0)
-    .sort((a, b) => a - b);
+  availableYearsPromise = fetchWithTimeoutAndRetry(endpoint, {}, signal)
+    .then((response) => parseJsonResponse<unknown[]>(response, endpoint))
+    .then((payload) =>
+      payload
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value))
+        .map((value) => Math.trunc(value))
+        .filter((value) => value > 0)
+        .sort((a, b) => a - b)
+    )
+    .catch((err: unknown) => {
+      availableYearsPromise = null;
+      throw err;
+    });
+
+  return availableYearsPromise;
 }
 
 export async function loadCountrySongsPage(
@@ -144,7 +180,7 @@ export async function loadCountrySongsPage(
 
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const endpoint = `${baseUrl}/api/country/${countryCode}/songs?year=${year}&listType=${listType}&page=${page}&pageSize=${pageSize}`;
-  const response = await fetch(endpoint, { signal });
+  const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
   const payload = await parseJsonResponse<ApiCountrySongsPage>(response, endpoint);
   countrySongsPageCache.set(cacheKey, payload);
   return payload;
@@ -180,20 +216,66 @@ export async function loadCountryGenreSamples(
   }
 
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
-  const endpoint = `${baseUrl}/api/country/genre-samples?year=${year}&codes=${encodeURIComponent(missingCodes.join(","))}`;
-  const response = await fetch(endpoint, { signal });
-  const payload = await parseJsonResponse<ApiCountryGenreSample[]>(response, endpoint);
-  payload.forEach((item) => {
-    countryGenreSampleCache.set(buildCountryGenreSampleKey(item.countryCode, year), item);
-  });
+  for (const codeBatch of chunkCountryCodes(missingCodes)) {
+    const endpoint = `${baseUrl}/api/country/genre-samples?year=${year}&codes=${encodeURIComponent(codeBatch.join(","))}`;
+    const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
+    const payload = await parseJsonResponse<ApiCountryGenreSample[]>(response, endpoint);
+    payload.forEach((item) => {
+      countryGenreSampleCache.set(buildCountryGenreSampleKey(item.countryCode, year), item);
+    });
+  }
 
   return normalizedCodes
     .map((code) => countryGenreSampleCache.get(buildCountryGenreSampleKey(code, year)))
     .filter((entry): entry is ApiCountryGenreSample => Boolean(entry));
 }
 
+export async function loadCountryLanguageSamples(
+  countryCodes: string[],
+  year: number,
+  signal?: AbortSignal
+): Promise<ApiCountryLanguageSample[]> {
+  const normalizedCodes = Array.from(
+    new Set(
+      countryCodes
+        .map((code) => code.trim().toUpperCase())
+        .filter((code) => /^[A-Z]{2}$/.test(code))
+    )
+  );
+
+  if (normalizedCodes.length === 0) {
+    return [];
+  }
+
+  const cachedSamples = normalizedCodes
+    .map((code) => countryLanguageSampleCache.get(buildCountryLanguageSampleKey(code, year)))
+    .filter((entry): entry is ApiCountryLanguageSample => Boolean(entry));
+  const cachedCodes = new Set(cachedSamples.map((entry) => entry.countryCode.toUpperCase()));
+  const missingCodes = normalizedCodes.filter((code) => !cachedCodes.has(code));
+
+  if (missingCodes.length > 0) {
+    const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+    for (const codeBatch of chunkCountryCodes(missingCodes)) {
+      const endpoint = `${baseUrl}/api/country/language-samples?year=${year}&codes=${encodeURIComponent(codeBatch.join(","))}`;
+      const response = await fetchWithTimeoutAndRetry(endpoint, {}, signal);
+      const payload = await parseJsonResponse<ApiCountryLanguageSample[]>(response, endpoint);
+      payload.forEach((item) => {
+        countryLanguageSampleCache.set(buildCountryLanguageSampleKey(item.countryCode, year), item);
+      });
+    }
+  }
+
+  return normalizedCodes
+    .map((code) => countryLanguageSampleCache.get(buildCountryLanguageSampleKey(code, year)))
+    .filter((entry): entry is ApiCountryLanguageSample => Boolean(entry));
+}
+
 export function getCachedCountryGenreSamples(countryCode: string, year: number): string[] {
   return countryGenreSampleCache.get(buildCountryGenreSampleKey(countryCode, year))?.genres ?? [];
+}
+
+export function getCachedCountryLanguageSamples(countryCode: string, year: number): string[] {
+  return countryLanguageSampleCache.get(buildCountryLanguageSampleKey(countryCode, year))?.languages ?? [];
 }
 
 export function getCachedHiddenGemsPage(

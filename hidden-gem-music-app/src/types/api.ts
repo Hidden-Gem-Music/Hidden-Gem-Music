@@ -129,6 +129,7 @@ export type ApiCountryGlobeSummary = {
   lat: number;
   long: number;
   hiddenGemCount: number;
+  topSongName: string | null;
   topAlbumName: string | null;
   topArtistName: string | null;
 };
@@ -136,6 +137,23 @@ export type ApiCountryGlobeSummary = {
 export type ApiCountryGenreSample = {
   countryCode: string;
   genres: string[];
+};
+
+export type ApiCountryLanguageSample = {
+  countryCode: string;
+  languages: string[];
+};
+
+export type ApiLanguageSongLookupItem = {
+  songName: string;
+  artistName: string;
+};
+
+export type ApiLanguageSongMatch = {
+  songName: string;
+  artistName: string;
+  lyricsUrl: string;
+  languages: string[];
 };
 
 export type ApiOverlapRate = {
@@ -161,6 +179,7 @@ export type ApiPeakReach = {
   songTitle: string;
   artistName: string;
   peakDate: string;
+  albumArtUrl?: string | null;
 };
 
 export type ApiTrendPoint = {
@@ -179,6 +198,7 @@ export type ApiIsolationEntry = {
   isoCode: string;
   isolationScore: number;
   isolationTier: "high" | "mid" | "low";
+  region: string | null;
 };
 
 export type ApiGapBucket = {

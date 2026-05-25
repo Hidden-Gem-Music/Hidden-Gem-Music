@@ -1,6 +1,7 @@
 using Capstone.API.Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Capstone.API.Controllers
 {
@@ -11,15 +12,19 @@ namespace Capstone.API.Controllers
     [Route("api/metadata")]
     public class MetadataController : ControllerBase
     {
+        private const string AvailableYearsCacheKey = "metadata-controller-available-years";
+
         private readonly IMetadataRepository _repo;
+        private readonly IMemoryCache _memoryCache;
         private readonly ILogger<MetadataController> _logger;
 
         /// <summary>
         /// Initializes a new instance of MetadataController.
         /// </summary>
-        public MetadataController(IMetadataRepository repo, ILogger<MetadataController> logger)
+        public MetadataController(IMetadataRepository repo, IMemoryCache memoryCache, ILogger<MetadataController> logger)
         {
             _repo = repo;
+            _memoryCache = memoryCache;
             _logger = logger;
         }
 
@@ -32,7 +37,11 @@ namespace Capstone.API.Controllers
         {
             try
             {
-                var years = await _repo.GetAvailableYearsAsync(cancellationToken);
+                var years = await _memoryCache.GetOrCreateAsync(AvailableYearsCacheKey, async entry =>
+                {
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
+                    return await _repo.GetAvailableYearsAsync(cancellationToken);
+                });
                 return Ok(years);
             }
             catch (SqlException ex)

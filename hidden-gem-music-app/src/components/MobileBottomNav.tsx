@@ -7,10 +7,10 @@ import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 const mobileNavItems: Array<{ label: string; route: ScreenRoute }> = [
-  { label: "Discovery Globe", route: "discovery" },
+  { label: "Discovery Map", route: "discovery" },
+  { label: "Discovery Dashboard", route: "dashboard" },
   { label: "Compare", route: "comparisonSelect" },
   { label: "Hidden Gems", route: "hiddenGems" },
-  { label: "Dashboard", route: "dashboard" },
   { label: "Credits", route: "credits" },
 ];
 const mobileSearchItem = { label: "Search", route: "search" as const };
@@ -170,6 +170,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 4,
     position: "relative",
+    zIndex: 700,
   },
   activeGradientSlot: {
     position: "absolute",

@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from "react-native";
 
 import { Country } from "../types/content";
@@ -11,13 +11,15 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { YearSlider } from "../components/YearSlider";
-import { loadCountryGenreSamples } from "../data/countryApi";
-import { useLoadingText } from "../hooks/useLoadingText";
+import { YearDataDisclaimer } from "../components/YearDataDisclaimer";
+import { loadCountryGenreSamples, loadCountryLanguageSamples } from "../data/countryApi";
+import { formatLanguageAndMore } from "../data/languageApi";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 export type Props = {
   isActive?: boolean;
+  isLoading?: boolean;
   countries: Country[];
   allYearsCountries?: Country[];
   selectedCountryId: string;
@@ -29,6 +31,7 @@ export type Props = {
 };
 
 type SortOption = "a-z" | "z-a" | "gems-desc" | "gems-asc";
+const initialDiscoverySamplePrefetchCount = 24;
 const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
 const popupBottomDepthGradient = ["rgba(108,119,142,0)", "rgba(108,119,142,0.12)", "rgba(108,119,142,0.3)"] as const;
 const normalizeContinent = (region: string) => {
@@ -42,7 +45,9 @@ const normalizeContinent = (region: string) => {
 };
 
 function formatGenreSummary(genres: string[]) {
-  const cleaned = genres.map((genre) => genre.trim()).filter((genre) => genre.length > 0);
+  const cleaned = genres
+    .map((genre) => genre.trim())
+    .filter((genre) => genre.length > 0 && genre.toLowerCase() !== "unknown" && genre.toLowerCase() !== "loading...");
   if (cleaned.length >= 3) {
     return `${cleaned[0]}, ${cleaned[1]}, ${cleaned[2]}, and others`;
   }
@@ -58,115 +63,9 @@ function formatGenreSummary(genres: string[]) {
   return "";
 }
 
-function DiscoveryYearDropdown({
-  selectedYear,
-  years,
-  onChangeYear,
-}: {
-  selectedYear: number;
-  years: number[];
-  onChangeYear: (year: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [hoveredYear, setHoveredYear] = useState<number | null>(null);
-  const [hoveredButton, setHoveredButton] = useState(false);
-  const [pressedButton, setPressedButton] = useState(false);
-  const dropdownRef = useRef<View>(null);
-  const showButtonGradient = open || hoveredButton || pressedButton;
-
-  useEffect(() => {
-    if (Platform.OS !== "web" || !open || typeof document === "undefined") {
-      return;
-    }
-
-    const handleDocumentMouseDown = (event: MouseEvent) => {
-      const targetNode = event.target as Node | null;
-      const clickedInside = Boolean((dropdownRef.current as any)?.contains?.(targetNode));
-      if (!clickedInside) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleDocumentMouseDown);
-    return () => {
-      document.removeEventListener("mousedown", handleDocumentMouseDown);
-    };
-  }, [open]);
-
-  return (
-    <View ref={dropdownRef} style={styles.mobileYearDropdownWrap}>
-      {open ? <Pressable style={styles.mobileYearDropdownDismissLayer} onPress={() => setOpen(false)} /> : null}
-      <Pressable
-        onPress={() => setOpen((current) => !current)}
-        onHoverIn={() => setHoveredButton(true)}
-        onHoverOut={() => setHoveredButton(false)}
-        onPressIn={() => setPressedButton(true)}
-        onPressOut={() => setPressedButton(false)}
-        style={styles.mobileYearDropdownShell}
-      >
-        {showButtonGradient ? (
-          <LinearGradient
-            colors={pressedButton ? activeGradient : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]}
-            locations={[0, 0.34, 1]}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.mobileYearDropdownGradient}
-          />
-        ) : null}
-        <View style={[styles.mobileYearDropdownButton, showButtonGradient ? styles.mobileYearDropdownButtonActive : null]}>
-          <Text style={[styles.mobileYearDropdownText, showButtonGradient ? styles.mobileYearDropdownTextActive : null]}>
-            {selectedYear}
-          </Text>
-          <Text style={[styles.mobileYearDropdownChevron, showButtonGradient ? styles.mobileYearDropdownTextActive : null]}>
-            {open ? "-" : "+"}
-          </Text>
-        </View>
-      </Pressable>
-      {open ? (
-        <Panel style={styles.mobileYearDropdownMenu}>
-          <SecondarySurfaceFill />
-          <ScrollView style={styles.mobileYearDropdownScroll} contentContainerStyle={styles.mobileYearDropdownContent}>
-            {years.slice().sort((a, b) => b - a).map((yearOption) => {
-              const active = yearOption === selectedYear;
-              const hovered = hoveredYear === yearOption;
-              const showOptionGradient = active || hovered;
-              return (
-                <Pressable
-                  key={`mobile-year-${yearOption}`}
-                  onHoverIn={() => setHoveredYear(yearOption)}
-                  onHoverOut={() => setHoveredYear((current) => (current === yearOption ? null : current))}
-                  onPress={() => {
-                    onChangeYear(yearOption);
-                    setOpen(false);
-                  }}
-                  style={styles.mobileYearDropdownOptionShell}
-                >
-                  {showOptionGradient ? (
-                    <LinearGradient
-                      colors={active ? activeGradient : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]}
-                      locations={[0, 0.34, 1]}
-                      start={{ x: 0, y: 0.5 }}
-                      end={{ x: 1, y: 0.5 }}
-                      style={styles.mobileYearDropdownGradient}
-                    />
-                  ) : null}
-                  <View style={[styles.mobileYearDropdownOption, showOptionGradient ? styles.mobileYearDropdownOptionActive : null]}>
-                    <Text style={[styles.mobileYearDropdownOptionText, showOptionGradient ? styles.mobileYearDropdownTextActive : null]}>
-                      {yearOption}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </Panel>
-      ) : null}
-    </View>
-  );
-}
-
 export function DiscoveryScreen({
   isActive = true,
+  isLoading = false,
   countries,
   allYearsCountries,
   selectedCountryId,
@@ -176,12 +75,13 @@ export function DiscoveryScreen({
   onChangeYear,
   availableYears,
 }: Props) {
-  // Issue #6 shell: this screen owns the core Discovery Globe layout,
-  // including globe rendering, country selection, panel structure, and dummy-data wiring.
+  // Issue #6 shell: this screen owns the core Discovery Map layout,
+  // including map rendering, country selection, panel structure, and dummy-data wiring.
   const { width } = useWindowDimensions();
   const isStacked = width < 980;
   const [allFiltersOpen, setAllFiltersOpen] = useState(false);
   const [listAutoScrollSignal, setListAutoScrollSignal] = useState(0);
+  const [hoveredListCountryId, setHoveredListCountryId] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption | null>(null);
   const [selectedContinents, setSelectedContinents] = useState<string[]>([]);
   const [onlyWithHiddenGems, setOnlyWithHiddenGems] = useState(true);
@@ -191,17 +91,29 @@ export function DiscoveryScreen({
   const [isClearHovered, setIsClearHovered] = useState(false);
   const [isClearPressed, setIsClearPressed] = useState(false);
   const [selectedFilterYears, setSelectedFilterYears] = useState<number[]>([selectedYear]);
-  const [genrePrefetchCount, setGenrePrefetchCount] = useState(8);
+  const [genrePrefetchCount, setGenrePrefetchCount] = useState(initialDiscoverySamplePrefetchCount);
   const [genreSummaryByCountryCode, setGenreSummaryByCountryCode] = useState<Record<string, string>>({});
-  const [genreLoadingByCountryCode, setGenreLoadingByCountryCode] = useState<Record<string, boolean>>({});
+  const [languageSummaryByCountryCode, setLanguageSummaryByCountryCode] = useState<Record<string, string>>({});
+  const [languageLoadingByCountryCode, setLanguageLoadingByCountryCode] = useState<Record<string, boolean>>({});
   const genreRequestControllersRef = useRef<AbortController[]>([]);
   const requestedGenreCodesRef = useRef<Set<string>>(new Set());
-  const timelineYears = availableYears && availableYears.length > 0 ? availableYears : [selectedYear];
+  const languageRequestControllersRef = useRef<AbortController[]>([]);
+  const requestedLanguageCodesRef = useRef<Set<string>>(new Set());
+  const timelineYears =
+    availableYears && availableYears.length > 0
+      ? Array.from(new Set([...availableYears, selectedYear])).sort((a, b) => a - b)
+      : [selectedYear];
   const isAllYearsSelected = selectedFilterYears.length === 0;
   const countriesForFiltering =
     isAllYearsSelected && allYearsCountries && allYearsCountries.length > 0
       ? allYearsCountries
       : countries;
+
+  useEffect(() => {
+    if (!isActive) {
+      setAllFiltersOpen(false);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     if (isAllYearsSelected) {
@@ -268,8 +180,18 @@ export function DiscoveryScreen({
   const visibleSelectedCountryId = filteredCountries.some((country) => country.id === selectedCountryId)
     ? selectedCountryId
     : filteredCountries[0]?.id ?? selectedCountryId;
-  const anyDiscoveryGenreLoading = Object.values(genreLoadingByCountryCode).some(Boolean);
-  const discoveryLoadingText = useLoadingText(anyDiscoveryGenreLoading);
+  const visibleSelectedCountryCode = filteredCountries.find((country) => country.id === visibleSelectedCountryId)?.code;
+  const displayGenreSummaryByCountryCode = useMemo(() => {
+    const next: Record<string, string> = {};
+    filteredCountries.forEach((country) => {
+      const loadedSummary = genreSummaryByCountryCode[country.code];
+      const localSummary = formatGenreSummary(country.genres ?? []);
+      if (loadedSummary || localSummary) {
+        next[country.code] = loadedSummary || localSummary;
+      }
+    });
+    return next;
+  }, [filteredCountries, genreSummaryByCountryCode]);
 
   const ensureCountryGenreSamples = useCallback(
     (countryCodes: string[]) => {
@@ -282,6 +204,7 @@ export function DiscoveryScreen({
           countryCodes
             .map((code) => code.trim().toUpperCase())
             .filter((code) => code.length === 2)
+            .filter((code) => !displayGenreSummaryByCountryCode[code])
             .filter((code) => !requestedGenreCodesRef.current.has(code))
         )
       );
@@ -291,13 +214,6 @@ export function DiscoveryScreen({
       }
 
       nextCodes.forEach((code) => requestedGenreCodesRef.current.add(code));
-      setGenreLoadingByCountryCode((current) => {
-        const next = { ...current };
-        nextCodes.forEach((code) => {
-          next[code] = true;
-        });
-        return next;
-      });
 
       const controller = new AbortController();
       genreRequestControllersRef.current.push(controller);
@@ -321,6 +237,7 @@ export function DiscoveryScreen({
           if (error instanceof Error && error.name === "AbortError") {
             return;
           }
+          nextCodes.forEach((code) => requestedGenreCodesRef.current.delete(code));
           console.warn(`Failed loading discovery genre samples for ${selectedYear}.`, error);
         })
         .finally(() => {
@@ -329,17 +246,85 @@ export function DiscoveryScreen({
             return;
           }
 
-          setGenreLoadingByCountryCode((current) => {
+          genreRequestControllersRef.current = genreRequestControllersRef.current.filter((entry) => entry !== controller);
+        });
+    },
+    [displayGenreSummaryByCountryCode, isActive, selectedYear]
+  );
+
+  const ensureCountryLanguageSamples = useCallback(
+    (countryCodes: string[]) => {
+      if (!isActive) {
+        return;
+      }
+
+      const nextCodes = Array.from(
+        new Set(
+          countryCodes
+            .map((code) => code.trim().toUpperCase())
+            .filter((code) => code.length === 2)
+            .filter((code) => !languageSummaryByCountryCode[code])
+            .filter((code) => !requestedLanguageCodesRef.current.has(code))
+        )
+      );
+
+      if (nextCodes.length === 0) {
+        return;
+      }
+
+      nextCodes.forEach((code) => requestedLanguageCodesRef.current.add(code));
+      setLanguageLoadingByCountryCode((current) => {
+        const next = { ...current };
+        nextCodes.forEach((code) => {
+          next[code] = true;
+        });
+        return next;
+      });
+
+      const controller = new AbortController();
+      languageRequestControllersRef.current.push(controller);
+
+      loadCountryLanguageSamples(nextCodes, selectedYear, controller.signal)
+        .then((payload) => {
+          if (controller.signal.aborted || !isActive) {
+            return;
+          }
+
+          setLanguageSummaryByCountryCode((current) => {
+            const next = { ...current };
+            payload.forEach((item) => {
+              const summary = formatLanguageAndMore(Array.isArray(item.languages) ? item.languages : []);
+              if (summary) {
+                next[item.countryCode] = summary;
+              }
+            });
+            return next;
+          });
+        })
+        .catch((error) => {
+          if (error instanceof Error && error.name === "AbortError") {
+            return;
+          }
+          nextCodes.forEach((code) => requestedLanguageCodesRef.current.delete(code));
+          console.warn(`Failed loading discovery language samples for ${selectedYear}.`, error);
+        })
+        .finally(() => {
+          if (controller.signal.aborted || !isActive) {
+            languageRequestControllersRef.current = languageRequestControllersRef.current.filter((entry) => entry !== controller);
+            return;
+          }
+
+          setLanguageLoadingByCountryCode((current) => {
             const next = { ...current };
             nextCodes.forEach((code) => {
               delete next[code];
             });
             return next;
           });
-          genreRequestControllersRef.current = genreRequestControllersRef.current.filter((entry) => entry !== controller);
+          languageRequestControllersRef.current = languageRequestControllersRef.current.filter((entry) => entry !== controller);
         });
     },
-    [isActive, selectedYear]
+    [isActive, languageSummaryByCountryCode, selectedYear]
   );
 
   useEffect(() => {
@@ -347,8 +332,12 @@ export function DiscoveryScreen({
     genreRequestControllersRef.current = [];
     requestedGenreCodesRef.current = new Set();
     setGenreSummaryByCountryCode({});
-    setGenreLoadingByCountryCode({});
-    setGenrePrefetchCount(8);
+    languageRequestControllersRef.current.forEach((controller) => controller.abort());
+    languageRequestControllersRef.current = [];
+    requestedLanguageCodesRef.current = new Set();
+    setLanguageSummaryByCountryCode({});
+    setLanguageLoadingByCountryCode({});
+    setGenrePrefetchCount(initialDiscoverySamplePrefetchCount);
   }, [selectedYear]);
 
   useEffect(() => {
@@ -358,13 +347,17 @@ export function DiscoveryScreen({
 
     genreRequestControllersRef.current.forEach((controller) => controller.abort());
     genreRequestControllersRef.current = [];
-    setGenreLoadingByCountryCode({});
+    languageRequestControllersRef.current.forEach((controller) => controller.abort());
+    languageRequestControllersRef.current = [];
+    setLanguageLoadingByCountryCode({});
   }, [isActive]);
 
   useEffect(() => {
     return () => {
       genreRequestControllersRef.current.forEach((controller) => controller.abort());
       genreRequestControllersRef.current = [];
+      languageRequestControllersRef.current.forEach((controller) => controller.abort());
+      languageRequestControllersRef.current = [];
     };
   }, []);
 
@@ -374,13 +367,19 @@ export function DiscoveryScreen({
     }
 
     const starterCodes = filteredCountries.slice(0, genrePrefetchCount).map((country) => country.code);
-    const selectedCountryCode = filteredCountries.find((country) => country.id === visibleSelectedCountryId)?.code;
-    ensureCountryGenreSamples(selectedCountryCode ? [...starterCodes, selectedCountryCode] : starterCodes);
-  }, [ensureCountryGenreSamples, filteredCountries, genrePrefetchCount, isActive, visibleSelectedCountryId]);
+    ensureCountryGenreSamples(visibleSelectedCountryCode ? [visibleSelectedCountryCode, ...starterCodes] : starterCodes);
+    ensureCountryLanguageSamples(visibleSelectedCountryCode ? [visibleSelectedCountryCode, ...starterCodes] : starterCodes);
+  }, [ensureCountryGenreSamples, ensureCountryLanguageSamples, filteredCountries, genrePrefetchCount, isActive, visibleSelectedCountryCode]);
 
   const handleGlobeFocus = (countryId: string) => {
-    onSelectCountry(countryId);
-    setListAutoScrollSignal((current) => current + 1);
+    if (countryId === visibleSelectedCountryId) {
+      return;
+    }
+
+    startTransition(() => {
+      onSelectCountry(countryId);
+      setListAutoScrollSignal((current) => current + 1);
+    });
   };
 
   const listColumn = (
@@ -391,12 +390,14 @@ export function DiscoveryScreen({
         selectedCountryId={visibleSelectedCountryId}
         onSelectCountry={onSelectCountry}
         onOpenCountry={onOpenCountry}
+        onHoverCountryChange={Platform.OS === "web" ? setHoveredListCountryId : undefined}
         autoScrollSignal={listAutoScrollSignal}
-        genreSummaryByCountryCode={genreSummaryByCountryCode}
-        genreLoadingByCountryCode={genreLoadingByCountryCode}
-        loadingText={discoveryLoadingText}
+        genreSummaryByCountryCode={displayGenreSummaryByCountryCode}
+        languageSummaryByCountryCode={languageSummaryByCountryCode}
+        loadingText="Loading..."
         onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
-        onNearListEnd={() => setGenrePrefetchCount((current) => Math.min(filteredCountries.length, current + 6))}
+        onEnsureLanguageSample={(countryCode) => ensureCountryLanguageSamples([countryCode])}
+        onNearListEnd={() => setGenrePrefetchCount((current) => Math.min(filteredCountries.length, current + 12))}
       />
     </View>
   );
@@ -406,23 +407,21 @@ export function DiscoveryScreen({
       <View style={styles.globePanelWrap}>
         <GlobePanel
           countries={filteredCountries}
-          activeCountryId={visibleSelectedCountryId}
+          allCountries={filteredCountries}
+          isLoading={isLoading}
+          hoveredCountryId={Platform.OS === "web" ? hoveredListCountryId : null}
           selectedYear={selectedYear}
+          availableYears={timelineYears}
           onSelectCountry={handleGlobeFocus}
           onOpenCountry={onOpenCountry}
-          title="Globe View"
+          onChangeYear={onChangeYear}
+          title="Discovery Map"
           onRightAction={() => setAllFiltersOpen(true)}
           showHeader={false}
-          genreSummaryByCountryCode={genreSummaryByCountryCode}
-          genreLoadingByCountryCode={genreLoadingByCountryCode}
-          loadingText={discoveryLoadingText}
           onEnsureGenreSample={(countryCode) => ensureCountryGenreSamples([countryCode])}
+          onEnsureLanguageSample={(countryCode) => ensureCountryLanguageSamples([countryCode])}
+          isActive={isActive}
         />
-        {isStacked ? (
-          <View style={styles.mobileYearDropdownOverlay}>
-            <DiscoveryYearDropdown selectedYear={selectedYear} years={timelineYears} onChangeYear={onChangeYear} />
-          </View>
-        ) : null}
       </View>
       {isStacked ? null : (
         <YearSlider
@@ -454,6 +453,7 @@ export function DiscoveryScreen({
       />
       */}
       <DiscoveryBlurb />
+      <YearDataDisclaimer year={selectedYear} style={styles.discoveryYearDisclaimer} />
       <View style={[styles.layout, isStacked ? styles.layoutStacked : null]}>
         {isStacked ? globeColumn : listColumn}
         {isStacked ? listColumn : globeColumn}
@@ -462,7 +462,7 @@ export function DiscoveryScreen({
   );
 
   return (
-    <ScreenScaffold contentStyle={styles.scaffoldContent}>
+    <ScreenScaffold contentStyle={styles.scaffoldContent} disableScroll>
       <View
         style={styles.discoveryContentFrame}
         pointerEvents={allFiltersOpen ? "none" : "auto"}
@@ -772,7 +772,7 @@ export function DiscoveryScreen({
                       <View style={styles.filterButtonContent}>
                         <View style={styles.filterButtonLead}>
                           <GemIcon size={16} />
-                          <Text style={styles.filterButtonText}>Coming Soon</Text>
+                          <Text style={styles.filterButtonText}>Genre info coming soon.</Text>
                         </View>
                       </View>
                     </View>
@@ -780,22 +780,6 @@ export function DiscoveryScreen({
                 </View>
               </Panel> */}
 
-              <Panel style={styles.filterSection}>
-                <SecondarySurfaceFill />
-                <Text style={styles.filterSectionTitle}>Language(s)</Text>
-                <View style={styles.optionGroup}>
-                  <View style={styles.filterButtonShell}>
-                    <View style={styles.filterButton}>
-                      <View style={styles.filterButtonContent}>
-                        <View style={styles.filterButtonLead}>
-                          <GemIcon size={16} />
-                          <Text style={styles.filterButtonText}>Coming Soon</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </Panel>
             </ScrollView>
           </Panel>
         </View>
@@ -832,8 +816,12 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
   },
+  discoveryYearDisclaimer: {
+    alignSelf: "flex-end",
+  },
   layout: {
     flexDirection: "row",
+    alignItems: "stretch",
     gap: 16,
     flexWrap: "wrap",
   },
@@ -844,113 +832,16 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 340,
     gap: 16,
+    alignSelf: "stretch",
   },
   rightColumn: {
     flex: 1,
     minWidth: 340,
     gap: 16,
+    alignSelf: "stretch",
   },
   globePanelWrap: {
     position: "relative",
-  },
-  mobileYearDropdownOverlay: {
-    position: "absolute",
-    top: 14,
-    left: 14,
-    zIndex: 12,
-  },
-  mobileYearDropdownWrap: {
-    position: "relative",
-    zIndex: 30,
-  },
-  mobileYearDropdownDismissLayer: {
-    position: "absolute",
-    top: -1200,
-    left: -1200,
-    width: 3200,
-    height: 3200,
-    zIndex: 25,
-  },
-  mobileYearDropdownShell: {
-    borderRadius: 14,
-    overflow: "hidden",
-    zIndex: 30,
-  },
-  mobileYearDropdownGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  mobileYearDropdownButton: {
-    minHeight: 40,
-    minWidth: 108,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.button,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  mobileYearDropdownButtonActive: {
-    backgroundColor: "transparent",
-  },
-  mobileYearDropdownText: {
-    color: colors.border,
-    fontFamily: typefaces.condensed,
-    fontSize: 15,
-    lineHeight: 18,
-  },
-  mobileYearDropdownTextActive: {
-    color: colors.textLight,
-  },
-  mobileYearDropdownChevron: {
-    color: colors.border,
-    fontFamily: typefaces.condensed,
-    fontSize: 22,
-    lineHeight: 22,
-  },
-  mobileYearDropdownMenu: {
-    position: "absolute",
-    top: 46,
-    left: 0,
-    width: 120,
-    maxHeight: 250,
-    padding: 0,
-    overflow: "hidden",
-    elevation: 9999,
-    backgroundColor: "transparent",
-    zIndex: 40,
-  },
-  mobileYearDropdownScroll: {
-    maxHeight: 250,
-  },
-  mobileYearDropdownContent: {
-    padding: 8,
-    gap: 8,
-  },
-  mobileYearDropdownOptionShell: {
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  mobileYearDropdownOption: {
-    minHeight: 38,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.button,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-  mobileYearDropdownOptionActive: {
-    backgroundColor: "transparent",
-  },
-  mobileYearDropdownOptionText: {
-    color: colors.border,
-    fontFamily: typefaces.body,
-    fontSize: 15,
-    lineHeight: 18,
   },
   columnStacked: {
     width: "100%",
@@ -962,6 +853,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
+    zIndex: 80,
+    elevation: 80,
   },
   overlayGradientWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -972,7 +865,8 @@ const styles = StyleSheet.create({
   modal: {
     width: "100%",
     maxWidth: 660,
-    maxHeight: "82%",
+    maxHeight: Platform.OS === "web" ? "82%" : 560,
+    height: Platform.OS === "web" ? undefined : 560,
     paddingVertical: 18,
     paddingHorizontal: 16,
     backgroundColor: colors.panel,
@@ -981,6 +875,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "rgba(169, 176, 209, 0.24)",
     overflow: "hidden",
+    zIndex: 81,
+    elevation: 81,
   },
   modalDepthFill: {
     ...StyleSheet.absoluteFillObject,

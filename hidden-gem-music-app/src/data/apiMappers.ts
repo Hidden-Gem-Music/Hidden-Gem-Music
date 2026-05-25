@@ -29,6 +29,8 @@ export type UiSongPreview = {
   contributors?: string[];
   artistAlbumCount?: number;
   tracklist?: string[];
+  languages?: string[];
+  lyricsUrl?: string;
 };
 
 export type UiSharedSongPreview = UiSongPreview & {
@@ -88,6 +90,7 @@ export type UiCountryGlobeSummary = {
   lat: number;
   long: number;
   hiddenSongs: number;
+  topSong: string;
   topAlbum: string;
   topArtist: string;
 };
@@ -126,6 +129,8 @@ export const mapApiSong = (song: ApiSong): UiSongPreview => ({
   tracklist: Array.isArray(song.tracklist)
     ? song.tracklist.filter((track): track is string => typeof track === "string" && track.trim().length > 0)
     : [],
+  languages: [],
+  lyricsUrl: "",
 });
 
 export const mapApiSharedSong = (song: ApiSharedSong): UiSharedSongPreview => ({
@@ -191,6 +196,7 @@ export const mapApiCountryGlobeSummary = (item: ApiCountryGlobeSummary): UiCount
   lat: item.lat,
   long: item.long,
   hiddenSongs: item.hiddenGemCount,
+  topSong: toNonEmpty(item.topSongName, "Unknown Song"),
   topAlbum: toNonEmpty(item.topAlbumName, "Unknown Album"),
   topArtist: toNonEmpty(item.topArtistName, "Unknown Artist"),
 });

@@ -1,31 +1,32 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from "react-native";
 
-import { Country } from "../types/content";
 import { ActionButton } from "../components/ActionButton";
-import { DiscoveryBlurb } from "../components/DiscoveryBlurb";
-import { DiscoverySidebarPanels } from "../components/DiscoverySidebarPanels";
-import { GlobePanel } from "../components/globe/GlobePanel";
 import { Panel } from "../components/Panel";
-import { ScreenScaffold } from "../components/ScreenScaffold";
-import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
-import { YearSlider } from "../components/YearSlider";
+import { ACCESS_CODE, writeAccessGranted } from "../config/accessGate";
 import { ScreenRoute } from "../types/navigation";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 export type Props = {
-  countries: Country[];
-  availableYears: number[];
-  onNavigate: (route: ScreenRoute) => void;
-  onSelectCountry: (countryId: string) => void;
-  selectedYear: number;
-  onChangeYear: (year: number) => void;
+  accessGranted: boolean;
+  onAccessGranted: () => void;
+  onDismiss: () => void;
+  onSelectRoute: (route: ScreenRoute) => void;
 };
 
-const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
 const popupBottomDepthGradient = ["rgba(108,119,142,0)", "rgba(108,119,142,0.12)", "rgba(108,119,142,0.3)"] as const;
+const welcomeBackdropGradient = ["#181C2A", "#222639", "#3A3043", "#75526B"] as const;
 const welcomeTitleWebGradientStyle =
   Platform.OS === "web"
     ? ({
@@ -39,9 +40,8 @@ const welcomeTitleWebGradientStyle =
 
 function hexToRgb(hex: string) {
   const normalized = hex.replace("#", "");
-  const value = normalized.length === 3
-    ? normalized.split("").map((char) => `${char}${char}`).join("")
-    : normalized;
+  const value =
+    normalized.length === 3 ? normalized.split("").map((char) => `${char}${char}`).join("") : normalized;
 
   return {
     r: Number.parseInt(value.slice(0, 2), 16),
@@ -57,12 +57,16 @@ function interpolateHexColor(startHex: string, endHex: string, ratio: number) {
   const mix = (from: number, to: number) => Math.round(from + (to - from) * safeRatio);
   const channelToHex = (value: number) => value.toString(16).padStart(2, "0");
 
-  return `#${channelToHex(mix(start.r, end.r))}${channelToHex(mix(start.g, end.g))}${channelToHex(mix(start.b, end.b))}`;
+  return `#${channelToHex(mix(start.r, end.r))}${channelToHex(mix(start.g, end.g))}${channelToHex(
+    mix(start.b, end.b)
+  )}`;
 }
 
-function WelcomeGradientTitle() {
+function WelcomeGradientTitle({ compact = false }: { compact?: boolean }) {
+  const titleStyle = [styles.brand, compact ? styles.brandCompact : null];
+
   if (Platform.OS === "web") {
-    return <Text style={[styles.brand, welcomeTitleWebGradientStyle as any]}>Hidden Gem Music</Text>;
+    return <Text style={[titleStyle, welcomeTitleWebGradientStyle as any]}>Hidden Gem Music</Text>;
   }
 
   const title = "Hidden Gem Music";
@@ -70,14 +74,15 @@ function WelcomeGradientTitle() {
   const maxIndex = Math.max(characters.length - 1, 1);
 
   return (
-    <Text style={styles.brand}>
+    <Text style={titleStyle}>
       {characters.map((character, index) => {
         const progress = index / maxIndex;
-        const color = progress <= 0.14
-          ? colors.navGradient
-          : progress >= 0.36
-            ? colors.backgroundSoft
-            : interpolateHexColor(colors.navGradient, colors.backgroundSoft, (progress - 0.14) / 0.22);
+        const color =
+          progress <= 0.14
+            ? colors.navGradient
+            : progress >= 0.36
+              ? colors.backgroundSoft
+              : interpolateHexColor(colors.navGradient, colors.backgroundSoft, (progress - 0.14) / 0.22);
 
         return (
           <Text key={`welcome-gradient-char-${index}`} style={{ color }}>
@@ -89,376 +94,195 @@ function WelcomeGradientTitle() {
   );
 }
 
-function WelcomeYearDropdown({
-  selectedYear,
-  years,
-  onChangeYear,
-}: {
-  selectedYear: number;
-  years: number[];
-  onChangeYear: (year: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [hoveredYear, setHoveredYear] = useState<number | null>(null);
-  const [hoveredButton, setHoveredButton] = useState(false);
-  const [pressedButton, setPressedButton] = useState(false);
-  const showButtonGradient = open || hoveredButton || pressedButton;
+export function WelcomeScreen({ accessGranted, onAccessGranted, onDismiss, onSelectRoute }: Props) {
+  const { width } = useWindowDimensions();
+  const isCompactWelcome = width < 980;
+  const isMobileWelcome = Platform.OS !== "web";
+  const useFullScreenBackdrop = Platform.OS === "web" && !isCompactWelcome;
+  const [accessCodeInput, setAccessCodeInput] = useState("");
+  const [accessError, setAccessError] = useState("");
+  const [accessInputFocused, setAccessInputFocused] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isClosingRef = useRef(false);
 
-  return (
-    <View style={styles.mobileYearDropdownWrap}>
-      <Pressable
-        onPress={() => setOpen((current) => !current)}
-        onHoverIn={() => setHoveredButton(true)}
-        onHoverOut={() => setHoveredButton(false)}
-        onPressIn={() => setPressedButton(true)}
-        onPressOut={() => setPressedButton(false)}
-        style={styles.mobileYearDropdownShell}
-      >
-        {showButtonGradient ? (
-          <LinearGradient
-            colors={pressedButton ? activeGradient : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]}
-            locations={[0, 0.34, 1]}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.mobileYearDropdownGradient}
-          />
-        ) : null}
-        <View style={[styles.mobileYearDropdownButton, showButtonGradient ? styles.mobileYearDropdownButtonActive : null]}>
-          <Text style={[styles.mobileYearDropdownText, showButtonGradient ? styles.mobileYearDropdownTextActive : null]}>
-            {selectedYear}
-          </Text>
-          <Text style={[styles.mobileYearDropdownChevron, showButtonGradient ? styles.mobileYearDropdownTextActive : null]}>
-            {open ? "-" : "+"}
-          </Text>
-        </View>
-      </Pressable>
-      {open ? (
-        <Panel style={styles.mobileYearDropdownMenu}>
-          <SecondarySurfaceFill />
-          <ScrollView style={styles.mobileYearDropdownScroll} contentContainerStyle={styles.mobileYearDropdownContent}>
-            {years.slice().sort((a, b) => b - a).map((yearOption) => {
-              const active = yearOption === selectedYear;
-              const hovered = hoveredYear === yearOption;
-              const showOptionGradient = active || hovered;
-              return (
-                <Pressable
-                  key={`welcome-year-${yearOption}`}
-                  onHoverIn={() => setHoveredYear(yearOption)}
-                  onHoverOut={() => setHoveredYear((current) => (current === yearOption ? null : current))}
-                  onPress={() => {
-                    onChangeYear(yearOption);
-                    setOpen(false);
-                  }}
-                  style={styles.mobileYearDropdownOptionShell}
-                >
-                  {showOptionGradient ? (
-                    <LinearGradient
-                      colors={active ? activeGradient : ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"]}
-                      locations={[0, 0.34, 1]}
-                      start={{ x: 0, y: 0.5 }}
-                      end={{ x: 1, y: 0.5 }}
-                      style={styles.mobileYearDropdownGradient}
-                    />
-                  ) : null}
-                  <View style={[styles.mobileYearDropdownOption, showOptionGradient ? styles.mobileYearDropdownOptionActive : null]}>
-                    <Text style={[styles.mobileYearDropdownOptionText, showOptionGradient ? styles.mobileYearDropdownTextActive : null]}>
-                      {yearOption}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </Panel>
-      ) : null}
+  const dismissWithAction = (action: () => void) => {
+    if (isClosingRef.current) {
+      return;
+    }
+
+    isClosingRef.current = true;
+    setIsClosing(true);
+    const closeDelay = Platform.OS === "web" ? 120 : 80;
+    closeTimerRef.current = globalThis.setTimeout(() => {
+      action();
+    }, closeDelay);
+  };
+
+  const handleAccessSubmit = () => {
+    if (accessCodeInput.trim().toUpperCase() !== ACCESS_CODE) {
+      setAccessError("Access code invalid.");
+      return;
+    }
+
+    writeAccessGranted();
+    setAccessError("");
+    onAccessGranted();
+  };
+
+  const renderWelcomeButtons = (hidden = false) => (
+    <View style={[styles.buttonStack, isMobileWelcome ? styles.buttonStackMobile : null]} pointerEvents={hidden ? "none" : "auto"}>
+      <ActionButton label="Discovery Map" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("discovery"))} />
+      <ActionButton label="Discovery Dashboard" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("dashboard"))} />
+      <ActionButton
+        label="Comparison Mode"
+        size="compact"
+        onPress={() => dismissWithAction(() => onSelectRoute("comparisonSelect"))}
+      />
+      <ActionButton
+        label="Hidden Gems"
+        size="compact"
+        onPress={() => dismissWithAction(() => onSelectRoute("hiddenGems"))}
+      />
+      <ActionButton label="Credits" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("credits"))} />
     </View>
   );
-}
-
-export function WelcomeScreen({ countries, availableYears, onNavigate, onSelectCountry, selectedYear, onChangeYear }: Props) {
-  const previewCountries = useMemo(() => countries.slice(0, 5), [countries]);
-  const { width } = useWindowDimensions();
-  const isStacked = width < 980;
-  const [isWelcomeModalVisible, setIsWelcomeModalVisible] = useState(true);
-  const [isWelcomeModalClosing, setIsWelcomeModalClosing] = useState(false);
-  const [isWelcomeInteractionCooldown, setIsWelcomeInteractionCooldown] = useState(false);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previewInteractionsDisabled = isWelcomeModalVisible || isWelcomeModalClosing || isWelcomeInteractionCooldown;
-  const dismissWelcomeModal = (navigateToDiscovery = false) => {
-    if (isWelcomeModalClosing || !isWelcomeModalVisible) {
-      return;
-    }
-
-    setIsWelcomeModalClosing(true);
-    setIsWelcomeInteractionCooldown(true);
-    const closeDelay = Platform.OS === "web" ? 120 : 90;
-    closeTimerRef.current = globalThis.setTimeout(() => {
-      setIsWelcomeModalVisible(false);
-      setIsWelcomeModalClosing(false);
-      if (navigateToDiscovery) {
-        onNavigate("discovery");
-      }
-    }, closeDelay);
-    cooldownTimerRef.current = globalThis.setTimeout(() => {
-      setIsWelcomeInteractionCooldown(false);
-    }, 650);
-  };
-  const navigateFromWelcomeModal = (route: ScreenRoute) => {
-    if (route === "discovery") {
-      dismissWelcomeModal(true);
-      return;
-    }
-
-    if (isWelcomeModalClosing) {
-      return;
-    }
-
-    setIsWelcomeModalClosing(true);
-    setIsWelcomeInteractionCooldown(true);
-    const closeDelay = Platform.OS === "web" ? 120 : 90;
-    closeTimerRef.current = globalThis.setTimeout(() => {
-      setIsWelcomeModalVisible(false);
-      setIsWelcomeModalClosing(false);
-      onNavigate(route);
-    }, closeDelay);
-    cooldownTimerRef.current = globalThis.setTimeout(() => {
-      setIsWelcomeInteractionCooldown(false);
-    }, 650);
-  };
 
   useEffect(() => {
     return () => {
       if (closeTimerRef.current) {
         clearTimeout(closeTimerRef.current);
       }
-      if (cooldownTimerRef.current) {
-        clearTimeout(cooldownTimerRef.current);
-      }
+      isClosingRef.current = false;
     };
   }, []);
 
-  const listColumn = (
-    <View style={[styles.leftColumn, isStacked ? styles.columnStacked : null]}>
-      <DiscoverySidebarPanels
-        countries={previewCountries}
-        selectedYear={selectedYear}
-        selectedCountryId={previewCountries[0]?.id}
-        onSelectCountry={previewInteractionsDisabled ? () => {} : onSelectCountry}
-        onOpenCountry={previewInteractionsDisabled ? () => {} : onSelectCountry}
-      />
-    </View>
-  );
-
-  const globeColumn = (
-    <View style={[styles.rightColumn, isStacked ? styles.columnStacked : null]}>
-      <View style={styles.globePanelWrap}>
-        <GlobePanel
-          countries={countries}
-          activeCountryId={countries[0]?.id ?? ""}
-          selectedYear={selectedYear}
-          onSelectCountry={previewInteractionsDisabled ? () => {} : onSelectCountry}
-          onOpenCountry={previewInteractionsDisabled ? () => {} : onSelectCountry}
-          title="Globe View"
-          rightActionLabel="All Filters"
-          onRightAction={previewInteractionsDisabled ? () => {} : () => onNavigate("discovery")}
-          showHeader={false}
-        />
-        {isStacked ? (
-          <View style={styles.mobileYearDropdownOverlay}>
-            <WelcomeYearDropdown
-              selectedYear={selectedYear}
-              years={availableYears}
-              onChangeYear={previewInteractionsDisabled ? () => {} : onChangeYear}
-            />
-          </View>
-        ) : (
-          <YearSlider year={selectedYear} years={availableYears} onChangeYear={previewInteractionsDisabled ? () => {} : onChangeYear} />
-        )}
-      </View>
-    </View>
-  );
+  if (isClosing) {
+    return <View style={styles.closedOverlay} pointerEvents="none" />;
+  }
 
   return (
-    <ScreenScaffold alwaysScrollableOnWeb disableScroll={isWelcomeModalVisible || isWelcomeModalClosing}>
-      <View style={styles.previewStack} pointerEvents={isWelcomeModalVisible || isWelcomeModalClosing ? "none" : "auto"}>
-        <DiscoveryBlurb />
-        <View style={[styles.previewLayout, isStacked ? styles.previewLayoutStacked : null]}>
-          {isStacked ? globeColumn : listColumn}
-          {isStacked ? listColumn : globeColumn}
-        </View>
-      </View>
-
-      {isWelcomeModalVisible || isWelcomeModalClosing ? (
-        <View
-          style={styles.overlay}
-          pointerEvents="auto"
-          onStartShouldSetResponder={() => true}
-          onMoveShouldSetResponder={() => true}
+    <KeyboardAvoidingView
+      behavior={isMobileWelcome && Platform.OS === "ios" ? "padding" : undefined}
+      enabled={isMobileWelcome}
+      keyboardVerticalOffset={isMobileWelcome ? 18 : 0}
+      style={[styles.overlay, isCompactWelcome ? styles.overlayCompact : null]}
+      pointerEvents={useFullScreenBackdrop ? "auto" : "box-none"}
+      onStartShouldSetResponder={useFullScreenBackdrop ? () => true : undefined}
+      onMoveShouldSetResponder={useFullScreenBackdrop ? () => true : undefined}
+    >
+      {useFullScreenBackdrop ? (
+        <Pressable
+          style={styles.overlayBackdropPressTarget}
+          onPress={(event) => {
+            event.stopPropagation();
+            if (accessGranted) {
+              dismissWithAction(onDismiss);
+            }
+          }}
         >
-          <Pressable
-            style={styles.overlayBackdropPressTarget}
-            onPress={(event) => {
-              event.stopPropagation();
-              dismissWelcomeModal(true);
-            }}
-          >
-            <View style={styles.overlayBackdrop} />
-          </Pressable>
-          <Pressable style={styles.modalPressTarget} onPress={(event) => event.stopPropagation()}>
-            <Panel style={styles.modal}>
-              <LinearGradient
-                colors={popupBottomDepthGradient}
-                locations={[0, 0.72, 1]}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={styles.modalDepthFill}
-              />
-              <View style={styles.modalContent}>
-                <WelcomeGradientTitle />
-                <Text style={styles.summary}>
-                  The purpose of this app is to find and display the 'Discovery Gap' — What music is most loved in
-                  each country, and how much was that country's most loved music spread, shared, and loved by other
-                  countries? Explore the Discovery Gap multiple ways: the discovery globe, country detail pages,
-                  comparison mode, listen to 30 second previews of hidden gems, and the discovery dashboard (name
-                  TBD). Utilize filters in multiple areas of the app to fine tune your discovery.
-                </Text>
-                <View style={styles.buttonStack}>
-                  <ActionButton label="Discovery Globe" size="compact" onPress={() => navigateFromWelcomeModal("discovery")} />
-                  <ActionButton label="Comparison Mode" size="compact" onPress={() => navigateFromWelcomeModal("comparisonSelect")} />
-                  <ActionButton label="Hidden Gems" size="compact" onPress={() => navigateFromWelcomeModal("hiddenGems")} />
-                  <ActionButton label="Dashboard" size="compact" onPress={() => navigateFromWelcomeModal("dashboard")} />
-                  <ActionButton label="Credits" size="compact" onPress={() => navigateFromWelcomeModal("credits")} />
+          <WelcomeBackdrop style={styles.overlayBackdrop} />
+        </Pressable>
+      ) : (
+        <WelcomeBackdrop style={styles.overlayBackdrop} pointerEvents="none" useGradient />
+      )}
+      <Pressable style={styles.modalPressTarget} onPress={(event) => event.stopPropagation()}>
+        <Panel style={[styles.modal, isMobileWelcome ? styles.modalMobile : null]}>
+          <LinearGradient
+            colors={popupBottomDepthGradient}
+            locations={[0, 0.72, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={styles.modalDepthFill}
+          />
+          <View style={[styles.modalContent, isMobileWelcome ? styles.modalContentMobile : null]}>
+            <WelcomeGradientTitle compact={isMobileWelcome} />
+            <Text style={[styles.summary, isMobileWelcome ? styles.summaryMobile : null]}>
+              The purpose of this app is to find and display the 'Discovery Gap' — What music is most loved in each
+              country, and how much was that country's most loved music spread, shared, and loved by other countries?
+              Explore the Discovery Gap multiple ways: the discovery map, country detail pages, comparison mode,
+              listen to 30 second previews of hidden gems, and the Discovery Dashboard. Utilize filters in
+              multiple areas of the app to fine tune your discovery.
+            </Text>
+            {accessGranted ? (
+              renderWelcomeButtons()
+            ) : (
+              <View style={[styles.accessLayerSlot, isMobileWelcome ? styles.accessLayerSlotMobile : null]}>
+                <View style={[styles.buttonStackSpacer, isMobileWelcome ? styles.buttonStackSpacerMobile : null]} pointerEvents="none" />
+                <View style={[styles.accessContent, isMobileWelcome ? styles.accessContentMobile : styles.accessContentWeb]}>
+                  <View style={[styles.accessSummarySlot, isMobileWelcome ? styles.accessSummarySlotMobile : null]}>
+                    <Text style={[styles.accessSummary, isMobileWelcome ? styles.accessSummaryMobile : null]}>
+                      Hidden Gem Music is currently in{" "}
+                      <Text style={styles.accessSummaryAccent}>limited early access</Text>, and is only available to
+                      invited testers and supporters who are given an access code.
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.accessFieldGroup,
+                      isMobileWelcome ? styles.accessFieldGroupMobile : styles.accessFieldGroupWeb,
+                    ]}
+                  >
+                    <Text style={styles.accessLabel}>Access code:</Text>
+                    <TextInput
+                      value={accessCodeInput}
+                      onChangeText={(value) => {
+                        setAccessCodeInput(value);
+                        if (accessError) {
+                          setAccessError("");
+                        }
+                      }}
+                    onSubmitEditing={handleAccessSubmit}
+                    onFocus={() => setAccessInputFocused(true)}
+                    onBlur={() => setAccessInputFocused(false)}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    returnKeyType="done"
+                    placeholder="Enter access code"
+                    placeholderTextColor="rgba(169, 176, 209, 0.62)"
+                    style={[styles.accessInput, accessInputFocused ? styles.accessInputFocused : null]}
+                  />
+                    <Text style={[styles.accessError, accessError ? null : styles.accessErrorHidden]}>
+                      {accessError || "Access code invalid."}
+                    </Text>
+                  </View>
+                  <View style={[styles.accessButtonOffset, isMobileWelcome ? styles.accessButtonOffsetMobile : styles.accessButtonOffsetWeb]}>
+                    <ActionButton
+                      label="Enter Hidden Gems Music"
+                      size="compact"
+                      buttonStyle={styles.accessButton}
+                      labelStyle={styles.accessButtonLabel}
+                      onPress={handleAccessSubmit}
+                    />
+                  </View>
                 </View>
               </View>
-            </Panel>
-          </Pressable>
-        </View>
-      ) : null}
-    </ScreenScaffold>
+            )}
+          </View>
+        </Panel>
+      </Pressable>
+    </KeyboardAvoidingView>
+  );
+}
+
+function WelcomeBackdrop({ style, pointerEvents, useGradient = false }: { style: any; pointerEvents?: "none"; useGradient?: boolean }) {
+  if (!useGradient) {
+    return <View style={[style, styles.webOverlayBackdrop]} pointerEvents={pointerEvents} />;
+  }
+
+  return (
+    <LinearGradient
+      colors={welcomeBackdropGradient}
+      start={{ x: 0.1, y: 0 }}
+      end={{ x: 0.9, y: 1 }}
+      style={style}
+      pointerEvents={pointerEvents}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  previewStack: {
-    gap: 24,
-  },
-  previewLayout: {
-    flexDirection: "row",
-    gap: 24,
-    flexWrap: "wrap",
-    opacity: 0.95,
-  },
-  previewLayoutStacked: {
-    flexDirection: "column",
-  },
-  leftColumn: {
-    flex: 1,
-    minWidth: 320,
-    gap: 16,
-  },
-  rightColumn: {
-    flex: 1,
-    minWidth: 320,
-    gap: 18,
-  },
-  globePanelWrap: {
-    position: "relative",
-  },
-  mobileYearDropdownOverlay: {
-    position: "absolute",
-    top: 14,
-    right: 186,
-    zIndex: 12,
-  },
-  columnStacked: {
-    width: "100%",
-    minWidth: 0,
-  },
-  mobileYearDropdownWrap: {
-    position: "relative",
-    zIndex: 30,
-  },
-  mobileYearDropdownShell: {
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  mobileYearDropdownGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  mobileYearDropdownButton: {
-    minHeight: 40,
-    minWidth: 108,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.button,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  mobileYearDropdownButtonActive: {
-    backgroundColor: "transparent",
-  },
-  mobileYearDropdownText: {
-    color: colors.border,
-    fontFamily: typefaces.condensed,
-    fontSize: 15,
-    lineHeight: 18,
-  },
-  mobileYearDropdownTextActive: {
-    color: colors.textLight,
-  },
-  mobileYearDropdownChevron: {
-    color: colors.border,
-    fontFamily: typefaces.condensed,
-    fontSize: 22,
-    lineHeight: 22,
-  },
-  mobileYearDropdownMenu: {
-    position: "absolute",
-    top: 46,
-    right: 0,
-    width: 120,
-    maxHeight: 250,
-    padding: 0,
-    overflow: "hidden",
-    zIndex: 9999,
-    elevation: 9999,
-    backgroundColor: "transparent",
-  },
-  mobileYearDropdownScroll: {
-    maxHeight: 250,
-  },
-  mobileYearDropdownContent: {
-    padding: 8,
-    gap: 8,
-  },
-  mobileYearDropdownOptionShell: {
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  mobileYearDropdownOption: {
-    minHeight: 38,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.button,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-  mobileYearDropdownOptionActive: {
-    backgroundColor: "transparent",
-  },
-  mobileYearDropdownOptionText: {
-    color: colors.border,
-    fontFamily: typefaces.body,
-    fontSize: 15,
-    lineHeight: 18,
-  },
   overlay: {
     position: "absolute",
     inset: 0,
@@ -467,12 +291,24 @@ const styles = StyleSheet.create({
     padding: 24,
     zIndex: 9999,
   },
+  overlayCompact: {
+    zIndex: 10,
+  },
+  closedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
   overlayBackdropPressTarget: {
     ...StyleSheet.absoluteFillObject,
   },
   overlayBackdrop: {
     ...StyleSheet.absoluteFillObject,
+  },
+  webOverlayBackdrop: {
     backgroundColor: "rgba(22,26,38,0.56)",
+  },
+  modalPressTarget: {
+    width: "100%",
+    maxWidth: 760,
   },
   modal: {
     width: "100%",
@@ -485,6 +321,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(169, 176, 209, 0.24)",
     overflow: "hidden",
   },
+  modalMobile: {
+    paddingVertical: 24,
+    paddingHorizontal: 18,
+  },
   modalDepthFill: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -492,9 +332,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 22,
   },
-  modalPressTarget: {
-    width: "100%",
-    maxWidth: 760,
+  modalContentMobile: {
+    gap: 14,
   },
   brand: {
     color: colors.textLight,
@@ -502,6 +341,10 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: "700",
     textAlign: "center",
+  },
+  brandCompact: {
+    fontSize: 38,
+    lineHeight: 42,
   },
   summary: {
     color: colors.textLight,
@@ -512,8 +355,143 @@ const styles = StyleSheet.create({
     textAlign: "center",
     maxWidth: 620,
   },
+  summaryMobile: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
   buttonStack: {
     gap: 14,
     alignItems: "center",
+  },
+  buttonStackMobile: {
+    minHeight: 292,
+    justifyContent: "center",
+  },
+  buttonStackSpacer: {
+    width: 224,
+    height: 236,
+  },
+  buttonStackSpacerMobile: {
+    height: 292,
+  },
+  accessLayerSlot: {
+    position: "relative",
+    width: "100%",
+    maxWidth: 620,
+    alignItems: "center",
+  },
+  accessLayerSlotMobile: {
+    maxWidth: 360,
+  },
+  accessContent: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    minHeight: 236,
+  },
+  accessContentMobile: {
+    minHeight: 292,
+  },
+  accessContentWeb: {
+    transform: [{ translateY: -10 }],
+  },
+  accessSummarySlot: {
+    height: 90,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  accessSummarySlotMobile: {
+    height: 88,
+  },
+  accessSummary: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 19,
+    fontWeight: "700",
+    lineHeight: 27,
+    textAlign: "center",
+    width: "100%",
+  },
+  accessSummaryMobile: {
+    fontSize: 17,
+    lineHeight: 23,
+  },
+  accessSummaryAccent: {
+    color: colors.accent,
+  },
+  accessFieldGroup: {
+    width: "100%",
+    maxWidth: 330,
+    gap: 8,
+    marginTop: 22,
+  },
+  accessFieldGroupMobile: {
+    transform: [{ translateY: -12 }],
+  },
+  accessFieldGroupWeb: {
+    marginTop: 10,
+  },
+  accessLabel: {
+    color: colors.textStrong,
+    fontFamily: typefaces.condensed,
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  accessInput: {
+    width: "100%",
+    maxWidth: 330,
+    borderWidth: 2,
+    borderColor: "rgba(169, 176, 209, 0.34)",
+    borderRadius: 17,
+    backgroundColor: colors.panelAlt,
+    color: colors.textLight,
+    fontFamily: typefaces.condensed,
+    fontSize: 17,
+    fontWeight: "800",
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    textAlign: "center",
+    ...(Platform.OS === "web"
+      ? ({
+          outlineColor: "rgba(169,176,209,0.92)",
+          outlineStyle: "none",
+          outlineWidth: 0,
+        } as any)
+      : null),
+  },
+  accessInputFocused: {
+    borderColor: "rgba(169,176,209,0.92)",
+    backgroundColor: "rgba(117,82,107,0.12)",
+  },
+  accessButtonOffset: {
+    marginTop: 30,
+  },
+  accessButtonOffsetMobile: {
+    marginTop: 18,
+  },
+  accessButtonOffsetWeb: {
+    marginTop: 18,
+  },
+  accessButton: {
+    borderColor: colors.textDark,
+  },
+  accessButtonLabel: {
+    color: colors.textDark,
+  },
+  accessError: {
+    color: colors.textStrong,
+    fontFamily: typefaces.condensed,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 16,
+    minHeight: 16,
+    textAlign: "center",
+  },
+  accessErrorHidden: {
+    opacity: 0,
   },
 });

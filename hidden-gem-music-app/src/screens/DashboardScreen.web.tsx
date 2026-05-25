@@ -24,6 +24,9 @@ import {
 } from "recharts";
 
 import {
+  loadAvailableYears,
+} from "../data/countryApi";
+import {
   loadDiscoveryGap,
   loadGapDistribution,
   loadIsolationLeader,
@@ -32,6 +35,8 @@ import {
   loadOverlapTrend,
   loadPeakReach,
 } from "../data/dashboardApi";
+import { loadDiscoveryCountries } from "../data/discoveryApi";
+import { isCountryWithAppData } from "../data/countryDisplay";
 import type {
   ApiDiscoveryGap,
   ApiGapBucket,
@@ -41,8 +46,11 @@ import type {
   ApiPeakReach,
   ApiTrendPoint,
 } from "../types/api";
+import type { Country } from "../types/content";
+import { CdCaseArt } from "../components/CdCaseArt";
 import { GemIcon } from "../components/GemIcon";
 import { ScreenScaffold } from "../components/ScreenScaffold";
+import { useLoadingText } from "../hooks/useLoadingText";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
@@ -78,6 +86,11 @@ const KPI_BAR = {
   green: "#4ade80",
 };
 
+const KNOWN_PEAK_REACH_ART: Record<string, string> = {
+  "stay (with justin bieber)|the kid laroi":
+    "https://coverartarchive.org/release/9edb549d-b9cd-47b8-8b33-523b0bf8e301/front-500",
+};
+
 // ---------------------------------------------------------------------------
 // Navigation helper (web only — avoids touching App.tsx)
 // ---------------------------------------------------------------------------
@@ -86,6 +99,11 @@ function navigateTo(path: string) {
   if (typeof window !== "undefined") {
     window.location.href = path;
   }
+}
+
+function getKnownPeakReachArtUrl(songTitle?: string | null, artistName?: string | null) {
+  const key = `${songTitle ?? ""}|${artistName ?? ""}`.trim().toLowerCase();
+  return KNOWN_PEAK_REACH_ART[key];
 }
 
 // ---------------------------------------------------------------------------
@@ -106,28 +124,59 @@ const tickStyle = { fill: colors.text, fontSize: 11, opacity: 0.7 };
 // Country Selector
 // ---------------------------------------------------------------------------
 
+type CountrySelectorOption = {
+  isoCode: string;
+  countryName: string;
+  isolationScore: number | null;
+  isolationTier: string | null;
+};
+
+async function loadDashboardCountriesWithAppData() {
+  const years = await loadAvailableYears().catch(() => [2025]);
+  const countrySets = await Promise.all(
+    years.map((year) => loadDiscoveryCountries(year, []).catch(() => []))
+  );
+  const countriesByCode = new Map<string, Country>();
+
+  countrySets.flat().forEach((country) => {
+    if (!isCountryWithAppData(country)) return;
+    const code = country.code.toUpperCase();
+    const existing = countriesByCode.get(code);
+    if (!existing || country.hiddenSongs > existing.hiddenSongs) {
+      countriesByCode.set(code, country);
+    }
+  });
+
+  return Array.from(countriesByCode.values());
+}
+
 function CountrySelector({
   data,
   selectedCountry,
   onSelect,
   onClear,
 }: {
-  data: ApiIsolationEntry[];
-  selectedCountry: ApiIsolationEntry | null;
-  onSelect: (entry: ApiIsolationEntry) => void;
+  data: CountrySelectorOption[];
+  selectedCountry: CountrySelectorOption | null;
+  onSelect: (entry: CountrySelectorOption) => void;
   onClear: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const tierLabel = (entry: ApiIsolationEntry) => {
-    if (entry.isolationScore > 65) return "highly isolated — most of your charts stay local";
-    if (entry.isolationScore >= 40) return "moderately isolated — some crossover, a lot still stays home";
-    return "well connected — your market overlaps heavily with global trends";
+  const tierLabel = (entry: CountrySelectorOption) => {
+    if (entry.isolationScore === null) return null;
+    if (entry.isolationScore > 65) return "highly isolated: your charts stay mostly local";
+    if (entry.isolationScore >= 40) return "moderately isolated: some crossover, a lot still stays home";
+    return "well connected: your charts overlap heavily with global trends";
   };
 
   const rank = selectedCountry
-    ? data.findIndex((e) => e.isoCode === selectedCountry.isoCode) + 1
+    ? data
+        .filter((entry) => entry.isolationScore !== null)
+        .sort((a, b) => (b.isolationScore ?? 0) - (a.isolationScore ?? 0))
+        .findIndex((e) => e.isoCode === selectedCountry.isoCode) + 1
     : null;
+  const selectedTierLabel = selectedCountry ? tierLabel(selectedCountry) : null;
 
   return (
     <View style={styles.countrySelectorWrap}>
@@ -138,7 +187,7 @@ function CountrySelector({
         <Text style={styles.countrySelectorText}>
           {selectedCountry
             ? `Viewing: ${selectedCountry.countryName}`
-            : "See where your country fits into this story"}
+            : "See where your country fits in"}
         </Text>
         <Text style={styles.countrySelectorChevron}>{isOpen ? "▲" : "▼"}</Text>
       </Pressable>
@@ -167,9 +216,14 @@ function CountrySelector({
               }}
             >
               <Text style={styles.countryDropdownName}>{entry.countryName}</Text>
-              <Text style={styles.countryDropdownScore}>
-                {Math.round(entry.isolationScore)}%
-              </Text>
+              {entry.isolationScore !== null ? (
+                <View style={styles.countryDropdownMeta}>
+                  <Text style={styles.countryDropdownScore}>
+                    {Math.round(entry.isolationScore)}%
+                  </Text>
+                  <Text style={styles.countryDropdownCaption}>isolation score</Text>
+                </View>
+              ) : null}
             </Pressable>
           ))}
         </View>
@@ -181,12 +235,20 @@ function CountrySelector({
             <View style={styles.countryBannerDot} />
             <Text style={styles.countryBannerText}>
               <Text style={styles.countryBannerName}>{selectedCountry.countryName}</Text>
-              {" "}has an isolation score of{" "}
-              <Text style={styles.countryBannerName}>
-                {Math.round(selectedCountry.isolationScore)}%
-              </Text>
-              {" — "}{tierLabel(selectedCountry)}.
-              {rank ? ` It's ranked #${rank} of ${data.length} countries in this dataset.` : ""}
+              {selectedCountry.isolationScore !== null && selectedTierLabel ? (
+                <>
+                  {" "}has an isolation score of{" "}
+                  <Text style={styles.countryBannerName}>
+                    {Math.round(selectedCountry.isolationScore)}%
+                  </Text>
+                  {", "}{selectedTierLabel}.
+                  {rank
+                    ? ` It's ranked #${rank} of ${data.filter((entry) => entry.isolationScore !== null).length} countries in the current isolation ranking.`
+                    : ""}
+                </>
+              ) : (
+                " is available in the app data. Isolation ranking data was not returned for this country."
+              )}
             </Text>
           </View>
           <Pressable onPress={onClear} style={styles.countryBannerClear}>
@@ -217,22 +279,14 @@ function PullStat({
   number,
   unit,
   context,
-  stackedSign,
 }: {
   number: string;
   unit?: string;
   context: string;
-  stackedSign?: boolean;
 }) {
   return (
     <View style={styles.pullStat}>
       <View style={styles.pullStatDisplay}>
-        {stackedSign ? (
-          <View style={styles.pullStatSignStack}>
-            <Text style={styles.pullStatSign}>+</Text>
-            <Text style={styles.pullStatSign}>−</Text>
-          </View>
-        ) : null}
         <Text style={styles.pullStatNumber}>{number}</Text>
         {unit ? <Text style={styles.pullStatUnit}>{unit}</Text> : null}
       </View>
@@ -342,8 +396,13 @@ function KpiCard({
     >
       <View style={[styles.kpiAccentBar, { backgroundColor: barColor }]} />
       <View style={styles.kpiContent}>
-        {flipped ? back : (
-          <View>
+        {flipped ? (
+          <View style={styles.kpiBackShell}>
+            {back}
+            <Text style={[styles.kpiFlipHint, { textAlign: "right" }]}>↺ flip back</Text>
+          </View>
+        ) : (
+          <View style={styles.kpiFrontShell}>
             {front}
             <Text style={styles.kpiFlipHint}>flip ↻</Text>
           </View>
@@ -511,7 +570,7 @@ function IsolationBarChart({
   selectedCountry,
 }: {
   data: ApiIsolationEntry[];
-  selectedCountry: ApiIsolationEntry | null;
+  selectedCountry: CountrySelectorOption | null;
 }) {
   const chartHeight = Math.max(data.length * 28 + 40, 240);
 
@@ -541,8 +600,21 @@ function IsolationBarChart({
     );
   };
 
+  const xTicks = [0, 20, 40, 60, 80, 100];
+
   return (
     <View style={styles.isolationChartShell}>
+      {/* Sticky X-axis header — always visible above the scroll */}
+      <View style={{ flexDirection: "row", paddingLeft: 108, paddingRight: 48, marginBottom: 4, justifyContent: "space-between" }}>
+        {xTicks.map((tick) => (
+          <Text
+            key={tick}
+            style={{ fontSize: 11, fontFamily: typefaces.body, color: colors.text, opacity: 0.7 }}
+          >
+            {`${tick}%`}
+          </Text>
+        ))}
+      </View>
       <View
         style={[
           styles.isolationScrollContainer,
@@ -554,11 +626,8 @@ function IsolationBarChart({
         <View style={{ height: chartHeight }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
-              <XAxis
-                type="number" domain={[0, 100]}
-                tickFormatter={(v) => `${v}%`}
-                tick={tickStyle} axisLine={false} tickLine={false}
-              />
+              <XAxis type="number" domain={[0, 100]} ticks={xTicks} hide />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(117,130,160,0.12)" vertical={true} horizontal={false} />
               <YAxis
                 type="category" dataKey="countryName" width={100}
                 tick={<CustomYTick />} axisLine={false} tickLine={false}
@@ -613,6 +682,46 @@ function IsolationBarChart({
 // ---------------------------------------------------------------------------
 // Chart: Chapter 4 — Global Reach Over Time
 // ---------------------------------------------------------------------------
+
+function AverageVsCeilingChart({ avg, ceiling }: { avg: number; ceiling: number }) {
+  const data = [
+    { name: "Average song", value: parseFloat(avg.toFixed(2)) },
+    { name: "Record holder", value: ceiling },
+  ];
+  return (
+    <View style={styles.chartShell}>
+      <View style={styles.chartContainer}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(117,130,160,0.15)" vertical={false} />
+            <XAxis dataKey="name" tick={tickStyle} axisLine={false} tickLine={false} />
+            <YAxis tick={tickStyle} axisLine={false} tickLine={false} width={36} />
+            <Tooltip
+              formatter={(value: any) => [value, "Countries"]}
+              contentStyle={tooltipStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={tooltipItemStyle}
+            />
+            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              <Cell fill="#4ade80" fillOpacity={0.65} />
+              <Cell fill={colors.accent} fillOpacity={0.85} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </View>
+      <View style={styles.chartLegendRow}>
+        <View style={styles.chartLegendItem}>
+          <View style={[styles.chartLegendSwatch, { backgroundColor: "#4ade80", opacity: 0.65 }]} />
+          <Text style={styles.chartLegendText}>Average song ({avg.toFixed(1)} countries)</Text>
+        </View>
+        <View style={styles.chartLegendItem}>
+          <View style={[styles.chartLegendSwatch, { backgroundColor: colors.accent, opacity: 0.85 }]} />
+          <Text style={styles.chartLegendText}>Record holder ({ceiling} countries)</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 function GlobalReachChart({ data }: { data: ApiTrendPoint[] }) {
   const ds1 = data.filter((p) => !p.isGap && p.periodYear <= 2021);
@@ -737,87 +846,119 @@ function DiscoveryGapHistogram({ data }: { data: ApiGapBucket[] }) {
 // About This Data (collapsible)
 // ---------------------------------------------------------------------------
 
-const ABOUT_ENTRIES = [
+const ABOUT_LIMITATIONS = [
   {
-    icon: "!",
-    iconType: "orange" as const,
     title: "22-month data gap (Dec 2021–Oct 2023)",
     body: "No data exists for this period. Trend lines are broken, not interpolated.",
   },
   {
-    icon: "!",
-    iconType: "orange" as const,
     title: "2023 data covers Oct 17–Dec 31 only",
     body: "Heavily Q4-weighted. Affects Hidden Gems, Country Profile, and any chart scoped to 2023.",
   },
   {
-    icon: "i",
-    iconType: "blue" as const,
-    title: "2017–2021 and 2023–2025 use different chart depths",
-    body: "2017–2021 data draws from the Top 200 chart — 200 songs per country per day. 2023–2025 data draws from the Top 50 chart — 50 songs per country per day. Both are streams-based demand charts, but 2017–2021 has significantly deeper per-country coverage. Cross-period comparisons reflect this difference.",
-  },
-  {
-    icon: "i",
-    iconType: "blue" as const,
-    title: "Chart scope differs between time periods",
-    body: "2017–2021 data draws from Top 200 only. 2023–2025 data draws from Top 50 only. Viral 50 entries are excluded from all calculations. Values are not directly comparable across the gap.",
-  },
-  {
-    icon: "i",
-    iconType: "blue" as const,
-    title: "How isolation score is calculated",
-    body: "Isolation score = the percentage of a country's charting songs that appeared in no other country's charts during the same year. A score of 92% means 92 out of every 100 songs charting in that market stayed completely local.",
+    title: "Chart depth differs across time periods",
+    body: "2017–2021 uses Top 200 (200 songs/country/day). 2023–2025 uses Top 50 (50 songs/country/day). Cross-period values are not directly comparable.",
   },
 ];
 
-const ICON_COLORS: Record<string, string> = {
-  orange: "#fb923c",
-  blue: "#63b3ed",
-};
+const ABOUT_METHODOLOGY = [
+  {
+    title: "Isolation score",
+    body: "Percentage of a country's charting songs that appeared in no other country's charts that year. A score of 92% means 92 of 100 charting songs stayed completely local.",
+  },
+  {
+    title: "Chart scope",
+    body: "2017–2021 draws from Top 200 only. 2023–2025 draws from Top 50 only. Viral 50 entries are excluded from all calculations.",
+  },
+];
+
+const ABOUT_SOURCES = [
+  {
+    name: "Spotify Charts (2017–2021)",
+    detail: "Compiled by dhruvildave on Kaggle from Spotify's public chart data. Top 200 daily, 200 songs per country per day.",
+    url: "https://www.kaggle.com/datasets/dhruvildave/spotify-charts",
+  },
+  {
+    name: "Spotify Charts (2023–2025)",
+    detail: "Compiled by asaniczka on Kaggle from Spotify's public chart data. Top 50 daily, 50 songs per country per day.",
+    url: "https://www.kaggle.com/datasets/asaniczka/top-spotify-songs-in-73-countries-daily-updated/data",
+  },
+  {
+    name: "Deezer API",
+    detail: "Song metadata enrichment: album art, genre tags, preview audio, and contributor information.",
+    url: null,
+  },
+];
 
 function AboutThisData({ discoveryGap }: { discoveryGap: ApiDiscoveryGap | null }) {
   const [open, setOpen] = useState(false);
 
-  const dynamicEntries = [
-    ...ABOUT_ENTRIES,
+  const dynamicMethodology = [
+    ...ABOUT_METHODOLOGY,
     {
-      icon: "i",
-      iconType: "blue" as const,
-      title: "Discovery gap reflects first crossings only",
+      title: "Discovery gap",
       body: discoveryGap
-        ? `Mean (${discoveryGap.avgGapDays}d) and median (${discoveryGap.medianGapDays}d) diverge because crossover is bimodal. Most songs that cross any border do so within two weeks. A long tail of songs that took months — or barely reached a second market — pulls the mean up sharply. Songs that never crossed any border are excluded. Sample size: ${discoveryGap.sampleSize.toLocaleString()} songs.`
-        : "Mean and median diverge because crossover is bimodal. Most songs that cross any border do so within two weeks. A long tail pulls the mean up sharply. Songs that never crossed any border are excluded.",
+        ? `Mean (${discoveryGap.avgGapDays}d) and median (${discoveryGap.medianGapDays}d) diverge because crossover is bimodal. Most songs that cross any border do so within two weeks. A long tail of slow-movers pulls the mean up. Songs that never crossed any border are excluded. Sample size: ${discoveryGap.sampleSize.toLocaleString()} songs.`
+        : "Mean and median diverge because crossover is bimodal. Most songs that cross any border do so within two weeks. A long tail pulls the mean up. Songs that never crossed any border are excluded.",
     },
   ];
 
   return (
     <View style={styles.aboutSection}>
       <Pressable style={styles.aboutToggleRow} onPress={() => setOpen((v) => !v)}>
-        <Text style={styles.aboutToggleLabel}>
-          About this data — sources, limitations & methodology
-        </Text>
+        <Text style={styles.aboutToggleLabel}>About this data</Text>
         <Text style={styles.aboutChevron}>{open ? "▲" : "▼"}</Text>
       </Pressable>
       {open ? (
-        <View style={styles.aboutEntries}>
-          {dynamicEntries.map((entry, i) => (
-            <View key={i} style={styles.aboutEntry}>
-              <View
-                style={[
-                  styles.aboutIconWrap,
-                  { backgroundColor: `${ICON_COLORS[entry.iconType]}22` },
-                ]}
-              >
-                <Text style={[styles.aboutIconText, { color: ICON_COLORS[entry.iconType] }]}>
-                  {entry.icon}
-                </Text>
+        <View style={styles.aboutColumns}>
+          <View style={styles.aboutColumn}>
+            <Text style={styles.aboutColumnHeader}>Limitations</Text>
+            {ABOUT_LIMITATIONS.map((entry, i) => (
+              <View key={i} style={styles.aboutEntry}>
+                <View style={[styles.aboutIconWrap, { backgroundColor: "rgba(251,146,60,0.15)" }]}>
+                  <Text style={[styles.aboutIconText, { color: "#fb923c" }]}>⚠</Text>
+                </View>
+                <View style={styles.aboutEntryContent}>
+                  <Text style={styles.aboutEntryTitle}>{entry.title}</Text>
+                  <Text style={styles.aboutEntryBody}>{entry.body}</Text>
+                </View>
               </View>
-              <View style={styles.aboutEntryContent}>
-                <Text style={styles.aboutEntryTitle}>{entry.title}</Text>
-                <Text style={styles.aboutEntryBody}>{entry.body}</Text>
+            ))}
+          </View>
+
+          <View style={styles.aboutColumn}>
+            <Text style={styles.aboutColumnHeader}>Methodology</Text>
+            {dynamicMethodology.map((entry, i) => (
+              <View key={i} style={styles.aboutEntry}>
+                <View style={[styles.aboutIconWrap, { backgroundColor: "rgba(99,179,237,0.15)" }]}>
+                  <Text style={[styles.aboutIconText, { color: "#63b3ed" }]}>ℹ</Text>
+                </View>
+                <View style={styles.aboutEntryContent}>
+                  <Text style={styles.aboutEntryTitle}>{entry.title}</Text>
+                  <Text style={styles.aboutEntryBody}>{entry.body}</Text>
+                </View>
               </View>
-            </View>
-          ))}
+            ))}
+          </View>
+
+          <View style={styles.aboutColumn}>
+            <Text style={styles.aboutColumnHeader}>Sources</Text>
+            {ABOUT_SOURCES.map((source, i) => (
+              <View key={i} style={styles.aboutEntry}>
+                <View style={[styles.aboutDot, { backgroundColor: "rgba(117,130,160,0.6)" }]} />
+                <View style={styles.aboutEntryContent}>
+                  {source.url ? (
+                    <Pressable onPress={() => window.open(source.url!, "_blank")}>
+                      <Text style={[styles.aboutEntryTitle, styles.aboutSourceLink]}>{source.name} ↗</Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.aboutEntryTitle}>{source.name}</Text>
+                  )}
+                  <Text style={styles.aboutEntryBody}>{source.detail}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
       ) : null}
     </View>
@@ -835,10 +976,13 @@ function DashboardScreenContent() {
   const [peakReach, setPeakReach] = useState<ApiPeakReach | null>(null);
   const [trendData, setTrendData] = useState<ApiTrendPoint[]>([]);
   const [isolationRanking, setIsolationRanking] = useState<ApiIsolationEntry[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [dashboardCountries, setDashboardCountries] = useState<Country[]>([]);
   const [gapDistribution, setGapDistribution] = useState<ApiGapBucket[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [selectedCountry, setSelectedCountry] = useState<ApiIsolationEntry | null>(null);
+  const loadingText = useLoadingText(loading, "Loading Discovery Dashboard");
+  const [selectedCountry, setSelectedCountry] = useState<CountrySelectorOption | null>(null);
 
   useEffect(() => {
     const start = "2017-01-01";
@@ -866,6 +1010,10 @@ function DashboardScreenContent() {
         setFetchError(err instanceof Error ? err.message : "Failed to load dashboard data");
         setLoading(false);
       });
+
+    loadDashboardCountriesWithAppData()
+      .then(setDashboardCountries)
+      .catch(() => setDashboardCountries([]));
   }, []);
 
   // All pull-stat values derived from API data
@@ -874,44 +1022,86 @@ function DashboardScreenContent() {
     [overlapRate]
   );
 
+  const isolationRegions = useMemo(() => {
+    const regions = isolationRanking
+      .map((e) => e.region)
+      .filter((r): r is string => !!r);
+    return Array.from(new Set(regions)).sort();
+  }, [isolationRanking]);
+
+  const filteredIsolationRanking = useMemo(() =>
+    selectedRegion
+      ? isolationRanking.filter((e) => e.region === selectedRegion)
+      : isolationRanking,
+    [isolationRanking, selectedRegion]
+  );
+
   const isolationSpread = useMemo(() => {
     if (isolationRanking.length < 2) return null;
     const scores = isolationRanking.map((e) => e.isolationScore);
     return Math.round(Math.max(...scores) - Math.min(...scores));
   }, [isolationRanking]);
 
-  const overlapChange = useMemo(() => {
-    const nonGap = trendData.filter((p) => !p.isGap && p.overlapPct > 0);
+  const countryOptions = useMemo<CountrySelectorOption[]>(() => {
+    const isolationByCode = new Map(
+      isolationRanking.map((entry) => [entry.isoCode.toUpperCase(), entry])
+    );
+
+    if (dashboardCountries.length === 0) {
+      return isolationRanking.map((entry) => ({
+        isoCode: entry.isoCode,
+        countryName: entry.countryName,
+        isolationScore: entry.isolationScore,
+        isolationTier: entry.isolationTier,
+      }));
+    }
+
+    return dashboardCountries
+      .filter(isCountryWithAppData)
+      .map((country) => {
+        const isolationEntry = isolationByCode.get(country.code.toUpperCase());
+        return {
+          isoCode: country.code,
+          countryName: country.name,
+          isolationScore: isolationEntry?.isolationScore ?? null,
+          isolationTier: isolationEntry?.isolationTier ?? null,
+        };
+      })
+      .sort((a, b) => a.countryName.localeCompare(b.countryName));
+  }, [dashboardCountries, isolationRanking]);
+
+  const borderCrossingDrop = useMemo(() => {
+    const nonGap = trendData.filter((p) => !p.isGap && p.songsIn2Plus > 0);
     const pt2017 = nonGap.find((p) => p.periodYear === 2017);
     const pt2021 = nonGap.find((p) => p.periodYear === 2021);
     if (!pt2017 || !pt2021) return null;
-    return {
-      delta: Math.round(Math.abs(pt2021.overlapPct - pt2017.overlapPct)),
-      pct2017: Math.round(pt2017.overlapPct),
-      pct2021: Math.round(pt2021.overlapPct),
-      direction: pt2021.overlapPct >= pt2017.overlapPct ? "rose" : "fell",
-    };
+    return pt2017.songsIn2Plus - pt2021.songsIn2Plus;
   }, [trendData]);
 
-  // Card 3 personalization
-  const isolationCardScore = selectedCountry
-    ? Math.round(selectedCountry.isolationScore)
-    : isolationLeader
+
+  const overallAvgCountries = useMemo(() => {
+    const nonGap = trendData.filter((p) => !p.isGap && p.avgCountries > 0);
+    if (nonGap.length === 0) return null;
+    const sum = nonGap.reduce((acc, p) => acc + p.avgCountries, 0);
+    return sum / nonGap.length;
+  }, [trendData]);
+
+  // Card 3 — always shows most isolated market (not personalized)
+  const isolationCardScore = isolationLeader
     ? Math.round(isolationLeader.isolationScore)
     : null;
-  const isolationCardName =
-    selectedCountry?.countryName ?? isolationLeader?.countryName ?? "";
-  const isolationCardTierLabel = selectedCountry
-    ? selectedCountry.isolationScore > 65
+  const isolationCardName = isolationLeader?.countryName ?? "";
+  const isolationCardTierLabel = isolationLeader
+    ? isolationLeader.isolationScore > 65
       ? "highly isolated market"
-      : selectedCountry.isolationScore >= 40
+      : isolationLeader.isolationScore >= 40
       ? "moderately isolated"
       : "well connected"
     : "most isolated market";
-  const isolationCardBarColor = selectedCountry
-    ? selectedCountry.isolationScore > 65
+  const isolationCardBarColor = isolationLeader
+    ? isolationLeader.isolationScore > 65
       ? KPI_BAR.red
-      : selectedCountry.isolationScore >= 40
+      : isolationLeader.isolationScore >= 40
       ? "#fb923c"
       : KPI_BAR.green
     : KPI_BAR.red;
@@ -925,8 +1115,8 @@ function DashboardScreenContent() {
     ? `Find ${countryLabel}'s hidden gems →`
     : "Find hidden gems →";
   const globeLabel = countryLabel
-    ? `See ${countryLabel} on the globe →`
-    : "Explore these gaps on the globe →";
+    ? `See ${countryLabel} on the map →`
+    : "Explore these gaps on the map →";
   const missingLabel = countryLabel
     ? `Find what ${countryLabel} is missing →`
     : "Find what your country is missing →";
@@ -938,6 +1128,8 @@ function DashboardScreenContent() {
         return `peak ${d.toLocaleString("default", { month: "short" })} ${d.getFullYear()}`;
       })()
     : null;
+  const peakReachArtUrl =
+    peakReach?.albumArtUrl ?? getKnownPeakReachArtUrl(peakReach?.songTitle, peakReach?.artistName);
 
   // Scrollbar state
   const pageScrollRef = useRef<ScrollView>(null);
@@ -1014,7 +1206,7 @@ function DashboardScreenContent() {
         <View style={styles.pageScrollFrame}>
           <View style={styles.statusShell}>
             <Text style={[styles.statusText, fetchError ? styles.statusError : null]}>
-              {fetchError ?? "Loading…"}
+              {fetchError ?? loadingText}
             </Text>
           </View>
         </View>
@@ -1046,7 +1238,7 @@ function DashboardScreenContent() {
             />
             <View style={styles.contentInner}>
               <View style={styles.heroContent}>
-                <Text style={styles.heroOverline}>The discovery gap — a data story</Text>
+                <Text style={styles.heroOverline}>The discovery gap: a data story</Text>
                 <View style={styles.heroTitleRow}>
                   <Text style={styles.heroH1}>
                     {"Most music never leaves "}
@@ -1056,10 +1248,10 @@ function DashboardScreenContent() {
                 </View>
                 <Text style={styles.heroBody}>
                   A song can be charting in 30 countries and completely unknown in yours.
-                  This isn't a taste difference — it's a structural gap in how music travels.
+                  This isn't a taste difference. It's a structural gap in how music travels.
                 </Text>
                 <CountrySelector
-                  data={isolationRanking}
+                  data={countryOptions}
                   selectedCountry={selectedCountry}
                   onSelect={setSelectedCountry}
                   onClear={() => setSelectedCountry(null)}
@@ -1095,9 +1287,9 @@ function DashboardScreenContent() {
                       charted, they disappeared, and no other market ever heard of them. The
                       remaining{" "}
                       <Text style={styles.argBold}>
-                        {Math.round(overlapRate.overlapPct)} crossed at least one border
+                        {Math.round(overlapRate.overlapPct)} crossed at least one border.
                       </Text>{" "}
-                      — and a handful crossed dozens.
+                      A handful crossed dozens.
                     </ArgumentText>
                   ) : null}
                   <CtaRow>
@@ -1120,16 +1312,19 @@ function DashboardScreenContent() {
                   <ChapterCard label="DISCOVERY GAP DISTRIBUTION">
                     <DiscoveryGapHistogram data={gapDistribution} />
                   </ChapterCard>
-                  <Text style={styles.pullQuote}>
-                    Most songs that cross any border do so within two weeks. The long tail —
-                    songs that took months or never arrived at all — is what the discovery gap
+                  <Text style={[styles.pullQuote, styles.histogramPullQuote]}>
+                    Most songs that cross any border do so within two weeks. The long tail,
+                    songs that took months or never arrived, is what the discovery gap
                     is made of.
                   </Text>
                 </>
               ) : null}
+            </View>
 
-              {/* KPI flip cards — full-width 4-column grid */}
-              <View style={styles.kpiGrid}>
+            {/* KPI cards — bleed beyond column, single row */}
+            <View style={{ maxWidth: 1200, alignSelf: "center", width: "100%", paddingHorizontal: 28, marginTop: 32 }}>
+              <Text style={styles.kpiMicroLabel}>BY THE NUMBERS · click a card to see what it means</Text>
+              <View style={[styles.kpiGrid, { flexWrap: "nowrap" as any, marginTop: 10 }]}>
                 {overlapRate ? (
                   <KpiCard
                     barColor={KPI_BAR.purple}
@@ -1149,7 +1344,7 @@ function DashboardScreenContent() {
                           crossed is what this app is built to help you find.
                         </Text>
                         <Pressable onPress={() => navigateTo("/discovery")}>
-                          <Text style={styles.kpiCta}>Explore globe →</Text>
+                          <Text style={styles.kpiCta}>Explore map →</Text>
                         </Pressable>
                       </View>
                     }
@@ -1181,38 +1376,26 @@ function DashboardScreenContent() {
                   />
                 ) : null}
 
-                {isolationCardScore !== null ? (
+                {isolationLeader ? (
                   <KpiCard
                     barColor={isolationCardBarColor}
                     front={
                       <View style={styles.kpiFront}>
-                        <Text style={styles.kpiLabel}>
-                          {selectedCountry ? "Your Country" : "Most Isolated Market"}
-                        </Text>
+                        <Text style={styles.kpiLabel}>Most Isolated Market</Text>
                         <Text style={styles.kpiNumber}>{isolationCardScore}%</Text>
                         <Text style={styles.kpiSublabel}>
-                          {isolationCardName} — {isolationCardTierLabel}
+                          {isolationCardName} · {isolationCardTierLabel}
                         </Text>
                       </View>
                     }
                     back={
                       <View style={styles.kpiBack}>
-                        <Text style={styles.kpiBackTitle}>
-                          {selectedCountry ? "Your country in context" : "Isolation explained"}
-                        </Text>
+                        <Text style={styles.kpiBackTitle}>Isolation explained</Text>
                         <Text style={styles.kpiBackBody}>
-                          {selectedCountry
-                            ? selectedCountry.isolationScore > 65
-                              ? `${selectedCountry.countryName} has an isolation score of ${Math.round(selectedCountry.isolationScore)}%. Most of its chart stays local — it has some of the most to discover.`
-                              : selectedCountry.isolationScore >= 40
-                              ? `${selectedCountry.countryName} has an isolation score of ${Math.round(selectedCountry.isolationScore)}%. Some global crossover, but still plenty of undiscovered music.`
-                              : `${selectedCountry.countryName} has an isolation score of ${Math.round(selectedCountry.isolationScore)}%. Its charts overlap heavily with global trends.`
-                            : isolationLeader
-                            ? `${Math.round(isolationLeader.isolationScore)}% of songs charting in ${isolationLeader.countryName} appeared nowhere else. These are the markets with the most to discover.`
-                            : ""}
+                          {`${Math.round(isolationLeader.isolationScore)}% of songs charting in ${isolationLeader.countryName} appeared nowhere else. These are the markets with the most to discover.`}
                         </Text>
-                        <Pressable onPress={() => navigateTo(`/hidden-gems${countryParam}`)}>
-                          <Text style={styles.kpiCta}>{gemLabel}</Text>
+                        <Pressable onPress={() => navigateTo("/hidden-gems")}>
+                          <Text style={styles.kpiCta}>Find hidden gems →</Text>
                         </Pressable>
                       </View>
                     }
@@ -1226,7 +1409,7 @@ function DashboardScreenContent() {
                       <View style={styles.kpiFront}>
                         <Text style={styles.kpiLabel}>Peak Cross-Regional Reach</Text>
                         <Text style={styles.kpiNumber}>{peakReach.peakCountryCount}</Text>
-                        <Text style={styles.kpiSublabel}>countries at once — peak reach</Text>
+                        <Text style={styles.kpiSublabel}>countries at once, peak reach</Text>
                       </View>
                     }
                     back={
@@ -1238,7 +1421,7 @@ function DashboardScreenContent() {
                           song reaches 3.
                         </Text>
                         <Pressable onPress={() => navigateTo("/discovery")}>
-                          <Text style={styles.kpiCta}>Explore globe →</Text>
+                          <Text style={styles.kpiCta}>Explore map →</Text>
                         </Pressable>
                       </View>
                     }
@@ -1261,25 +1444,21 @@ function DashboardScreenContent() {
                       context="difference between the most and least isolated market in this dataset."
                     />
                   ) : null}
-                  <Text style={styles.isolationExplainer}>
-                    Isolation score = % of a country's charting songs that appeared nowhere else
-                    in the world.
-                  </Text>
                 </View>
                 <View style={styles.chapterRight}>
                   <ArgumentText>
-                    The gap isn't evenly distributed. Some markets are deeply wired into global
-                    trends. Others are almost entirely self-contained.{" "}
+                    The gap isn't random. It follows geography. Markets in the same region
+                    tend to share charts. Cross a border and the overlap can drop to almost zero.{" "}
                     <Text style={styles.argBold}>
-                      Where your country falls determines how much music you're missing.
+                      Where you are in the world determines what music you'll ever hear.
                     </Text>
                   </ArgumentText>
                   <CtaRow>
                     <CtaButton
                       label={
                         countryLabel
-                          ? `See ${countryLabel} on the globe →`
-                          : "See this on the globe →"
+                          ? `See ${countryLabel} on the map →`
+                          : "See this on the map →"
                       }
                       primary
                       onPress={() => navigateTo(`/discovery${countryParam}`)}
@@ -1293,12 +1472,34 @@ function DashboardScreenContent() {
               </View>
               {isolationRanking.length > 0 ? (
                 <ChapterCard label="ISOLATION SCORES BY COUNTRY">
+                  {isolationRegions.length > 0 ? (
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                      <Pressable
+                        style={[styles.regionChip, selectedRegion === null ? styles.regionChipActive : null]}
+                        onPress={() => setSelectedRegion(null)}
+                      >
+                        <Text style={[styles.regionChipText, selectedRegion === null ? styles.regionChipTextActive : null]}>All</Text>
+                      </Pressable>
+                      {isolationRegions.map((region) => (
+                        <Pressable
+                          key={region}
+                          style={[styles.regionChip, selectedRegion === region ? styles.regionChipActive : null]}
+                          onPress={() => setSelectedRegion(selectedRegion === region ? null : region)}
+                        >
+                          <Text style={[styles.regionChipText, selectedRegion === region ? styles.regionChipTextActive : null]}>{region}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
                   <IsolationBarChart
-                    data={isolationRanking}
+                    data={filteredIsolationRanking}
                     selectedCountry={selectedCountry}
                   />
                 </ChapterCard>
               ) : null}
+              <Text style={styles.pullQuote}>
+                Isolation score = % of a country's charting songs that appeared nowhere else in the world.
+              </Text>
             </View>
           </View>
 
@@ -1306,44 +1507,40 @@ function DashboardScreenContent() {
           <View style={styles.chapterWrap}>
             <View style={styles.contentInner}>
               <ChapterLabel num={3} title="THE GAP IS MEASURABLE OVER TIME" />
-              <View style={styles.chapterTwoCol}>
-                <View style={styles.chapterLeft}>
-                  {overlapChange !== null ? (
+              <View style={[styles.chapterTwoCol, { marginBottom: 16, gap: 48 }]}>
+                <View style={[styles.chapterLeft, { maxWidth: 300 }]}>
+                  {borderCrossingDrop !== null ? (
                     <PullStat
-                      number={String(overlapChange.delta)}
-                      unit="pts"
-                      context={`overlap ${overlapChange.direction} from ${overlapChange.pct2017}% to ${overlapChange.pct2021}% between 2017 and 2021 — then a 22-month silence.`}
-                      stackedSign
+                      number={Math.abs(borderCrossingDrop).toLocaleString()}
+                      context={`fewer charting songs crossed a border in 2021 than in 2017.`}
                     />
                   ) : null}
                 </View>
                 <View style={styles.chapterRight}>
                   <ArgumentText>
-                    Global overlap was{" "}
-                    <Text style={styles.argBold}>improving through 2021.</Text> Then the data
-                    stops. When it resumes in late 2023, the picture looks different —{" "}
-                    <Text style={styles.argBold}>but that may be the data, not reality.</Text>
+                    The decline is clear in the data, but the cause isn't. What we do know:{" "}
+                    <Text style={styles.argBold}>every song that stopped crossing a border is still out there, unheard by most of the world.</Text>
                   </ArgumentText>
-                  <View style={styles.warningTagRow}>
+                </View>
+              </View>
+              {trendData.length > 0 ? (
+                <>
+                  <ChapterCard label="HOW MANY SONGS CROSSED BORDERS — 2017–2025">
+                    <OverlapTrendChart data={trendData} />
+                  </ChapterCard>
+                  <View style={[styles.warningTagRow, { marginTop: 12 }]}>
                     <WarningTag
                       type="orange"
-                      label="⚠ 22-month gap — broken, not interpolated"
+                      label="⚠ 22-month gap: broken, not interpolated"
                     />
                     <WarningTag
                       type="blue"
                       label="i 2017–2021 data vs 2023–2025 data uses different chart pools"
                     />
                   </View>
-                </View>
-              </View>
-              {trendData.length > 0 ? (
-                <>
-                  <ChapterCard label="GLOBAL OVERLAP RATE — 2017–2025">
-                    <OverlapTrendChart data={trendData} />
-                  </ChapterCard>
                   <Text style={styles.pullQuote}>
                     The dashed bars use a smaller chart pool. A visual dip after the gap
-                    doesn't mean music borders got worse — it partly means we're counting
+                    doesn't mean music borders got worse. It partly means we're counting
                     fewer songs per country.
                   </Text>
                 </>
@@ -1368,57 +1565,83 @@ function DashboardScreenContent() {
                   {peakReach ? (
                     <>
                       <ArgumentText>
-                        The average charting song reaches{" "}
-                        <Text style={styles.argBold}>3 countries.</Text> The record is{" "}
-                        {peakReach.peakCountryCount}. Between those two numbers is{" "}
+                        Most charting songs reach{" "}
                         <Text style={styles.argBold}>
-                          every song trending somewhere right now that hasn't reached you yet.
+                          {overallAvgCountries !== null ? `${overallAvgCountries.toFixed(1)} countries` : "just a handful of countries"} on average.
                         </Text>
+                        {" "}<Text style={styles.argBold}>{peakReach.songTitle}</Text>
+                        {" "}by {peakReach.artistName} reached{" "}
+                        <Text style={styles.argBold}>{peakReach.peakCountryCount}</Text>
+                        {overallAvgCountries !== null && overallAvgCountries > 0 ? (
+                          <Text>. That's <Text style={styles.argBold}>{Math.round(peakReach.peakCountryCount / overallAvgCountries)}× the average.</Text></Text>
+                        ) : null}
+                        {" "}The music filling that gap is trending somewhere right now.{" "}
+                        <Text style={styles.argBold}>You just haven't heard it yet.</Text>
                       </ArgumentText>
-                      <View style={styles.songRefCard}>
-                        <View
-                          style={[
-                            styles.songRefSwatch,
-                            { backgroundColor: rowBackdropColors[0] },
-                          ]}
-                        />
-                        <View style={styles.songRefInfo}>
-                          <Text style={styles.songRefTitle}>{peakReach.songTitle}</Text>
-                          <Text style={styles.songRefArtist}>
-                            {peakReach.artistName}
-                            {peakDateStr ? ` · ${peakDateStr}` : ""}
-                          </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, width: "100%", justifyContent: "space-between" }}>
+                        <View style={[styles.songRefCard, { flexDirection: "column", gap: 8, alignItems: "flex-start" }]}>
+                          <Text style={styles.songRefLabel}>most connected song:</Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, width: "100%" }}>
+                            <CdCaseArt
+                              size={74}
+                              placeholderColor={rowBackdropColors[0]}
+                              artImageUrl={peakReachArtUrl}
+                              loading={!peakReachArtUrl}
+                            />
+                            <View style={styles.songRefInfo}>
+                              <Text style={styles.songRefTitle}>{peakReach.songTitle}</Text>
+                              <Text style={styles.songRefArtist}>{peakReach.artistName}</Text>
+                            </View>
+                            <View style={styles.songRefCount}>
+                              <Text style={styles.songRefNumber}>
+                                {dashboardCountries.length > 0
+                                  ? `${Math.round((peakReach.peakCountryCount / dashboardCountries.length) * 100)}%`
+                                  : `${peakReach.peakCountryCount}`}
+                              </Text>
+                              <Text style={styles.songRefCountLabel}>of charted countries</Text>
+                              {peakDateStr ? (
+                                <Text style={[styles.songRefArtist, { marginTop: 6 }]}>{peakDateStr}</Text>
+                              ) : null}
+                            </View>
+                          </View>
                         </View>
-                        <View style={styles.songRefCount}>
-                          <Text style={styles.songRefNumber}>{peakReach.peakCountryCount}</Text>
-                          <Text style={styles.songRefCountLabel}>countries at once</Text>
+                        <View style={{ flexDirection: "column", gap: 8 }}>
+                          <CtaButton
+                            label={missingLabel}
+                            primary
+                            onPress={() => navigateTo(`/hidden-gems${countryParam}`)}
+                          />
+                          <CtaButton
+                            label="Explore on the map →"
+                            onPress={() => navigateTo("/discovery")}
+                          />
                         </View>
                       </View>
-                      <View style={styles.warningTagRow}>
-                        <WarningTag type="orange" label="⚠ 2023 = Oct–Dec only" />
-                        <WarningTag type="blue" label="i 2023–2025 uses Top 50 charts only" />
-                      </View>
-                      <CtaRow>
-                        <CtaButton
-                          label={missingLabel}
-                          primary
-                          onPress={() => navigateTo(`/hidden-gems${countryParam}`)}
-                        />
-                        <CtaButton
-                          label="Explore on the globe →"
-                          onPress={() => navigateTo("/discovery")}
-                        />
-                      </CtaRow>
                     </>
                   ) : null}
                 </View>
               </View>
-              {trendData.length > 0 ? (
-                <ChapterCard label="AVERAGE COUNTRIES PER SONG — 2017–2025">
-                  <GlobalReachChart data={trendData} />
-                </ChapterCard>
-              ) : null}
             </View>
+          {(trendData.length > 0 || (peakReach && overallAvgCountries !== null)) ? (
+            <View style={{ maxWidth: 1200, alignSelf: "center", width: "100%", paddingHorizontal: 28, marginTop: 32 }}>
+              <View style={{ flexDirection: "row", gap: 16, flexWrap: "wrap" }}>
+                {trendData.length > 0 ? (
+                  <View style={{ flex: 1, minWidth: 300 }}>
+                    <ChapterCard label="AVERAGE COUNTRIES REACHED PER SONG — 2017–2025">
+                      <GlobalReachChart data={trendData} />
+                    </ChapterCard>
+                  </View>
+                ) : null}
+                {peakReach && overallAvgCountries !== null ? (
+                  <View style={{ flex: 1, minWidth: 300 }}>
+                    <ChapterCard label="AVERAGE SONG REACH VS. RECORD HOLDER">
+                      <AverageVsCeilingChart avg={overallAvgCountries} ceiling={peakReach.peakCountryCount} />
+                    </ChapterCard>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
           </View>
 
           {/* ══ Conclusion ══ */}
@@ -1439,7 +1662,7 @@ function DashboardScreenContent() {
                   </Text>
                   <Text style={styles.conclusionBody}>
                     {notCrossingPct !== null ? `${notCrossingPct}%` : "—"} of charting songs
-                    never crossed a single border. The ones that did spread fast — most within
+                    never crossed a single border. The ones that did spread fast, most within
                     days. A handful reached{" "}
                     {peakReach ? peakReach.peakCountryCount : "—"} countries at once.
                     Everything in between is waiting to be discovered.
@@ -1451,7 +1674,7 @@ function DashboardScreenContent() {
                       onPress={() => navigateTo(`/hidden-gems${countryParam}`)}
                     />
                     <CtaButton
-                      label="Explore on the globe →"
+                      label="Explore on the map →"
                       onPress={() => navigateTo("/discovery")}
                     />
                   </View>
@@ -1477,7 +1700,7 @@ function DashboardScreenContent() {
                         {peakReach ? peakReach.peakCountryCount : "—"}
                       </Text>
                       <Text style={styles.statLabel}>
-                        countries — the ceiling one song ever reached
+                        countries: the ceiling one song ever reached
                       </Text>
                     </View>
                     <View style={styles.statCard}>
@@ -1487,7 +1710,7 @@ function DashboardScreenContent() {
                           : "—"}
                       </Text>
                       <Text style={styles.statLabel}>
-                        isolation — the most self-contained market
+                        isolation: the most self-contained market
                       </Text>
                     </View>
                   </View>
@@ -1497,7 +1720,7 @@ function DashboardScreenContent() {
           </View>
 
           {/* ── About This Data ── */}
-          <View style={styles.contentInner}>
+          <View style={{ width: "100%", paddingHorizontal: 48 }}>
             <AboutThisData discoveryGap={discoveryGap} />
           </View>
         </ScrollView>
@@ -1694,6 +1917,7 @@ const styles = StyleSheet.create({
   countryDropdownItem: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 0.5,
@@ -1709,10 +1933,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   countryDropdownScore: {
-    color: colors.text,
+    color: colors.accent,
     fontFamily: typefaces.body,
     fontSize: 12,
-    opacity: 0.7,
+    fontWeight: "600",
+  },
+  countryDropdownMeta: {
+    alignItems: "flex-end",
+    gap: 1,
+  },
+  countryDropdownCaption: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 9,
+    opacity: 0.45,
   },
   countryBanner: {
     flexDirection: "row",
@@ -1769,13 +2003,13 @@ const styles = StyleSheet.create({
   chapterLabelRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 28,
+    gap: 14,
+    marginBottom: 52,
   },
   chapterCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     borderWidth: 1.5,
     borderColor: "rgba(117,82,107,0.6)",
     backgroundColor: "rgba(117,82,107,0.08)",
@@ -1785,14 +2019,14 @@ const styles = StyleSheet.create({
   chapterNumber: {
     color: colors.accent,
     fontFamily: typefaces.body,
-    fontSize: 13,
+    fontSize: 18,
     fontWeight: "700",
   },
   chapterTitle: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 13,
-    letterSpacing: 2,
+    fontSize: 18,
+    letterSpacing: 2.4,
     textTransform: "uppercase" as any,
     fontWeight: "500",
     opacity: 0.75,
@@ -1824,22 +2058,7 @@ const styles = StyleSheet.create({
   pullStatDisplay: {
     flexDirection: "row",
     alignItems: "baseline",
-    flexWrap: "wrap",
-  },
-  pullStatSignStack: {
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    marginRight: 2,
-    marginBottom: 6,
-  },
-  pullStatSign: {
-    color: colors.accent,
-    fontFamily: typefaces.display,
-    fontSize: 48,
-    fontWeight: "700",
-    lineHeight: 52,
-    letterSpacing: -2,
+    flexWrap: "nowrap",
   },
   pullStatNumber: {
     color: colors.accent,
@@ -1867,6 +2086,28 @@ const styles = StyleSheet.create({
     opacity: 0.45,
     marginTop: 4,
   },
+  regionChip: {
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "transparent",
+  },
+  regionChipActive: {
+    borderColor: colors.accent,
+    backgroundColor: "rgba(117,82,107,0.15)",
+  },
+  regionChipText: {
+    fontFamily: typefaces.body,
+    fontSize: 12,
+    color: colors.text,
+    opacity: 0.7,
+  },
+  regionChipTextActive: {
+    color: colors.accent,
+    opacity: 1,
+  },
   isolationExplainer: {
     color: colors.text,
     fontFamily: typefaces.body,
@@ -1874,7 +2115,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     maxWidth: 220,
     opacity: 0.5,
-    marginTop: 12,
+    marginTop: 20,
     fontStyle: "italic",
   },
 
@@ -1984,22 +2225,35 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
     marginTop: 12,
   },
+  histogramPullQuote: {
+    marginBottom: 12,
+  },
 
   // —— KPI flip cards ——
+  kpiMicroLabel: {
+    color: colors.text,
+    fontFamily: typefaces.body,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as any,
+    opacity: 0.4,
+    marginBottom: 2,
+  },
   kpiGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 16,
   },
   kpiCard: {
     flex: 1,
-    minWidth: 180,
+    flexBasis: 0,
+    minWidth: 200,
     flexDirection: "row",
     backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 0.5,
     borderColor: "rgba(255,255,255,0.08)",
     borderRadius: 10,
-    minHeight: 100,
+    height: 150,
     overflow: "hidden",
     cursor: "pointer" as any,
   },
@@ -2013,10 +2267,19 @@ const styles = StyleSheet.create({
   },
   kpiContent: {
     flex: 1,
-    padding: 12,
+    padding: 16,
+  },
+  kpiFrontShell: {
+    flex: 1,
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  kpiBackShell: {
+    flex: 1,
+    justifyContent: "space-between",
   },
   kpiFront: {
-    gap: 4,
+    gap: 6,
   },
   kpiBack: {
     gap: 8,
@@ -2024,7 +2287,7 @@ const styles = StyleSheet.create({
   kpiLabel: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 12,
+    fontSize: 13,
     opacity: 0.6,
   },
   kpiNumber: {
@@ -2037,13 +2300,13 @@ const styles = StyleSheet.create({
   kpiSublabel: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
   },
   kpiSecondary: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 11,
+    fontSize: 12,
     opacity: 0.5,
   },
   kpiFlipHint: {
@@ -2057,14 +2320,14 @@ const styles = StyleSheet.create({
   kpiBackTitle: {
     color: colors.textStrong,
     fontFamily: typefaces.display,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "600",
   },
   kpiBackBody: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     opacity: 0.75,
   },
   kpiCta: {
@@ -2084,6 +2347,8 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: "rgba(255,255,255,0.08)",
     backgroundColor: "rgba(255,255,255,0.04)",
+    alignSelf: "flex-start",
+    minWidth: 400,
   },
   songRefSwatch: {
     width: 36,
@@ -2093,6 +2358,15 @@ const styles = StyleSheet.create({
   songRefInfo: {
     flex: 1,
     gap: 2,
+  },
+  songRefLabel: {
+    color: colors.accent,
+    fontFamily: typefaces.body,
+    fontSize: 10,
+    fontWeight: "500",
+    letterSpacing: 0.6,
+    textTransform: "uppercase" as any,
+    opacity: 0.8,
   },
   songRefTitle: {
     color: colors.textStrong,
@@ -2120,7 +2394,7 @@ const styles = StyleSheet.create({
   songRefCountLabel: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 10,
+    fontSize: 11,
     opacity: 0.6,
   },
 
@@ -2168,7 +2442,7 @@ const styles = StyleSheet.create({
   // —— Conclusion ——
   conclusionWrap: {
     overflow: "hidden",
-    paddingVertical: 64,
+    paddingVertical: 40,
   },
   conclusionTwoCol: {
     flexDirection: "row",
@@ -2182,15 +2456,17 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   conclusionRight: {
-    minWidth: 240,
+    width: 444,
+    minWidth: 444,
+    maxWidth: "100%",
     flex: 0,
   },
   conclusionHeadline: {
     color: colors.textStrong,
     fontFamily: typefaces.display,
-    fontSize: 28,
+    fontSize: 43,
     fontWeight: "700",
-    lineHeight: 36,
+    lineHeight: 43,
     letterSpacing: -0.3,
   },
   conclusionAccent: {
@@ -2199,44 +2475,49 @@ const styles = StyleSheet.create({
   conclusionBody: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 17,
+    lineHeight: 30,
     opacity: 0.75,
   },
   conclusionCtas: {
     flexDirection: "row",
     gap: 12,
     flexWrap: "wrap",
+    marginTop: 20,
   },
 
   // —— Stat grid (conclusion) ——
   statGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 12,
+    width: "100%",
   },
   statCard: {
-    flex: 1,
-    minWidth: 110,
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 216,
+    width: 216,
+    aspectRatio: 1.35,
     backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 0.5,
     borderColor: "rgba(255,255,255,0.08)",
     borderRadius: 10,
-    padding: 14,
-    gap: 4,
+    padding: 17,
+    gap: 6,
   },
   statNumber: {
     color: colors.accent,
     fontFamily: typefaces.display,
-    fontSize: 32,
+    fontSize: 46,
     fontWeight: "700",
-    lineHeight: 36,
+    lineHeight: 50,
   },
   statLabel: {
     color: colors.text,
     fontFamily: typefaces.body,
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 15,
+    lineHeight: 20,
     opacity: 0.65,
   },
 
@@ -2248,10 +2529,11 @@ const styles = StyleSheet.create({
   },
   aboutToggleRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 8,
     paddingVertical: 8,
     cursor: "pointer" as any,
+    alignSelf: "flex-start",
   },
   aboutToggleLabel: {
     color: colors.text,
@@ -2264,17 +2546,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     opacity: 0.5,
   },
-  aboutEntries: {
-    gap: 0,
-    marginTop: 8,
-  },
-  aboutEntry: {
+  aboutColumns: {
     flexDirection: "row",
-    gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(117,130,160,0.12)",
-    alignItems: "flex-start",
+    flexWrap: "wrap",
+    gap: 32,
+    marginTop: 20,
+  },
+  aboutColumn: {
+    flex: 1,
+    minWidth: 220,
+  },
+  aboutColumnHeader: {
+    color: colors.textStrong,
+    fontFamily: typefaces.display,
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 1.2,
+    textTransform: "uppercase" as any,
+    opacity: 0.45,
+    marginBottom: 14,
+  },
+  aboutDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 6,
+    flexShrink: 0,
   },
   aboutIconWrap: {
     width: 22,
@@ -2283,11 +2580,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 1,
+    flexShrink: 0,
+    overflow: "hidden",
   },
   aboutIconText: {
-    fontFamily: typefaces.body,
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 12,
+    lineHeight: 22,
+    textAlign: "center",
+    textAlignVertical: "center",
+    includeFontPadding: false,
+    width: 22,
+  },
+  aboutEntry: {
+    flexDirection: "row",
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "rgba(117,130,160,0.10)",
+    alignItems: "flex-start",
   },
   aboutEntryContent: {
     flex: 1,
@@ -2305,7 +2615,11 @@ const styles = StyleSheet.create({
     fontFamily: typefaces.body,
     fontSize: 13,
     lineHeight: 18,
-    opacity: 0.7,
+    opacity: 0.65,
+  },
+  aboutSourceLink: {
+    color: colors.accent,
+    opacity: 1,
   },
 
   // —— Loading / error ——

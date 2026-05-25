@@ -4,17 +4,16 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Linking,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
   Pressable,
   ScrollView,
-  StyleProp,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
-  TextStyle,
   ViewStyle,
 } from "react-native";
 
@@ -25,8 +24,11 @@ import { GemIcon } from "../components/GemIcon";
 import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
+import { YearDataDisclaimer } from "../components/YearDataDisclaimer";
 import { getCachedHiddenGemsPage, loadCountryProfile, loadHiddenGemsPage } from "../data/countryApi";
+import { isCountryWithHiddenGems } from "../data/countryDisplay";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiHiddenGemPage } from "../data/apiMappers";
+import { enrichSongsWithLanguage, formatLanguageLabel } from "../data/languageApi";
 import { useLoadingText } from "../hooks/useLoadingText";
 import { ApiHiddenGemResponse } from "../types/api";
 import { colors } from "../theme/colors";
@@ -158,7 +160,8 @@ function createLoadingHiddenGemSongs(countryCode: string, year: number, count = 
     artistAlbumCount: undefined,
     tracklist: undefined,
     genres: ["Loading..."],
-    languages: ["Coming Soon"],
+    languages: ["Loading..."],
+    lyricsUrl: undefined,
     year,
     duration: "",
     description: "Loading...",
@@ -208,6 +211,7 @@ function buildHiddenGemSongsFromResponse(response: ApiHiddenGemResponse | null |
               ? [item.genre]
               : [],
         languages: [],
+        lyricsUrl: undefined,
         year,
         duration: "",
         description: `Trending in ${item.countriesChartingCount} countries`,
@@ -234,7 +238,7 @@ function buildHiddenGemSongsFromResponse(response: ApiHiddenGemResponse | null |
   };
 }
 
-function useCustomScrollbar() {
+function useCustomScrollbar(trackInsets = { top: 10, bottom: 10 }) {
   const scrollRef = useRef<ScrollView>(null);
   const trackRef = useRef<View>(null);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -243,13 +247,13 @@ function useCustomScrollbar() {
   const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
   const scrollbarVisible = Platform.OS === "web" && viewportHeight > 0;
   const hasOverflow = scrollbarVisible && contentHeight > viewportHeight;
-  const trackHeight = Math.max(viewportHeight - 20, 1);
+  const trackHeight = Math.max(viewportHeight - trackInsets.top - trackInsets.bottom, 1);
   const thumbHeight = scrollbarVisible
     ? hasOverflow
-      ? Math.max((viewportHeight / contentHeight) * viewportHeight, 52)
+      ? Math.max((viewportHeight / contentHeight) * trackHeight, 52)
       : trackHeight
     : 0;
-  const thumbTop = hasOverflow ? (scrollY / (contentHeight - viewportHeight)) * (viewportHeight - thumbHeight) : 0;
+  const thumbTop = hasOverflow ? (scrollY / (contentHeight - viewportHeight)) * (trackHeight - thumbHeight) : 0;
 
   const scrollToTrackLocation = (locationY: number) => {
     if (!hasOverflow || contentHeight <= viewportHeight) {
@@ -323,14 +327,33 @@ function MiniCdCase({
   artImageUrl?: string;
   showPlayButton: boolean;
 }) {
+  const hasArtImage = typeof artImageUrl === "string" && artImageUrl.trim().length > 0;
+  const [artLoaded, setArtLoaded] = useState(false);
   const artSize = Math.round(54 * CD_ART_SIZE_RATIO);
   const left = Math.round(54 * CD_ART_LEFT_RATIO);
   const top = Math.round(54 * CD_ART_TOP_RATIO);
 
+  useEffect(() => {
+    setArtLoaded(false);
+  }, [artImageUrl]);
+
   return (
     <View style={styles.miniCdCaseFrame}>
       <View style={[styles.miniCdCaseBackdrop, { left, top, width: artSize, height: artSize, backgroundColor: color }]}>
-        {artImageUrl ? <Image source={{ uri: artImageUrl }} style={styles.miniCdCaseBackdropImage} resizeMode="cover" /> : null}
+        {hasArtImage ? (
+          <Image
+            source={{ uri: artImageUrl }}
+            style={[styles.miniCdCaseBackdropImage, !artLoaded ? styles.miniCdCaseBackdropImageLoading : null]}
+            resizeMode="cover"
+            onLoad={() => setArtLoaded(true)}
+            onError={() => setArtLoaded(true)}
+          />
+        ) : null}
+        {hasArtImage && !artLoaded ? (
+          <View style={styles.miniCdLoadingOverlay}>
+            <ActivityIndicator size={14} color={colors.textLight} />
+          </View>
+        ) : null}
       </View>
       <Image source={cdCaseSource} style={styles.miniCdCaseImage} resizeMode="contain" />
       {showPlayButton ? (
@@ -442,6 +465,25 @@ function PlayerControlButton({
   );
 }
 
+function SectionLoadingVeil({ visible }: { visible: boolean }) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <View style={styles.sectionLoadingVeil} pointerEvents="none">
+      <LinearGradient
+        colors={["rgba(15,16,21,0.72)", "rgba(66,72,101,0.64)", "rgba(15,16,21,0.78)"]}
+        locations={[0, 0.48, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.sectionLoadingVeilFill}
+      />
+      <Text style={styles.sectionLoadingVeilText}>Loading...</Text>
+    </View>
+  );
+}
+
 function HiddenSongListPanel({
   songs,
   selectedSongId,
@@ -476,87 +518,110 @@ function HiddenSongListPanel({
     <Panel style={styles.secondaryPanel}>
       <SecondarySurfaceFill />
       <View style={styles.secondaryPanelScrollFrame}>
-        <ScrollView
-          ref={scrollbar.scrollRef}
-          style={styles.secondaryPanelScroll}
-          contentContainerStyle={styles.songListContent}
-          showsVerticalScrollIndicator={false}
-          onLayout={(event) => scrollbar.setViewportHeight(event.nativeEvent.layout.height)}
-          onContentSizeChange={(_, height) => scrollbar.setContentHeight(height)}
-          onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => scrollbar.setScrollY(event.nativeEvent.contentOffset.y)}
-          scrollEventThrottle={16}
-        >
-          {songs.map((song, index) => (
-            <Pressable
-              key={song.id}
-              onPress={() => {
-                if (!isLoading) {
-                  onSelectSong(song.id);
-                }
-              }}
-              onHoverIn={() => setHoveredSongId(song.id)}
-              onHoverOut={() => setHoveredSongId((current) => (current === song.id ? null : current))}
-              style={styles.songRowShell}
-            >
-              {({ pressed }) => {
-                const selected = selectedSongId === song.id;
-                const showGradient =
-                  selected || hoveredSongId === song.id || hoveredMiniCdSongId === song.id || pressed;
+        <View style={styles.songListScrollArea}>
+          <ScrollView
+            ref={scrollbar.scrollRef}
+            style={styles.secondaryPanelScroll}
+            contentContainerStyle={styles.songListContent}
+            showsVerticalScrollIndicator={false}
+            onLayout={(event) => scrollbar.setViewportHeight(event.nativeEvent.layout.height)}
+            onContentSizeChange={(_, height) => scrollbar.setContentHeight(height)}
+            onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => scrollbar.setScrollY(event.nativeEvent.contentOffset.y)}
+            scrollEventThrottle={16}
+          >
+            {songs.map((song, index) => (
+              <Pressable
+                key={song.id}
+                onPress={() => {
+                  if (!isLoading) {
+                    onSelectSong(song.id);
+                  }
+                }}
+                onHoverIn={() => setHoveredSongId(song.id)}
+                onHoverOut={() => setHoveredSongId((current) => (current === song.id ? null : current))}
+                style={styles.songRowShell}
+              >
+                {({ pressed }) => {
+                  const selected = selectedSongId === song.id;
+                  const showGradient =
+                    selected || hoveredSongId === song.id || hoveredMiniCdSongId === song.id || pressed;
 
-                return (
-                  <>
-                    {showGradient ? (
-                      <LinearGradient
-                        colors={selected ? activeGradient : hoverGradient}
-                        locations={[0, 0.34, 1]}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={styles.songRowGradient}
-                      />
-                    ) : null}
-                    <View style={[styles.songRow, showGradient ? styles.songRowActive : null]}>
-                      <Text style={[styles.songRowRank, showGradient ? styles.songTextActive : null]}>{index + 1}.</Text>
-                      <View style={styles.songCopy}>
-                        <View style={styles.songTitleRow}>
-                          <Text style={[styles.songRowTitle, showGradient ? styles.songTextActive : null]}>
-                            {isLoading ? loadingText : song.title}
+                  return (
+                    <>
+                      {showGradient ? (
+                        <LinearGradient
+                          colors={selected ? activeGradient : hoverGradient}
+                          locations={[0, 0.34, 1]}
+                          start={{ x: 0, y: 0.5 }}
+                          end={{ x: 1, y: 0.5 }}
+                          style={styles.songRowGradient}
+                        />
+                      ) : null}
+                      <View style={[styles.songRow, showGradient ? styles.songRowActive : null]}>
+                        <Text style={[styles.songRowRank, showGradient ? styles.songTextActive : null]}>{index + 1}.</Text>
+                        <View style={styles.songCopy}>
+                          <View style={styles.songTitleRow}>
+                            <Text style={[styles.songRowTitle, showGradient ? styles.songTextActive : null]}>
+                              {isLoading ? loadingText : song.title}
+                            </Text>
+                          </View>
+                          <Text style={[styles.songRowArtist, showGradient ? styles.songTextActive : null]}>
+                            {isLoading ? loadingText : song.artist}
                           </Text>
                         </View>
-                        <Text style={[styles.songRowArtist, showGradient ? styles.songTextActive : null]}>
-                          {isLoading ? loadingText : song.artist}
-                        </Text>
+                        <View style={styles.songArtMetaWrap}>
+                          {!isLoading && songHasExplicitBadge(song) ? (
+                            <View style={styles.songExplicitBadgeWrap}>
+                              <ExplicitIndicator tooltip={getExplicitTooltip(song)} />
+                            </View>
+                          ) : null}
+                          <Pressable
+                            style={styles.miniCdHoverTarget}
+                            onHoverIn={() => setHoveredMiniCdSongId(song.id)}
+                            onHoverOut={() => setHoveredMiniCdSongId((current) => (current === song.id ? null : current))}
+                            onPress={(event) => {
+                              (event as any)?.stopPropagation?.();
+                              if (!isLoading) {
+                                onPlaySong(song.id);
+                              }
+                            }}
+                          >
+                            <MiniCdCase
+                              color={rowBackdropColors[index % rowBackdropColors.length]}
+                              artImageUrl={isLoading ? undefined : song.albumArtUrl}
+                              showPlayButton={!isLoading && hoveredMiniCdSongId === song.id}
+                            />
+                          </Pressable>
+                        </View>
                       </View>
-                      <View style={styles.songArtMetaWrap}>
-                        {!isLoading && songHasExplicitBadge(song) ? (
-                          <View style={styles.songExplicitBadgeWrap}>
-                            <ExplicitIndicator tooltip={getExplicitTooltip(song)} />
-                          </View>
-                        ) : null}
-                        <Pressable
-                          style={styles.miniCdHoverTarget}
-                          onHoverIn={() => setHoveredMiniCdSongId(song.id)}
-                          onHoverOut={() => setHoveredMiniCdSongId((current) => (current === song.id ? null : current))}
-                          onPress={(event) => {
-                            (event as any)?.stopPropagation?.();
-                            if (!isLoading) {
-                              onPlaySong(song.id);
-                            }
-                          }}
-                        >
-                          <MiniCdCase
-                            color={rowBackdropColors[index % rowBackdropColors.length]}
-                            artImageUrl={isLoading ? undefined : song.albumArtUrl}
-                            showPlayButton={!isLoading && hoveredMiniCdSongId === song.id}
-                          />
-                        </Pressable>
-                      </View>
-                    </View>
-                  </>
-                );
-              }}
-            </Pressable>
-          ))}
-        </ScrollView>
+                    </>
+                  );
+                }}
+              </Pressable>
+            ))}
+          </ScrollView>
+          {scrollbar.scrollbarVisible ? (
+            <View
+              ref={scrollbar.trackRef}
+              style={styles.scrollbarTrack}
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderGrant={(event) => scrollbar.scrollToTrackLocation(event.nativeEvent.locationY)}
+              onResponderMove={(event) => scrollbar.scrollToTrackLocation(event.nativeEvent.locationY)}
+              {...(Platform.OS === "web"
+                ? ({
+                    onMouseDown: (event: any) => {
+                      event.preventDefault();
+                      scrollbar.setIsDraggingScrollbar(true);
+                      scrollbar.scrollToClientY(event.clientY);
+                    },
+                  } as any)
+                : {})}
+            >
+              <View style={[styles.scrollbarThumb, { height: scrollbar.thumbHeight, transform: [{ translateY: scrollbar.thumbTop }] }]} />
+            </View>
+          ) : null}
+        </View>
         <View style={styles.paginationBar}>
           <Pressable
             onPress={onPreviousPage}
@@ -574,28 +639,8 @@ function HiddenSongListPanel({
             <Text style={styles.paginationButtonText}>Next Page</Text>
           </Pressable>
         </View>
-        {scrollbar.scrollbarVisible ? (
-          <View
-            ref={scrollbar.trackRef}
-            style={styles.scrollbarTrack}
-            onStartShouldSetResponder={() => true}
-            onMoveShouldSetResponder={() => true}
-            onResponderGrant={(event) => scrollbar.scrollToTrackLocation(event.nativeEvent.locationY)}
-            onResponderMove={(event) => scrollbar.scrollToTrackLocation(event.nativeEvent.locationY)}
-            {...(Platform.OS === "web"
-              ? ({
-                  onMouseDown: (event: any) => {
-                    event.preventDefault();
-                    scrollbar.setIsDraggingScrollbar(true);
-                    scrollbar.scrollToClientY(event.clientY);
-                  },
-                } as any)
-              : {})}
-          >
-            <View style={[styles.scrollbarThumb, { height: scrollbar.thumbHeight, transform: [{ translateY: scrollbar.thumbTop }] }]} />
-          </View>
-        ) : null}
       </View>
+      <SectionLoadingVeil visible={isLoading} />
     </Panel>
   );
 }
@@ -605,11 +650,13 @@ function FeaturedArtistsSection({
   selectedYear,
   artists,
   useLoadingLabels = false,
+  isLoading = false,
 }: {
   country: Country;
   selectedYear: number;
   artists: FavoriteArtistPreview[];
   useLoadingLabels?: boolean;
+  isLoading?: boolean;
 }) {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
@@ -759,6 +806,7 @@ function FeaturedArtistsSection({
           </View>
         ) : null}
       </View>
+      <SectionLoadingVeil visible={isLoading} />
     </Panel>
   );
 }
@@ -791,6 +839,14 @@ function PlayingSidePanel({
   const loadingText = useLoadingText(isLoading);
   const disablePrevious = isLoading || !hasPreviousSong;
   const disableNext = isLoading || !hasNextSong;
+  const isInstrumental = !isLoading && selectedSong.languages.some((language) => formatLanguageLabel(language) === "This song is an instrumental");
+  const displayLanguages = !isLoading
+    ? selectedSong.languages
+        .map(formatLanguageLabel)
+        .filter((language) => language.length > 0 && language.toLowerCase() !== "unknown" && language.toLowerCase() !== "loading...")
+    : [];
+  const hasLanguageRow = !isLoading && displayLanguages.length > 0;
+  const lyricsUrl = !isLoading && selectedSong.lyricsUrl?.trim() ? selectedSong.lyricsUrl.trim() : "";
 
   return (
     <Panel style={[styles.secondaryPanel, styles.playingPanel]}>
@@ -889,12 +945,14 @@ function PlayingSidePanel({
                 </Text>
               </Text>
             </View>
-            <View style={styles.playingMetaCard}>
-              <Text style={styles.playingMetaLine}>
-                <Text style={styles.playingMetaLabel}>Language(s): </Text>
-                <Text style={styles.playingMetaValue}>{isLoading ? "Coming Soon" : selectedSong.languages.join(", ")}</Text>
-              </Text>
-            </View>
+            {hasLanguageRow ? (
+              <View style={styles.playingMetaCard}>
+                <Text style={styles.playingMetaLine}>
+                  <Text style={styles.playingMetaLabel}>Language(s): </Text>
+                  <Text style={styles.playingMetaValue}>{isInstrumental ? "This song is an instrumental" : displayLanguages.join(", ")}</Text>
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.playingMetaCard}>
               <Text style={styles.playingMetaLine}>
                 <Text style={styles.playingMetaLabel}>Explicit Lyrics in Song: </Text>
@@ -930,6 +988,23 @@ function PlayingSidePanel({
                 <Text style={styles.playingMetaValue}>Tracklist unavailable.</Text>
               )}
             </View>
+            {isInstrumental ? (
+              <View style={styles.playingMetaCard}>
+                <Text style={styles.playingMetaLine}>
+                  <Text style={styles.playingMetaLabel}>Lyrics: </Text>
+                  <Text style={styles.playingMetaValue}>This song is an instrumental</Text>
+                </Text>
+              </View>
+            ) : lyricsUrl ? (
+              <Pressable style={styles.playingMetaCard} onPress={() => Linking.openURL(lyricsUrl)}>
+                <Text style={styles.playingMetaLine}>
+                  <Text style={styles.playingMetaLabel}>Lyrics: </Text>
+                  <Text style={[styles.playingMetaValue, styles.playingLyricsLink]}>
+                    Click here to view lyrics for this song on the Genius website
+                  </Text>
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </ScrollView>
         {scrollbar.scrollbarVisible ? (
@@ -954,6 +1029,7 @@ function PlayingSidePanel({
           </View>
         ) : null}
       </View>
+      <SectionLoadingVeil visible={isLoading} />
     </Panel>
   );
 }
@@ -977,6 +1053,7 @@ export function HiddenGemsScreen({
   const isStacked = isNativePlatform;
   const isBlurbStacked = isNativePlatform || width < 1380;
   const [apiProfile, setApiProfile] = useState<ReturnType<typeof mapApiCountryProfile> | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(showNavIntro);
   const [apiSongs, setApiSongs] = useState<Song[] | null>(null);
   const [isSongsLoading, setIsSongsLoading] = useState(showNavIntro);
   const [hasNextPage, setHasNextPage] = useState(false);
@@ -1021,9 +1098,7 @@ export function HiddenGemsScreen({
     [availableYears, selectedYear]
   );
   const countryOptions = useMemo(() => {
-    const filtered = countries.filter((item) => item.hiddenSongs > 0);
-    const source = filtered.length ? filtered : countries;
-    return source.slice().sort((left, right) => left.name.localeCompare(right.name));
+    return countries.filter(isCountryWithHiddenGems).slice().sort((left, right) => left.name.localeCompare(right.name));
   }, [countries]);
   const showCountryDropdownGradient = isCountryDropdownHovered || isCountryDropdownPressed || isCountryDropdownOpen;
   const showYearDropdownGradient = isYearDropdownHovered || isYearDropdownPressed || isYearDropdownOpen;
@@ -1056,7 +1131,6 @@ export function HiddenGemsScreen({
   const previewUrl = previewSong?.spotifySearchUrl?.trim() ?? "";
   const previewPlayer = useAudioPlayer(null, { updateInterval: 200 });
   const previewStatus = useAudioPlayerStatus(previewPlayer);
-  const isPreviewPlaying = previewSongId === selectedSong.id && previewStatus.playing;
   const isPreviewBuffering =
     previewSongId === selectedSong.id &&
     Boolean(previewUrl) &&
@@ -1130,21 +1204,29 @@ export function HiddenGemsScreen({
   useEffect(() => {
     if (!isActive || shouldShowNavIntro) {
       setApiProfile(null);
+      setIsProfileLoading(false);
       return;
     }
     const controller = new AbortController();
+    setApiProfile(null);
+    setIsProfileLoading(true);
     loadCountryProfile(country.code, selectedYear, controller.signal)
       .then((profilePayload) => {
-        setApiProfile(mapApiCountryProfile(profilePayload));
+        if (!controller.signal.aborted) {
+          setApiProfile(mapApiCountryProfile(profilePayload));
+          setIsProfileLoading(false);
+        }
       })
       .catch(() => {
         if (!(controller.signal.aborted)) {
           setApiProfile(null);
+          setIsProfileLoading(false);
         }
       });
 
     return () => {
       controller.abort();
+      setIsProfileLoading(false);
     };
   }, [country.code, isActive, selectedYear, shouldShowNavIntro]);
 
@@ -1164,44 +1246,41 @@ export function HiddenGemsScreen({
       return;
     }
 
-    const cachedResponse = getCachedHiddenGemsPage(country.code, selectedYear, 2, page, hiddenGemsPageSize);
-    if (cachedResponse) {
-      const cachedPage = buildHiddenGemSongsFromResponse(cachedResponse, country.code, selectedYear, page);
-      setApiSongs(cachedPage.songs);
-      setHasNextPage(cachedPage.hasNextPage);
-      setTotalPages(cachedPage.totalPages);
-      setTotalHiddenGemsCount(cachedPage.totalCount);
-      setIsSongsLoading(false);
-      onSetLoading?.(false);
-      return;
-    }
-
     const controller = new AbortController();
     setApiSongs(createLoadingHiddenGemSongs(country.code, selectedYear));
+    setTotalHiddenGemsCount(null);
     setIsSongsLoading(true);
     onSetLoading?.(true);
-    loadHiddenGemsPage(country.code, selectedYear, 2, page, hiddenGemsPageSize, controller.signal)
-      .then((response) => {
+
+    const loadSongs = async () => {
+      const cachedResponse = getCachedHiddenGemsPage(country.code, selectedYear, 2, page, hiddenGemsPageSize);
+      const response = cachedResponse ?? (await loadHiddenGemsPage(country.code, selectedYear, 2, page, hiddenGemsPageSize, controller.signal));
+      const nextPage = buildHiddenGemSongsFromResponse(response, country.code, selectedYear, page);
+      const enrichedSongs = await enrichSongsWithLanguage(nextPage.songs, controller.signal);
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setApiSongs(enrichedSongs);
+      setHasNextPage(nextPage.hasNextPage);
+      setTotalPages(nextPage.totalPages);
+      setTotalHiddenGemsCount(nextPage.totalCount);
+      setIsSongsLoading(false);
+      onSetLoading?.(false);
+    };
+
+    loadSongs()
+      .catch(() => {
         if (controller.signal.aborted) {
           return;
         }
-        const nextPage = buildHiddenGemSongsFromResponse(response, country.code, selectedYear, page);
-        setApiSongs(nextPage.songs);
-        setHasNextPage(nextPage.hasNextPage);
-        setTotalPages(nextPage.totalPages);
-        setTotalHiddenGemsCount(nextPage.totalCount);
+        setApiSongs([]);
+        setHasNextPage(false);
+        setTotalPages(1);
+        setTotalHiddenGemsCount(null);
         setIsSongsLoading(false);
         onSetLoading?.(false);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setApiSongs([]);
-          setHasNextPage(false);
-          setTotalPages(1);
-          setTotalHiddenGemsCount(null);
-          setIsSongsLoading(false);
-          onSetLoading?.(false);
-        }
       });
 
     return () => {
@@ -1412,6 +1491,11 @@ export function HiddenGemsScreen({
       return [];
     }
 
+    const imageByArtist = new Map(
+      hiddenGemSongs
+        .filter((song) => song.artistImageUrl && song.artistImageUrl.trim().length > 0)
+        .map((song) => [song.artist.trim().toLowerCase(), song.artistImageUrl] as const)
+    );
     const selectedArtists: FavoriteArtistPreview[] = [];
     const seen = new Set<string>();
     const addArtist = (name: string, songTitle: string, artistImageUrl?: string) => {
@@ -1421,7 +1505,7 @@ export function HiddenGemsScreen({
       }
 
       seen.add(normalized);
-      selectedArtists.push({ artist: name, songTitle, artistImageUrl });
+      selectedArtists.push({ artist: name, songTitle, artistImageUrl: artistImageUrl || imageByArtist.get(normalized) });
     };
 
     apiProfile.topUniqueSongs.forEach((song) => addArtist(song.artist, song.title, song.artistImageUrl));
@@ -1430,7 +1514,7 @@ export function HiddenGemsScreen({
     }
 
     return selectedArtists;
-  }, [apiProfile]);
+  }, [apiProfile, hiddenGemSongs]);
 
   const selectedSongIndex = hiddenGemSongs.findIndex((song) => song.id === selectedSong.id);
   const hasPreviousSong = selectedSongIndex > 0 || page > 1;
@@ -1525,9 +1609,9 @@ export function HiddenGemsScreen({
               <Text style={styles.blurbBody}>
                 Hidden gems are songs that are loved in this country, but have not spread as widely
                 {isBlurbStacked ? " " : "\n"}across other countries as of your selected year. Select optional
-                filter(s), a country, and a year to view that country&apos;s Hidden Gems. Hover over the selected
-                song&apos;s CD to view the previous, play, and skip buttons. Click play to listen to a 30-second
-                preview of the song.
+                filter(s), a country, and a year to view that country&apos;s Hidden Gems. Use Previous and Next
+                buttons under the selected song&apos;s CD and the List View to navigate and discover Hidden Gems.
+                Click Play to listen to a 30-second preview of the song.
               </Text>
             </View>
             <View style={[styles.blurbRightRail, isBlurbStacked ? styles.blurbRightRailStacked : null]}>
@@ -1578,7 +1662,6 @@ export function HiddenGemsScreen({
                         enough yet to support trustworthy Hidden Gems filtering. Keep this note here
                         for a future normalized-genre iteration instead of deleting it. */}
                     {/* <Text style={styles.filtersModalLine}>Genre(s): Genre info coming soon.</Text> */}
-                    <Text style={styles.filtersModalLine}>Language(s): Language info coming soon.</Text>
                   </Panel>
                 ) : null}
                 </View>
@@ -1813,12 +1896,15 @@ export function HiddenGemsScreen({
                   end={{ x: 0.5, y: 1 }}
                   style={styles.blurbStatCardFill}
                 />
-                <Text style={styles.blurbStatValue}>{displayHiddenGemCount}</Text>
+                <Text style={[styles.blurbStatValue, isScreenLoading ? styles.blurbStatValueLoading : null]}>
+                  {displayHiddenGemCount}
+                </Text>
                 <Text style={styles.blurbStatLabel}>Hidden Gems</Text>
               </View>
             </View>
           </View>
         </Panel>
+        <YearDataDisclaimer year={selectedYear} style={styles.hiddenGemsYearDisclaimer} />
         <View style={styles.layout}>
           <View style={[styles.primaryPanelsRow, isStacked ? styles.primaryPanelsRowStacked : null]}>
             {isStacked ? (
@@ -1897,7 +1983,8 @@ export function HiddenGemsScreen({
             country={country}
             selectedYear={selectedYear}
             artists={favoriteArtists}
-            useLoadingLabels={shouldShowNavIntro}
+            useLoadingLabels={shouldShowNavIntro || isProfileLoading}
+            isLoading={isScreenLoading || isProfileLoading}
           />
         </View>
       </View>
@@ -2364,7 +2451,8 @@ const styles = StyleSheet.create({
   },
   blurbCopyWebReserved: {
     minWidth: 360,
-    maxWidth: 520,
+    maxWidth: 620,
+    marginLeft: 28,
     flexGrow: 1,
     flexShrink: 1,
   },
@@ -2469,6 +2557,11 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     textAlign: "center",
     marginTop: 3,
+  },
+  blurbStatValueLoading: {
+    fontSize: 17,
+    lineHeight: 20,
+    marginTop: 8,
   },
   blurbYearDropdownWrap: {
     width: 156,
@@ -2644,6 +2737,9 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: "stretch",
   },
+  hiddenGemsYearDisclaimer: {
+    alignSelf: "flex-end",
+  },
   primaryPanelsRow: {
     flexDirection: "row",
     gap: 12,
@@ -2665,6 +2761,7 @@ const styles = StyleSheet.create({
     flex: 1.06,
   },
   secondaryPanel: {
+    position: "relative",
     minHeight: Platform.OS === "web" ? 760 : 618,
     maxHeight: Platform.OS === "web" ? 760 : 618,
     padding: 0,
@@ -2675,6 +2772,11 @@ const styles = StyleSheet.create({
     flex: 1,
     position: "relative",
   },
+  songListScrollArea: {
+    flex: 1,
+    position: "relative",
+    minHeight: 0,
+  },
   secondaryPanelScroll: {
     flex: 1,
     ...(Platform.OS === "web"
@@ -2683,6 +2785,26 @@ const styles = StyleSheet.create({
           scrollbarWidth: "none",
         } as ViewStyle)
       : null),
+  },
+  sectionLoadingVeil: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 14,
+    overflow: "hidden",
+    zIndex: 50,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionLoadingVeilFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sectionLoadingVeilText: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 20,
+    lineHeight: 24,
+    textShadowColor: "rgba(15,16,21,0.42)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   songListContent: {
     paddingLeft: 14,
@@ -2836,6 +2958,15 @@ const styles = StyleSheet.create({
   miniCdCaseBackdropImage: {
     width: "100%",
     height: "100%",
+  },
+  miniCdCaseBackdropImageLoading: {
+    opacity: 0.28,
+  },
+  miniCdLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15,16,21,0.2)",
   },
   miniCdCaseImage: {
     width: 54,
@@ -3109,6 +3240,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
   },
+  playingLyricsLink: {
+    textDecorationLine: "underline",
+  },
   playingTracklistLine: {
     color: colors.textLight,
     fontFamily: typefaces.condensed,
@@ -3137,6 +3271,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(117,82,107,0.58)",
   },
   snapshotPanel: {
+    position: "relative",
     minWidth: 0,
     overflow: "hidden",
   },

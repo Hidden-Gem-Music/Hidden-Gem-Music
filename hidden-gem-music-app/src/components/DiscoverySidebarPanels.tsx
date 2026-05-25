@@ -16,12 +16,14 @@ type Props = {
   selectedCountryId?: string;
   onSelectCountry: (countryId: string) => void;
   onOpenCountry: (countryId: string) => void;
+  onHoverCountryChange?: (countryId: string | null) => void;
   autoScrollSignal?: number;
   selectedYear?: number;
   genreSummaryByCountryCode?: Record<string, string | undefined>;
-  genreLoadingByCountryCode?: Record<string, boolean | undefined>;
+  languageSummaryByCountryCode?: Record<string, string | undefined>;
   loadingText?: string;
   onEnsureGenreSample?: (countryCode: string) => void;
+  onEnsureLanguageSample?: (countryCode: string) => void;
   onNearListEnd?: () => void;
 };
 
@@ -35,12 +37,14 @@ export function DiscoverySidebarPanels({
   selectedCountryId,
   onSelectCountry,
   onOpenCountry,
+  onHoverCountryChange,
   autoScrollSignal,
   selectedYear,
   genreSummaryByCountryCode,
-  genreLoadingByCountryCode,
+  languageSummaryByCountryCode,
   loadingText = "Loading...",
   onEnsureGenreSample,
+  onEnsureLanguageSample,
   onNearListEnd,
 }: Props) {
   const { width } = useWindowDimensions();
@@ -64,6 +68,7 @@ export function DiscoverySidebarPanels({
   const [listScrollY, setListScrollY] = useState(0);
   const [isDraggingListScrollbar, setIsDraggingListScrollbar] = useState(false);
   const nearListEndTriggeredRef = useRef(false);
+  const lastAutoScrollSignalRef = useRef<number | null>(null);
 
   const showFilterScrollbar = isWeb && expandedPanel === "filters" && filterViewportHeight > 0;
   const filterHasOverflow = showFilterScrollbar && filterContentHeight > filterViewportHeight;
@@ -220,13 +225,25 @@ export function DiscoverySidebarPanels({
       return;
     }
 
-    const y = positionsRef.current[selectedCountryId];
-    if (typeof y === "number") {
-      listScrollRef.current?.scrollTo({ y: Math.max(y - 18, 0), animated: false });
+    if (lastAutoScrollSignalRef.current === autoScrollSignal) {
+      return;
     }
-  }, [autoScrollSignal, expandedPanel]);
+    lastAutoScrollSignalRef.current = autoScrollSignal;
+
+    const scrollToSelectedCountry = () => {
+      const y = positionsRef.current[selectedCountryId];
+      if (typeof y === "number") {
+        listScrollRef.current?.scrollTo({ y: Math.max(y - 18, 0), animated: false });
+      }
+    };
+
+    scrollToSelectedCountry();
+    const retryTimer = setTimeout(scrollToSelectedCountry, 40);
+    return () => clearTimeout(retryTimer);
+  }, [autoScrollSignal, expandedPanel, listContentHeight, selectedCountryId]);
 
   useEffect(() => {
+    positionsRef.current = {};
     nearListEndTriggeredRef.current = false;
     setListScrollY((current) => (current === 0 ? current : 0));
     if (isWeb) {
@@ -273,8 +290,10 @@ export function DiscoverySidebarPanels({
     );
   };
 
+  const isFilterPanelExpandedWeb = isWeb && expandedPanel === "filters";
+
   return (
-    <View style={[styles.frame, !isWeb ? styles.frameNative : null]}>
+    <View style={[styles.frame, isFilterPanelExpandedWeb ? styles.frameFiltersExpandedWeb : null, !isWeb ? styles.frameNative : null]}>
       <Panel style={[styles.section, expandedPanel === "filters" ? styles.sectionExpanded : styles.sectionCollapsed]}>
         <SecondarySurfaceFill />
         <Pressable style={styles.sectionHeader} onPress={() => handleSectionPress("filters")}>
@@ -283,7 +302,7 @@ export function DiscoverySidebarPanels({
               {isNarrowHeader ? "Pre-Selected\nFilters" : "Pre-Selected Filters"}
             </Text>
             <Text style={[styles.sectionHelper, isNarrowHeader ? styles.sectionHelperStacked : null]}>
-              Select optional pre-selected filters here and use 'All Filters' button on the globe for more filters.
+              Coming Soon: Select optional pre-selected filters here and use the All Filters button on the map for more filters.
             </Text>
           </View>
           <Text style={styles.sectionToggle}>{expandedPanel === "filters" ? "−" : "+"}</Text>
@@ -296,7 +315,8 @@ export function DiscoverySidebarPanels({
               style={[styles.panelScroll, !isWeb ? styles.panelScrollNative : null]}
               contentContainerStyle={styles.filterContent}
               showsVerticalScrollIndicator={false}
-              scrollEnabled={isWeb}
+              scrollEnabled
+              nestedScrollEnabled
               onLayout={(event) => setFilterViewportHeight(event.nativeEvent.layout.height)}
               onContentSizeChange={(_, height) => setFilterContentHeight(height)}
               onScroll={handleFilterScroll}
@@ -350,7 +370,8 @@ export function DiscoverySidebarPanels({
               style={[styles.panelScroll, !isWeb ? styles.panelScrollNative : null]}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
-              scrollEnabled={isWeb}
+              scrollEnabled
+              nestedScrollEnabled
               onLayout={(event) => setListViewportHeight(event.nativeEvent.layout.height)}
               onContentSizeChange={(_, height) => setListContentHeight(height)}
               onScroll={handleListScroll}
@@ -374,21 +395,27 @@ export function DiscoverySidebarPanels({
                     selected={country.id === selectedCountryId}
                     onHover={() => {
                       onEnsureGenreSample?.(country.code);
+                      onEnsureLanguageSample?.(country.code);
                       onSelectCountry(country.id);
+                      onHoverCountryChange?.(country.id);
                     }}
+                    onHoverOut={() => onHoverCountryChange?.(null)}
                     onTitlePress={() => {
                       onEnsureGenreSample?.(country.code);
+                      onEnsureLanguageSample?.(country.code);
                       onOpenCountry(country.id);
                     }}
-                    genreLine={genreSummaryByCountryCode?.[country.code] ?? (genreLoadingByCountryCode?.[country.code] ? loadingText : "Loading...")}
-                    languageLine="Coming Soon"
+                    genreLine={genreSummaryByCountryCode?.[country.code] ?? loadingText}
+                    languageLine={languageSummaryByCountryCode?.[country.code] ?? loadingText}
                     onPress={() => {
                       onEnsureGenreSample?.(country.code);
+                      onEnsureLanguageSample?.(country.code);
                       onSelectCountry(country.id);
                       onOpenCountry(country.id);
                     }}
                     onPressIn={() => {
                       onEnsureGenreSample?.(country.code);
+                      onEnsureLanguageSample?.(country.code);
                       onSelectCountry(country.id);
                     }}
                   />
@@ -425,12 +452,18 @@ export function DiscoverySidebarPanels({
 
 const styles = StyleSheet.create({
   frame: {
-    minHeight: 642,
-    maxHeight: 642,
+    minHeight: 824,
+    maxHeight: 824,
     gap: 16,
+    alignSelf: "stretch",
+  },
+  frameFiltersExpandedWeb: {
+    minHeight: 680,
+    maxHeight: 680,
   },
   frameNative: {
     minHeight: 0,
+    height: 760,
     maxHeight: undefined,
   },
   section: {
@@ -564,7 +597,9 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   scrollAreaNative: {
-    flexGrow: 0,
+    flex: 1,
+    minHeight: 0,
+    maxHeight: undefined,
   },
   panelScroll: {
     flex: 1,
@@ -576,7 +611,7 @@ const styles = StyleSheet.create({
       : null),
   },
   panelScrollNative: {
-    flexGrow: 0,
+    flex: 1,
   },
   listContent: {
     paddingHorizontal: 18,

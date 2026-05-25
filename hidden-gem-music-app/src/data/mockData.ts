@@ -1,6 +1,6 @@
 import { Country, Song } from "../types/content";
 
-export const availableYears = Array.from({ length: 2021 - 1975 + 1 }, (_, index) => 1975 + index);
+export const availableYears = Array.from({ length: 2025 - 1975 + 1 }, (_, index) => 1975 + index);
 
 type CountrySeed = Country & {
   albumVariants: string[];
@@ -15,6 +15,8 @@ const countrySeeds: CountrySeed[] = [
     code: "US",
     name: "USA",
     region: "North America",
+    lat: 38,
+    long: -97,
     hiddenSongs: 139,
     genres: ["Pop", "Rock", "Country"],
     album: "Neon Horizon",
@@ -35,6 +37,8 @@ const countrySeeds: CountrySeed[] = [
     code: "CA",
     name: "Canada",
     region: "North America",
+    lat: 60,
+    long: -95,
     hiddenSongs: 112,
     genres: ["Indie", "Folk", "Alt Pop"],
     album: "Northern Bloom",
@@ -55,6 +59,8 @@ const countrySeeds: CountrySeed[] = [
     code: "MX",
     name: "Mexico",
     region: "North America",
+    lat: 23,
+    long: -102,
     hiddenSongs: 94,
     genres: ["Regional", "Pop", "Alternative"],
     album: "Sol de Medianoche",
@@ -75,6 +81,8 @@ const countrySeeds: CountrySeed[] = [
     code: "GB",
     name: "England",
     region: "Europe",
+    lat: 54,
+    long: -2,
     hiddenSongs: 87,
     genres: ["Indie Rock", "Garage", "Dream Pop"],
     album: "Glass District",
@@ -95,6 +103,8 @@ const countrySeeds: CountrySeed[] = [
     code: "FR",
     name: "France",
     region: "Europe",
+    lat: 46,
+    long: 2,
     hiddenSongs: 102,
     genres: ["Electro Pop", "House", "Alt Pop"],
     album: "Velvet City",
@@ -115,6 +125,8 @@ const countrySeeds: CountrySeed[] = [
     code: "CH",
     name: "Switzerland",
     region: "Europe",
+    lat: 47,
+    long: 8,
     hiddenSongs: 58,
     genres: ["Electronic", "Folk", "Ambient"],
     album: "Alpine Echoes",
@@ -135,6 +147,8 @@ const countrySeeds: CountrySeed[] = [
     code: "NO",
     name: "Norway",
     region: "Europe",
+    lat: 62,
+    long: 10,
     hiddenSongs: 38,
     genres: ["Synthwave", "Art Pop", "Electronic"],
     album: "In the Hollow of a Wave",
@@ -155,6 +169,8 @@ const countrySeeds: CountrySeed[] = [
     code: "JP",
     name: "Japan",
     region: "Asia",
+    lat: 36,
+    long: 138,
     hiddenSongs: 121,
     genres: ["City Pop", "Rock", "Electronic"],
     album: "Shibuya Skyline",
@@ -232,10 +248,6 @@ function getYearOffset(year: number, countryId: string) {
 
 function rotateValues(values: string[], offset: number) {
   return Array.from({ length: 3 }, (_, index) => values[(offset + index) % values.length]);
-}
-
-function getCountrySeed(countryId: string) {
-  return countrySeeds.find((country) => country.id === countryId) ?? countrySeeds[0];
 }
 
 function buildCountryForYear(seed: CountrySeed, year: number): Country {
@@ -325,7 +337,7 @@ export function getDashboardMetrics(year: number, countries: Country[]) {
     {
       label: "Countries Tracked",
       value: `${countries.length}`,
-      detail: `Live globe/list coverage for ${year}.`,
+      detail: `Live map/list coverage for ${year}.`,
     },
     {
       label: "Hidden Songs Indexed",

@@ -3,6 +3,8 @@ export type Country = {
   code: string;
   name: string;
   region: string;
+  lat: number;
+  long: number;
   hiddenSongs: number;
   genres: string[];
   album: string;
@@ -36,6 +38,7 @@ export type Song = {
   tracklist?: string[];
   genres: string[];
   languages: string[];
+  lyricsUrl?: string;
   year: number;
   duration: string;
   description: string;

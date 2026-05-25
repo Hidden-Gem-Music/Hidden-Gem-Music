@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Country } from "../types/content";
 import { Panel } from "../components/Panel";
@@ -32,6 +32,7 @@ export function SearchScreen({
   onOpenSong,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
   const results = useMemo(() => searchLibrary(query, selectedYear), [query, searchLibrary, selectedYear]);
 
   return (
@@ -42,7 +43,9 @@ export function SearchScreen({
         onChangeText={setQuery}
         placeholder="Search countries, albums, artists, songs, or genres"
         placeholderTextColor={colors.textLight}
-        style={styles.input}
+        onFocus={() => setInputFocused(true)}
+        onBlur={() => setInputFocused(false)}
+        style={[styles.input, inputFocused ? styles.inputFocused : null]}
       />
       <Panel style={styles.panel}>
         <Text style={styles.sectionHeading}>Country Matches</Text>
@@ -91,6 +94,17 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontFamily: typefaces.body,
     fontSize: 18,
+    ...(Platform.OS === "web"
+      ? ({
+          outlineColor: "rgba(169,176,209,0.92)",
+          outlineStyle: "none",
+          outlineWidth: 0,
+        } as any)
+      : null),
+  },
+  inputFocused: {
+    borderColor: "rgba(169,176,209,0.92)",
+    backgroundColor: "rgba(117,82,107,0.12)",
   },
   panel: {
     minHeight: 420,

@@ -28,5 +28,10 @@ namespace Capstone.API.Models.Dashboard
         /// Values: "high" (&gt;65%), "mid" (40–65%), "low" (&lt;40%).
         /// </summary>
         public string? IsolationTier { get; set; }
+
+        /// <summary>
+        /// Gets or sets the geographic region of the country, used for chart filtering.
+        /// </summary>
+        public string? Region { get; set; }
     }
 }
