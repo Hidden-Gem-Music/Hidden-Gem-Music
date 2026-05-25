@@ -3,6 +3,36 @@
 
 ---
 
+## 2026-05-25 - Issue 53 Deployment ADR
+
+**Tester:** mp3li / Codex-assisted documentation update
+**Fix owner:** mp3li
+**Branch:** `144-deployment`
+**Scope:** Deployment decision ADR for platform choice, configuration, consequences, and lessons learned
+
+### What was handled
+
+This branch added the accepted deployment ADR for the final hybrid Cloudflare deployment. The ADR records the final deployment decision separately from the earlier platform selection plan so the repo has both the planning document and the final decision record. It also documents the branch-source plan clearly: deployment validation used the dedicated `deployment` branch, while the intended final frontend production source is `main` after team approval and once `main` contains the final deployable state.
+
+### Documentation added
+
+- Added `Documentation/ADR-DEPLOYMENT-001-Deployment-Decisions.md`.
+- Documented the selected frontend, API, database, validation branch, and intended final production branch deployment decisions.
+- Documented frontend build settings, production API base URL, backend public API origin, production CORS origin, database privacy decision, alternatives considered, consequences, lessons learned, and smoke-test expectations.
+- Updated `Documentation/README.md` so the accepted deployment ADR appears in the shared documentation map.
+
+### Not included
+
+- No frontend, backend, database, Cloudflare, or deployment runtime behavior changed.
+- No README/deployment guide rewrite was completed as part of this issue.
+- No final documentation audit was completed as part of this issue.
+
+### Verification
+
+- Confirmed the branch only changes shared documentation files.
+
+---
+
 ## 2026-05-24 — Deployment Prep Access Code Entry Gate
 
 **Tester:** mp3li / Codex-assisted deployment prep
