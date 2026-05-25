@@ -3,6 +3,47 @@
 
 ---
 
+## 2026-05-24 — Deployment Prep Access Code Entry Gate
+
+**Tester:** mp3li / Codex-assisted deployment prep
+**Fix owner:** mp3li
+**Branch:** `deployment`
+**Scope:** Limited early-access welcome flow, mobile launch fallback, search/input focus polish, and deployment PR preparation
+
+### What was handled
+
+This branch added a limited early-access code layer to the existing Welcome popup for deployment day. The gate keeps invited tester/supporter access in front of the normal Welcome experience while preserving the same popup shell, logo, title, helper text, app styling, and mobile/web layout rules.
+
+### Access code behavior
+
+- Added a frontend access-code config module at `hidden-gem-music-app/src/config/accessGate.ts`.
+- Set the current deployment prep code to `COMMENCEMENT`.
+- Stored the accepted code value in local storage instead of a generic boolean so changing the code automatically locks out users who entered an older code.
+- Kept invalid attempts inside the popup with reserved error space so the input/button layout does not jump when the error appears.
+- Updated the invalid-code message to `Access code invalid.`
+
+### Welcome flow and UI polish
+
+- Reused the existing Welcome popup layout for the access-code layer instead of introducing a separate modal shape.
+- Kept the normal Welcome content visible only after the access code is accepted.
+- Preserved the Hidden Gem Music title/helper text styling across both access and normal Welcome layers.
+- Applied app-owned colors and existing hover/focus styling rather than default browser input outlines.
+- Updated the reusable `ActionButton` so default border/label colors use the app's dark text color instead of the previous border tone.
+- Updated app search inputs to use the same pink/list-hover-style focus treatment requested during deployment prep.
+
+### Mobile deployment readiness
+
+- Added mobile keyboard handling so the access popup raises when the code input is focused.
+- Kept mobile-specific Welcome/access spacing separate from web spacing.
+- Added a mobile-only `Loading...` fallback after leaving Welcome for Discovery so the app area is not a blank background while the native Discovery route finishes appearing.
+
+### Verification
+
+- Ran `npm run typecheck`; passed.
+- Confirmed the deployment branch contains the access gate work and local untracked screenshot/archive artifacts remain untracked.
+
+---
+
 ## 2026-05-23 — Issue 160 README Screenshots and GIF Assets
 
 **Tester:** mp3li / Codex-assisted asset preparation

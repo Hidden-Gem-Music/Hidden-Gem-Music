@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from "react-native";
 
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -9,12 +9,14 @@ type Props = {
   label: string;
   onPress: () => void;
   size?: "default" | "compact" | "small";
+  buttonStyle?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>;
 };
 
 const activeGradient = [colors.navGradient, colors.backgroundRaised, colors.backgroundRaised] as const;
 const hoverGradient = ["rgba(117,82,107,0.52)", "rgba(108,119,142,0.44)", "rgba(108,119,142,0.36)"] as const;
 
-export function ActionButton({ label, onPress, size = "default" }: Props) {
+export function ActionButton({ label, onPress, size = "default", buttonStyle, labelStyle }: Props) {
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
   const nativeReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,9 +78,12 @@ export function ActionButton({ label, onPress, size = "default" }: Props) {
           Platform.OS !== "web" && isPressed ? styles.buttonPressedNative : null,
           size === "compact" ? styles.buttonCompact : null,
           size === "small" ? styles.buttonSmall : null,
+          buttonStyle,
         ]}
       >
-        <Text style={[styles.label, showGradient ? styles.labelActive : null]}>{label}</Text>
+        <Text style={[styles.label, showGradient ? styles.labelActive : null, labelStyle]}>
+          {label}
+        </Text>
       </View>
     </Pressable>
   );
@@ -113,7 +118,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: 17,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: colors.textDark,
     backgroundColor: colors.button,
     shadowColor: colors.shadow,
     shadowOpacity: 0.18,
@@ -135,7 +140,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   label: {
-    color: colors.border,
+    color: colors.textDark,
     fontFamily: typefaces.condensed,
     fontSize: 15,
     fontWeight: "800",

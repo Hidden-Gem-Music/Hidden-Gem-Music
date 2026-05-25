@@ -17,6 +17,7 @@ import { DiscoveryScreen } from "./src/screens/DiscoveryScreen";
 import { HiddenGemsScreen } from "./src/screens/HiddenGemsScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { worldMapCountries } from "./src/assets/maps/worldMap50m";
+import { readAccessGranted } from "./src/config/accessGate";
 import { loadDiscoveryCountries } from "./src/data/discoveryApi";
 import { loadAvailableYears } from "./src/data/countryApi";
 import { isCountryWithAppData } from "./src/data/countryDisplay";
@@ -285,6 +286,7 @@ export default function App() {
       ? initialNavigationSeed.countryId ?? initialFeaturedCountry.id
       : initialFeaturedCountry.id;
 
+  const [accessGranted, setAccessGranted] = useState(readAccessGranted);
   const [navigationReady, setNavigationReady] = useState(false);
   const [currentRoute, setCurrentRoute] = useState<ScreenRoute>(initialNavigationSeed.route);
   const [selectedYear, setSelectedYear] = useState(initialYear);
@@ -298,6 +300,7 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [apiAvailableYears, setApiAvailableYears] = useState<number[]>([]);
   const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(true);
+  const [isWelcomeOpeningDiscovery, setIsWelcomeOpeningDiscovery] = useState(false);
   const [discoveryCountriesByYear, setDiscoveryCountriesByYear] = useState<Record<number, Country[]>>({});
 
   const countries = useMemo(() => getCountriesForYear(selectedYear), [selectedYear]);
@@ -539,6 +542,9 @@ export default function App() {
 
     switch (route) {
       case "discovery":
+        if (Platform.OS !== "web") {
+          setIsWelcomeOpeningDiscovery(true);
+        }
         navigationRef.dispatch(
           CommonActions.reset({
             index: 0,
@@ -844,6 +850,15 @@ export default function App() {
   }, [currentRoute, loadingMessage]);
 
   useEffect(() => {
+    if (!isWelcomeOpeningDiscovery || currentRoute !== "discovery") {
+      return;
+    }
+
+    const timer = setTimeout(() => setIsWelcomeOpeningDiscovery(false), 180);
+    return () => clearTimeout(timer);
+  }, [currentRoute, isWelcomeOpeningDiscovery]);
+
+  useEffect(() => {
     const controller = new AbortController();
 
     loadAvailableYears(controller.signal)
@@ -1127,7 +1142,7 @@ export default function App() {
         linking={linking}
         onReady={() => {
           setNavigationReady(true);
-          if (initialNavigationSeed.route === "welcome") {
+          if (!accessGranted || initialNavigationSeed.route === "welcome") {
             navigationRef.dispatch(
               CommonActions.reset({
                 index: 1,
@@ -1179,6 +1194,8 @@ export default function App() {
               >
                 {() => (
                   <WelcomeScreen
+                    accessGranted={accessGranted}
+                    onAccessGranted={() => setAccessGranted(true)}
                     onDismiss={() => {
                       if (navigationRef.canGoBack()) {
                         navigationRef.goBack();
@@ -1314,6 +1331,11 @@ export default function App() {
 
               <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />
             </Stack.Navigator>
+            {Platform.OS !== "web" && isWelcomeOpeningDiscovery ? (
+              <View style={styles.mobileScreenLoadingFallback} pointerEvents="none">
+                <Text style={styles.mobileScreenLoadingText}>Loading...</Text>
+              </View>
+            ) : null}
             <LoadingOverlay
               visible={Boolean(loadingMessage)}
               message={loadingMessage ?? undefined}
@@ -1370,5 +1392,19 @@ const styles = StyleSheet.create({
     flex: 1,
     position: "relative",
     overflow: "hidden",
+  },
+  mobileScreenLoadingFallback: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+  },
+  mobileScreenLoadingText: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 28,
+    lineHeight: 34,
+    textAlign: "center",
   },
 });

@@ -1,14 +1,26 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from "react-native";
 
 import { ActionButton } from "../components/ActionButton";
 import { Panel } from "../components/Panel";
+import { ACCESS_CODE, writeAccessGranted } from "../config/accessGate";
 import { ScreenRoute } from "../types/navigation";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 
 export type Props = {
+  accessGranted: boolean;
+  onAccessGranted: () => void;
   onDismiss: () => void;
   onSelectRoute: (route: ScreenRoute) => void;
 };
@@ -50,9 +62,11 @@ function interpolateHexColor(startHex: string, endHex: string, ratio: number) {
   )}`;
 }
 
-function WelcomeGradientTitle() {
+function WelcomeGradientTitle({ compact = false }: { compact?: boolean }) {
+  const titleStyle = [styles.brand, compact ? styles.brandCompact : null];
+
   if (Platform.OS === "web") {
-    return <Text style={[styles.brand, welcomeTitleWebGradientStyle as any]}>Hidden Gem Music</Text>;
+    return <Text style={[titleStyle, welcomeTitleWebGradientStyle as any]}>Hidden Gem Music</Text>;
   }
 
   const title = "Hidden Gem Music";
@@ -60,7 +74,7 @@ function WelcomeGradientTitle() {
   const maxIndex = Math.max(characters.length - 1, 1);
 
   return (
-    <Text style={styles.brand}>
+    <Text style={titleStyle}>
       {characters.map((character, index) => {
         const progress = index / maxIndex;
         const color =
@@ -80,10 +94,14 @@ function WelcomeGradientTitle() {
   );
 }
 
-export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
+export function WelcomeScreen({ accessGranted, onAccessGranted, onDismiss, onSelectRoute }: Props) {
   const { width } = useWindowDimensions();
   const isCompactWelcome = width < 980;
+  const isMobileWelcome = Platform.OS !== "web";
   const useFullScreenBackdrop = Platform.OS === "web" && !isCompactWelcome;
+  const [accessCodeInput, setAccessCodeInput] = useState("");
+  const [accessError, setAccessError] = useState("");
+  const [accessInputFocused, setAccessInputFocused] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isClosingRef = useRef(false);
@@ -101,6 +119,35 @@ export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
     }, closeDelay);
   };
 
+  const handleAccessSubmit = () => {
+    if (accessCodeInput.trim().toUpperCase() !== ACCESS_CODE) {
+      setAccessError("Access code invalid.");
+      return;
+    }
+
+    writeAccessGranted();
+    setAccessError("");
+    onAccessGranted();
+  };
+
+  const renderWelcomeButtons = (hidden = false) => (
+    <View style={[styles.buttonStack, isMobileWelcome ? styles.buttonStackMobile : null]} pointerEvents={hidden ? "none" : "auto"}>
+      <ActionButton label="Discovery Map" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("discovery"))} />
+      <ActionButton label="Discovery Dashboard" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("dashboard"))} />
+      <ActionButton
+        label="Comparison Mode"
+        size="compact"
+        onPress={() => dismissWithAction(() => onSelectRoute("comparisonSelect"))}
+      />
+      <ActionButton
+        label="Hidden Gems"
+        size="compact"
+        onPress={() => dismissWithAction(() => onSelectRoute("hiddenGems"))}
+      />
+      <ActionButton label="Credits" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("credits"))} />
+    </View>
+  );
+
   useEffect(() => {
     return () => {
       if (closeTimerRef.current) {
@@ -115,7 +162,10 @@ export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
   }
 
   return (
-    <View
+    <KeyboardAvoidingView
+      behavior={isMobileWelcome && Platform.OS === "ios" ? "padding" : undefined}
+      enabled={isMobileWelcome}
+      keyboardVerticalOffset={isMobileWelcome ? 18 : 0}
       style={[styles.overlay, isCompactWelcome ? styles.overlayCompact : null]}
       pointerEvents={useFullScreenBackdrop ? "auto" : "box-none"}
       onStartShouldSetResponder={useFullScreenBackdrop ? () => true : undefined}
@@ -126,7 +176,9 @@ export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
           style={styles.overlayBackdropPressTarget}
           onPress={(event) => {
             event.stopPropagation();
-            dismissWithAction(onDismiss);
+            if (accessGranted) {
+              dismissWithAction(onDismiss);
+            }
           }}
         >
           <WelcomeBackdrop style={styles.overlayBackdrop} />
@@ -135,7 +187,7 @@ export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
         <WelcomeBackdrop style={styles.overlayBackdrop} pointerEvents="none" useGradient />
       )}
       <Pressable style={styles.modalPressTarget} onPress={(event) => event.stopPropagation()}>
-        <Panel style={styles.modal}>
+        <Panel style={[styles.modal, isMobileWelcome ? styles.modalMobile : null]}>
           <LinearGradient
             colors={popupBottomDepthGradient}
             locations={[0, 0.72, 1]}
@@ -143,34 +195,74 @@ export function WelcomeScreen({ onDismiss, onSelectRoute }: Props) {
             end={{ x: 0.5, y: 1 }}
             style={styles.modalDepthFill}
           />
-          <View style={styles.modalContent}>
-            <WelcomeGradientTitle />
-            <Text style={styles.summary}>
+          <View style={[styles.modalContent, isMobileWelcome ? styles.modalContentMobile : null]}>
+            <WelcomeGradientTitle compact={isMobileWelcome} />
+            <Text style={[styles.summary, isMobileWelcome ? styles.summaryMobile : null]}>
               The purpose of this app is to find and display the 'Discovery Gap' — What music is most loved in each
               country, and how much was that country's most loved music spread, shared, and loved by other countries?
               Explore the Discovery Gap multiple ways: the discovery map, country detail pages, comparison mode,
               listen to 30 second previews of hidden gems, and the Discovery Dashboard. Utilize filters in
               multiple areas of the app to fine tune your discovery.
             </Text>
-            <View style={styles.buttonStack}>
-              <ActionButton label="Discovery Map" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("discovery"))} />
-              <ActionButton label="Discovery Dashboard" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("dashboard"))} />
-              <ActionButton
-                label="Comparison Mode"
-                size="compact"
-                onPress={() => dismissWithAction(() => onSelectRoute("comparisonSelect"))}
-              />
-              <ActionButton
-                label="Hidden Gems"
-                size="compact"
-                onPress={() => dismissWithAction(() => onSelectRoute("hiddenGems"))}
-              />
-              <ActionButton label="Credits" size="compact" onPress={() => dismissWithAction(() => onSelectRoute("credits"))} />
-            </View>
+            {accessGranted ? (
+              renderWelcomeButtons()
+            ) : (
+              <View style={[styles.accessLayerSlot, isMobileWelcome ? styles.accessLayerSlotMobile : null]}>
+                <View style={[styles.buttonStackSpacer, isMobileWelcome ? styles.buttonStackSpacerMobile : null]} pointerEvents="none" />
+                <View style={[styles.accessContent, isMobileWelcome ? styles.accessContentMobile : styles.accessContentWeb]}>
+                  <View style={[styles.accessSummarySlot, isMobileWelcome ? styles.accessSummarySlotMobile : null]}>
+                    <Text style={[styles.accessSummary, isMobileWelcome ? styles.accessSummaryMobile : null]}>
+                      Hidden Gem Music is currently in{" "}
+                      <Text style={styles.accessSummaryAccent}>limited early access</Text>, and is only available to
+                      invited testers and supporters who are given an access code.
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.accessFieldGroup,
+                      isMobileWelcome ? styles.accessFieldGroupMobile : styles.accessFieldGroupWeb,
+                    ]}
+                  >
+                    <Text style={styles.accessLabel}>Access code:</Text>
+                    <TextInput
+                      value={accessCodeInput}
+                      onChangeText={(value) => {
+                        setAccessCodeInput(value);
+                        if (accessError) {
+                          setAccessError("");
+                        }
+                      }}
+                    onSubmitEditing={handleAccessSubmit}
+                    onFocus={() => setAccessInputFocused(true)}
+                    onBlur={() => setAccessInputFocused(false)}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    returnKeyType="done"
+                    placeholder="Enter access code"
+                    placeholderTextColor="rgba(169, 176, 209, 0.62)"
+                    style={[styles.accessInput, accessInputFocused ? styles.accessInputFocused : null]}
+                  />
+                    <Text style={[styles.accessError, accessError ? null : styles.accessErrorHidden]}>
+                      {accessError || "Access code invalid."}
+                    </Text>
+                  </View>
+                  <View style={[styles.accessButtonOffset, isMobileWelcome ? styles.accessButtonOffsetMobile : styles.accessButtonOffsetWeb]}>
+                    <ActionButton
+                      label="Enter Hidden Gems Music"
+                      size="compact"
+                      buttonStyle={styles.accessButton}
+                      labelStyle={styles.accessButtonLabel}
+                      onPress={handleAccessSubmit}
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         </Panel>
       </Pressable>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -229,6 +321,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(169, 176, 209, 0.24)",
     overflow: "hidden",
   },
+  modalMobile: {
+    paddingVertical: 24,
+    paddingHorizontal: 18,
+  },
   modalDepthFill: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -236,12 +332,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 22,
   },
+  modalContentMobile: {
+    gap: 14,
+  },
   brand: {
     color: colors.textLight,
     fontFamily: typefaces.display,
     fontSize: 48,
     fontWeight: "700",
     textAlign: "center",
+  },
+  brandCompact: {
+    fontSize: 38,
+    lineHeight: 42,
   },
   summary: {
     color: colors.textLight,
@@ -252,8 +355,143 @@ const styles = StyleSheet.create({
     textAlign: "center",
     maxWidth: 620,
   },
+  summaryMobile: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
   buttonStack: {
     gap: 14,
     alignItems: "center",
+  },
+  buttonStackMobile: {
+    minHeight: 292,
+    justifyContent: "center",
+  },
+  buttonStackSpacer: {
+    width: 224,
+    height: 236,
+  },
+  buttonStackSpacerMobile: {
+    height: 292,
+  },
+  accessLayerSlot: {
+    position: "relative",
+    width: "100%",
+    maxWidth: 620,
+    alignItems: "center",
+  },
+  accessLayerSlotMobile: {
+    maxWidth: 360,
+  },
+  accessContent: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    minHeight: 236,
+  },
+  accessContentMobile: {
+    minHeight: 292,
+  },
+  accessContentWeb: {
+    transform: [{ translateY: -10 }],
+  },
+  accessSummarySlot: {
+    height: 90,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  accessSummarySlotMobile: {
+    height: 88,
+  },
+  accessSummary: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 19,
+    fontWeight: "700",
+    lineHeight: 27,
+    textAlign: "center",
+    width: "100%",
+  },
+  accessSummaryMobile: {
+    fontSize: 17,
+    lineHeight: 23,
+  },
+  accessSummaryAccent: {
+    color: colors.accent,
+  },
+  accessFieldGroup: {
+    width: "100%",
+    maxWidth: 330,
+    gap: 8,
+    marginTop: 22,
+  },
+  accessFieldGroupMobile: {
+    transform: [{ translateY: -12 }],
+  },
+  accessFieldGroupWeb: {
+    marginTop: 10,
+  },
+  accessLabel: {
+    color: colors.textStrong,
+    fontFamily: typefaces.condensed,
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  accessInput: {
+    width: "100%",
+    maxWidth: 330,
+    borderWidth: 2,
+    borderColor: "rgba(169, 176, 209, 0.34)",
+    borderRadius: 17,
+    backgroundColor: colors.panelAlt,
+    color: colors.textLight,
+    fontFamily: typefaces.condensed,
+    fontSize: 17,
+    fontWeight: "800",
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    textAlign: "center",
+    ...(Platform.OS === "web"
+      ? ({
+          outlineColor: "rgba(169,176,209,0.92)",
+          outlineStyle: "none",
+          outlineWidth: 0,
+        } as any)
+      : null),
+  },
+  accessInputFocused: {
+    borderColor: "rgba(169,176,209,0.92)",
+    backgroundColor: "rgba(117,82,107,0.12)",
+  },
+  accessButtonOffset: {
+    marginTop: 30,
+  },
+  accessButtonOffsetMobile: {
+    marginTop: 18,
+  },
+  accessButtonOffsetWeb: {
+    marginTop: 18,
+  },
+  accessButton: {
+    borderColor: colors.textDark,
+  },
+  accessButtonLabel: {
+    color: colors.textDark,
+  },
+  accessError: {
+    color: colors.textStrong,
+    fontFamily: typefaces.condensed,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 16,
+    minHeight: 16,
+    textAlign: "center",
+  },
+  accessErrorHidden: {
+    opacity: 0,
   },
 });
