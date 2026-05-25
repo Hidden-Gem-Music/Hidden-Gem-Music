@@ -1,6 +1,50 @@
 mp3li implementation timeline document
 
-Updated: May 23, 2026
+Updated: May 24, 2026
+
+Deployment Prep Access Code Entry Gate (May 24, 2026)
+- Objective:
+  - Prepare the app for official deployment-day limited early access.
+  - Add an access-code entry layer before the normal Welcome experience.
+  - Keep the access layer visually identical to the existing Welcome popup structure so the transition from access entry to normal Welcome feels like a second layer of the same experience.
+  - Preserve separate mobile and web spacing rules after mobile testing showed the two layouts needed different vertical treatment.
+
+- Access-code gate completed:
+  - Added `hidden-gem-music-app/src/config/accessGate.ts`.
+  - Set the current deployment prep access code to `COMMENCEMENT`.
+  - Stored the accepted code value in local storage instead of storing a simple accepted/not-accepted flag.
+  - Made code changes automatically invalidate older accepted codes, so users who entered a previous code are locked out again when the code changes.
+  - Added the access layer inside the existing Welcome popup flow before the normal Welcome view appears.
+  - Kept the same logo, Hidden Gem Music title, and helper/about text in both the access layer and the normal Welcome layer.
+  - Added the deployment-facing message: Hidden Gem Music is currently in limited early access and is only available to invited testers and supporters who are given an access code.
+  - Styled only the words `limited early access` with the app's existing pink accent.
+  - Added the `Access code:` label, code input, invalid-code message area, and `Enter Hidden Gems Music` action.
+  - Changed the invalid-code message to `Access code invalid.`
+  - Reserved permanent space for the invalid-code message so a wrong code does not move the input or button.
+
+- Welcome/access styling completed:
+  - Reworked the access layer spacing through the existing Welcome popup instead of using a new modal size or shape.
+  - Kept web and mobile popup sizing separate so the mobile fixes do not change the approved web layout.
+  - Adjusted mobile Welcome sizing so both the access-code layer and normal Welcome layer have enough vertical room for the button.
+  - Added mobile keyboard avoidance so the popup lifts when the code input is focused.
+  - Updated the access input focus state to use the app's existing pink/list-hover-style treatment instead of a browser/default green outline.
+  - Updated the reusable welcome/action button defaults so borders and label text use the app's existing dark text color.
+  - Updated app search input focus styling to match the same app-owned pink/list-hover focus treatment.
+
+- Mobile Discovery launch fallback completed:
+  - Investigated the mobile-only moment after leaving Welcome for Discovery where the app header and mobile nav appeared before the Discovery screen content.
+  - Avoided adding a new modal overlay on top of the access popup.
+  - Added a mobile-only plain `Loading...` fallback in the screen area after Welcome closes and before Discovery finishes appearing, so the app area is not just the background during that short native route transition.
+
+- Deployment branch prep completed:
+  - Continued work on the dedicated `deployment` branch.
+  - Kept local screenshot archive artifacts untracked.
+  - Prepared local-only issue and PR markdown drafts in `my txts/` for the deployment access-code work and broader deployment-prep branch summary.
+
+- Verification completed:
+  - Ran `npm run typecheck`; passed.
+  - Confirmed the code gate can be retested by changing the configured code because previous accepted codes no longer count.
+  - Confirmed the docs/PR/issue drafts are separate from the app commit scope where requested.
 
 README Screenshot/GIF Assets and Documentation Header Correction (May 23, 2026)
 - Objective:
