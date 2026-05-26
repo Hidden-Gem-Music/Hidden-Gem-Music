@@ -380,29 +380,31 @@ How the map works in the app:
 
 ## About the Database
 
-This section is intentionally left as a placeholder until Leena provides the preferred content, to ensure they are properly represented.
+Hidden Gem Music runs on a SQL Server database covering approximately 28.2 million Spotify chart rows across 73 countries and 8 years. With 240,848 unique songs and 57 country codes in the deployed discovery cache, the database is not just infrastructure. It is a feature of the product.
 
-The content below is placeholder content only and should be replaced or revised after Leena provides what they want included here.
+Leena led all database work throughout the project: data sourcing, cleaning, ingestion, schema design, stored procedure development, performance tuning, data quality investigations, and ongoing health maintenance. The data contracts that let the frontend request screen-ready results instead of raw data came from this work.
 
-Hidden Gem Music depends on a SQL Server database and read model designed to make a large chart dataset usable inside an interactive app. The source data represents approximately 28.2 million Spotify chart entries across two Kaggle datasets, with 240,848 unique songs documented in `DIM_Song` and 57 country codes represented in the deployed discovery cache.
+The database is built as a data warehouse, structured for analytical reads and designed to support new chart sources, additional countries, or new KPIs without the underlying architecture needing to change. That design is what makes the app's current performance possible and future expansion straightforward.
 
-Leena led the database architecture behind the project. That work included source data ingestion, schema design, the star-schema migration, stored procedure development, precomputed summary tables, data quality investigations, performance tuning, and the backend data contracts that let the frontend request screen-ready results instead of raw chart rows.
+All expensive analytical work happens once, upfront. The results are stored in precomputed summary tables the API reads from at request time, with no aggregation during navigation and nothing calculated on the frontend. This logic is why Discovery, Country Profile, Hidden Gems, Comparison, and Dashboard can all move quickly between screens.
 
-The database is structured so expensive music-analysis work happens ahead of time instead of during user navigation. Population stored procedures build summary tables from the raw `ChartEntry` data after ingestion. Read stored procedures then serve lightweight, screen-specific result sets to the .NET API at request time. This split is what lets the app move quickly between Discovery, Country Profile, Hidden Gems, Comparison, and Dashboard screens without asking the frontend to calculate large aggregations.
+The two source datasets were cleaned, validated, and ingested separately. They do not share a common structure: different country formats, different song identifiers, and metrics that cannot be directly compared. There is a 22-month gap in the data between December 2021 and October 2023, disclosed on the Dashboard and visually accounted for throughout the app.
 
-Major database responsibilities include:
+The database is responsible for:
 
-- storing the normalized/star-schema chart warehouse used by the backend
-- ingesting and preserving millions of historical and newer chart rows
-- maintaining song, artist, bridge, chart-entry, country, and summary-table relationships
-- building precomputed tables for country/year stats, global overlap, trend velocity, discovery gap, isolation score, peak reach, hidden gems, and top songs by country/year
-- exposing stable stored procedure result sets that the .NET repositories map into DTOs
-- supporting app-specific concepts such as shared songs, unique songs, hidden gems, discovery gap timing, country comparison, isolation ranking, and dashboard KPIs
-- keeping SQL Server private while the backend API acts as the only app-facing data access layer
+- storing and serving 28.2 million chart rows across 73 countries and 8 years as a unified, queryable warehouse
+- maintaining the relationships between songs, artists, countries, chart types, and all precomputed summary data the app depends on
+- powering every data insight in the app through a stored procedure suite: country profiles, hidden gem results, overlap comparisons, discovery gap metrics, isolation rankings, and dashboard KPIs
+- serving screen-ready results to the API at request time with no runtime aggregation
+- keeping the database private while the backend API acts as the only app-facing data access layer
 
-The database work also included multiple rounds of validation and correction. Documented fixes include the star-schema migration from the earlier transactional structure, summary-table repopulation after schema changes, Viral 50 exclusion from the relevant metrics, discovery-gap date quality fixes, and stored procedure/controller/interface cross-checks. Those investigations mattered because small data-layer assumptions could visibly affect charts, country pages, hidden-gem lists, and dashboard interpretation.
+Data quality investigations were a sustained part of the database work. What the app tells users has to be continuously verified to be true. Incorrect assumptions at the data layer affect the meaning of every chart, every KPI, every hidden gem result, and every conclusion a user draws. Several investigations were also directly about load performance: identifying procedures and summary tables that were too slow, restructuring them, and repopulating in dependency order. Almost all of the loading speed users experience in the frontend is a direct result of that work.
 
 In practice, the database is the foundation of the product. The frontend can feel like an exploratory music app because the database has already done the heavy analytical work: identifying what charted where, what stayed local, what spread globally, how quickly songs moved, which countries overlap, which songs qualify as hidden gems, and which dashboard metrics explain the Discovery Gap.
+
+Related:
+
+- [Business report and data documentation](business-report/README.md)
 
 ## Data, API, and Provider Architecture
 
