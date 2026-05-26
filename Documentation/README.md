@@ -29,6 +29,7 @@ Current scope here includes:
 - deployment guide for capstone review and verification
 - accepted deployment decision record
 - deployment platform selection and setup plan
+- final documentation audit tracker
 - shared QA/regression log used by project contributors
 
 The deployment guide is:
@@ -42,6 +43,10 @@ The accepted deployment decision record is:
 The deployment platform selection and setup plan is:
 
 - `Documentation/deployment-platform-selection-plan.md`
+
+The final documentation audit tracker is:
+
+- `Documentation/final-documentation-audit.md`
 
 The shared QA log is:
 
