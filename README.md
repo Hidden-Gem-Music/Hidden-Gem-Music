@@ -546,6 +546,7 @@ The final intended production source branch is `main` after team approval and af
 
 Deployment docs:
 
+- [Deployment guide](Documentation/deployment-guide.md)
 - [Deployment ADR](Documentation/ADR-DEPLOYMENT-001-Deployment-Decisions.md)
 - [Deployment platform selection plan](Documentation/deployment-platform-selection-plan.md)
 

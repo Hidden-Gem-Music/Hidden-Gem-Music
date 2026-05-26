@@ -29,7 +29,7 @@ This branch rewrote the root `README.md` as the main project entrypoint for Hidd
 - Linked the active Capstone Progress Tracker project board at `https://github.com/users/lkomenski/projects/6`.
 - Added GitHub project tracking context, including current issue/PR counts, labels, milestones, and Leena's project-board ownership.
 - Changed the backend API table from copy-paste endpoint paths to public-safe internal route groups.
-- Removed production API endpoint examples from the public README while keeping maintainer/deployment references abstract.
+- Removed production API endpoint examples from the public README while keeping deployment references abstract.
 - Split Data, API, and Provider Architecture into clearer dropdown sections for app database/internal API architecture, Deezer/Genius provider architecture, and language/genre getter tooling.
 - Added a custom Discovery Map section documenting the generated SVG map asset, shared renderer, map interactions, and no live map-provider dependency.
 - Added a language and genre tooling section for mp3li Additional Data Getter v2 and related Genius/Deezer workflows.
@@ -42,6 +42,9 @@ This branch rewrote the root `README.md` as the main project entrypoint for Hidd
 - Added an app usage guide covering Welcome, Discovery, Country Profile, Hidden Gems, Comparison, and Dashboard, with visible guide GIFs and expandable screenshot sets where multiple screenshots exist.
 - Added readable `Screenshots shown:` captions under each guide GIF explaining the screen states shown in order.
 - Added live app, source code, technical architecture, deployment, developer reference, verification, documentation index, project tracking, dataset/provider credits, and team credits sections.
+- Added `Documentation/deployment-guide.md` as standalone capstone deployment documentation.
+- Linked the deployment guide from the root README and shared documentation map.
+- Documented the deployment branch-source plan in the guide: validation from `deployment`, with final intended production source moving to `main` after team approval and once `main` contains the deployable project state.
 
 ### Not included
 
