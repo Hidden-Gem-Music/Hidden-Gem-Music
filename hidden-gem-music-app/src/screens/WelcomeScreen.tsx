@@ -14,6 +14,7 @@ import {
 import { ActionButton } from "../components/ActionButton";
 import { Panel } from "../components/Panel";
 import { ACCESS_CODE, writeAccessGranted } from "../config/accessGate";
+import { DiscoveryMode, useDiscoveryMode, useMobileExperience, writeDiscoveryMode } from "../config/discoveryMode";
 import { ScreenRoute } from "../types/navigation";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -96,12 +97,15 @@ function WelcomeGradientTitle({ compact = false }: { compact?: boolean }) {
 
 export function WelcomeScreen({ accessGranted, onAccessGranted, onDismiss, onSelectRoute }: Props) {
   const { width } = useWindowDimensions();
-  const isCompactWelcome = width < 980;
-  const isMobileWelcome = Platform.OS !== "web";
+  const discoveryMode = useDiscoveryMode();
+  const isMobileWelcome = useMobileExperience();
+  const isCompactWelcome = isMobileWelcome || width < 980;
+  const isChoosingDiscoveryMode = discoveryMode === null;
   const useFullScreenBackdrop = Platform.OS === "web" && !isCompactWelcome;
   const [accessCodeInput, setAccessCodeInput] = useState("");
   const [accessError, setAccessError] = useState("");
   const [accessInputFocused, setAccessInputFocused] = useState(false);
+  const [hoveredDiscoveryMode, setHoveredDiscoveryMode] = useState<DiscoveryMode | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isClosingRef = useRef(false);
@@ -128,6 +132,10 @@ export function WelcomeScreen({ accessGranted, onAccessGranted, onDismiss, onSel
     writeAccessGranted();
     setAccessError("");
     onAccessGranted();
+  };
+
+  const handleDiscoveryModeSelect = (mode: DiscoveryMode) => {
+    writeDiscoveryMode(mode);
   };
 
   const renderWelcomeButtons = (hidden = false) => (
@@ -187,7 +195,7 @@ export function WelcomeScreen({ accessGranted, onAccessGranted, onDismiss, onSel
         <WelcomeBackdrop style={styles.overlayBackdrop} pointerEvents="none" useGradient />
       )}
       <Pressable style={styles.modalPressTarget} onPress={(event) => event.stopPropagation()}>
-        <Panel style={[styles.modal, isMobileWelcome ? styles.modalMobile : null]}>
+        <Panel style={[styles.modal, isMobileWelcome || isChoosingDiscoveryMode ? styles.modalMobile : null]}>
           <LinearGradient
             colors={popupBottomDepthGradient}
             locations={[0, 0.72, 1]}
@@ -195,18 +203,61 @@ export function WelcomeScreen({ accessGranted, onAccessGranted, onDismiss, onSel
             end={{ x: 0.5, y: 1 }}
             style={styles.modalDepthFill}
           />
-          <View style={[styles.modalContent, isMobileWelcome ? styles.modalContentMobile : null]}>
-            <WelcomeGradientTitle compact={isMobileWelcome} />
-            <Text style={[styles.summary, isMobileWelcome ? styles.summaryMobile : null]}>
-              The purpose of this app is to find and display the 'Discovery Gap' — What music is most loved in each
-              country, and how much was that country's most loved music spread, shared, and loved by other countries?
-              Explore the Discovery Gap multiple ways: the discovery map, country detail pages, comparison mode,
-              listen to 30 second previews of hidden gems, and the Discovery Dashboard. Utilize filters in
-              multiple areas of the app to fine tune your discovery.
-            </Text>
-            {accessGranted ? (
-              renderWelcomeButtons()
+          <View style={[styles.modalContent, isMobileWelcome || isChoosingDiscoveryMode ? styles.modalContentMobile : null]}>
+            {isChoosingDiscoveryMode ? (
+              <View style={styles.modeContent}>
+                <Text style={styles.modeTitle}>Choose your Discovery Mode</Text>
+                <Text style={styles.modeHelper}>Are you on desktop or mobile?</Text>
+                <View style={styles.modeToggle}>
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: discoveryMode === "desktop" }}
+                    onHoverIn={() => setHoveredDiscoveryMode("desktop")}
+                    onHoverOut={() =>
+                      setHoveredDiscoveryMode((current) => (current === "desktop" ? null : current))
+                    }
+                    style={({ pressed }) => [
+                      styles.modeOption,
+                      hoveredDiscoveryMode === "desktop" ? styles.modeOptionHovered : null,
+                      pressed ? styles.modeOptionPressed : null,
+                    ]}
+                    onPress={() => handleDiscoveryModeSelect("desktop")}
+                  >
+                    <Text style={styles.modeOptionLabel}>Desktop</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: discoveryMode === "mobile" }}
+                    onHoverIn={() => setHoveredDiscoveryMode("mobile")}
+                    onHoverOut={() =>
+                      setHoveredDiscoveryMode((current) => (current === "mobile" ? null : current))
+                    }
+                    style={({ pressed }) => [
+                      styles.modeOption,
+                      hoveredDiscoveryMode === "mobile" ? styles.modeOptionHovered : null,
+                      pressed ? styles.modeOptionPressed : null,
+                    ]}
+                    onPress={() => handleDiscoveryModeSelect("mobile")}
+                  >
+                    <Text style={styles.modeOptionLabel}>Mobile</Text>
+                  </Pressable>
+                </View>
+              </View>
             ) : (
+              <>
+                <WelcomeGradientTitle compact={isMobileWelcome} />
+                <Text style={[styles.summary, isMobileWelcome ? styles.summaryMobile : null]}>
+                  The purpose of this app is to find and display the 'Discovery Gap' — What music is most loved in each
+                  country, and how much was that country's most loved music spread, shared, and loved by other countries?
+                  Explore the Discovery Gap multiple ways: the discovery map, country detail pages, comparison mode,
+                  listen to 30 second previews of hidden gems, and the Discovery Dashboard. Utilize filters in
+                  multiple areas of the app to fine tune your discovery.
+                </Text>
+              </>
+            )}
+            {!isChoosingDiscoveryMode && accessGranted ? (
+              renderWelcomeButtons()
+            ) : !isChoosingDiscoveryMode ? (
               <View style={[styles.accessLayerSlot, isMobileWelcome ? styles.accessLayerSlotMobile : null]}>
                 <View style={[styles.buttonStackSpacer, isMobileWelcome ? styles.buttonStackSpacerMobile : null]} pointerEvents="none" />
                 <View style={[styles.accessContent, isMobileWelcome ? styles.accessContentMobile : styles.accessContentWeb]}>
@@ -258,7 +309,7 @@ export function WelcomeScreen({ accessGranted, onAccessGranted, onDismiss, onSel
                   </View>
                 </View>
               </View>
-            )}
+            ) : null}
           </View>
         </Panel>
       </Pressable>
@@ -293,12 +344,14 @@ const styles = StyleSheet.create({
   },
   overlayCompact: {
     zIndex: 10,
+    padding: 14,
   },
   closedOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
   overlayBackdropPressTarget: {
     ...StyleSheet.absoluteFillObject,
+    ...(Platform.OS === "web" ? ({ cursor: "default" } as any) : null),
   },
   overlayBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -309,6 +362,8 @@ const styles = StyleSheet.create({
   modalPressTarget: {
     width: "100%",
     maxWidth: 760,
+    alignItems: "center",
+    ...(Platform.OS === "web" ? ({ cursor: "default" } as any) : null),
   },
   modal: {
     width: "100%",
@@ -334,6 +389,65 @@ const styles = StyleSheet.create({
   },
   modalContentMobile: {
     gap: 14,
+  },
+  modeContent: {
+    width: "100%",
+    alignItems: "center",
+    gap: 16,
+    paddingVertical: 10,
+  },
+  modeTitle: {
+    color: colors.textLight,
+    fontFamily: typefaces.display,
+    fontSize: 34,
+    fontWeight: "700",
+    lineHeight: 40,
+    textAlign: "center",
+  },
+  modeHelper: {
+    color: colors.textStrong,
+    fontFamily: typefaces.condensed,
+    fontSize: 17,
+    fontWeight: "800",
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  modeToggle: {
+    width: "100%",
+    maxWidth: 330,
+    flexDirection: "row",
+    gap: 10,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: "rgba(169, 176, 209, 0.24)",
+    borderRadius: 20,
+    backgroundColor: colors.panelAlt,
+  },
+  modeOption: {
+    flex: 1,
+    minHeight: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "rgba(169, 176, 209, 0.28)",
+    backgroundColor: "rgba(108,119,142,0.12)",
+    ...(Platform.OS === "web" ? ({ cursor: "pointer" } as any) : null),
+  },
+  modeOptionHovered: {
+    borderColor: "rgba(169,176,209,0.72)",
+    backgroundColor: "rgba(117,82,107,0.18)",
+  },
+  modeOptionPressed: {
+    borderColor: "rgba(169,176,209,0.92)",
+    backgroundColor: "rgba(117,82,107,0.3)",
+  },
+  modeOptionLabel: {
+    color: colors.textLight,
+    fontFamily: typefaces.condensed,
+    fontSize: 16,
+    fontWeight: "800",
+    textAlign: "center",
   },
   brand: {
     color: colors.textLight,

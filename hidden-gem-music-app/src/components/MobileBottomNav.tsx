@@ -2,6 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
+import { useMobileExperience } from "../config/discoveryMode";
 import { ScreenRoute } from "../types/navigation";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
@@ -25,13 +26,14 @@ type Props = {
 
 export function MobileBottomNav({ currentRoute, searchOpen, onNavigate, onToggleSearch, onCloseSearch }: Props) {
   const { width } = useWindowDimensions();
+  const isMobileExperience = useMobileExperience();
   const [labelWidths, setLabelWidths] = useState<Record<string, number>>({});
   const isSearchActive = searchOpen;
   const isRouteActive = (route: ScreenRoute) =>
     currentRoute === route ||
     (route === "comparisonSelect" && currentRoute === "comparisonResults") ||
     (route === "discovery" && currentRoute === "country");
-  if (width >= 980) {
+  if (!isMobileExperience && width >= 980) {
     return null;
   }
 

@@ -12,6 +12,7 @@ import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { YearSlider } from "../components/YearSlider";
 import { YearDataDisclaimer } from "../components/YearDataDisclaimer";
+import { useMobileExperience } from "../config/discoveryMode";
 import { loadCountryGenreSamples, loadCountryLanguageSamples } from "../data/countryApi";
 import { formatLanguageAndMore } from "../data/languageApi";
 import { colors } from "../theme/colors";
@@ -78,7 +79,8 @@ export function DiscoveryScreen({
   // Issue #6 shell: this screen owns the core Discovery Map layout,
   // including map rendering, country selection, panel structure, and dummy-data wiring.
   const { width } = useWindowDimensions();
-  const isStacked = width < 980;
+  const isMobileExperience = useMobileExperience();
+  const isStacked = isMobileExperience || width < 980;
   const [allFiltersOpen, setAllFiltersOpen] = useState(false);
   const [listAutoScrollSignal, setListAutoScrollSignal] = useState(0);
   const [hoveredListCountryId, setHoveredListCountryId] = useState<string | null>(null);
@@ -390,7 +392,7 @@ export function DiscoveryScreen({
         selectedCountryId={visibleSelectedCountryId}
         onSelectCountry={onSelectCountry}
         onOpenCountry={onOpenCountry}
-        onHoverCountryChange={Platform.OS === "web" ? setHoveredListCountryId : undefined}
+        onHoverCountryChange={!isMobileExperience && Platform.OS === "web" ? setHoveredListCountryId : undefined}
         autoScrollSignal={listAutoScrollSignal}
         genreSummaryByCountryCode={displayGenreSummaryByCountryCode}
         languageSummaryByCountryCode={languageSummaryByCountryCode}
@@ -409,7 +411,7 @@ export function DiscoveryScreen({
           countries={filteredCountries}
           allCountries={filteredCountries}
           isLoading={isLoading}
-          hoveredCountryId={Platform.OS === "web" ? hoveredListCountryId : null}
+          hoveredCountryId={!isMobileExperience && Platform.OS === "web" ? hoveredListCountryId : null}
           selectedYear={selectedYear}
           availableYears={timelineYears}
           onSelectCountry={handleGlobeFocus}

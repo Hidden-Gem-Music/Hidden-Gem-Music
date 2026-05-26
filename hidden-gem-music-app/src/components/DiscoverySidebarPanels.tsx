@@ -3,6 +3,7 @@ import { ActivityIndicator, LayoutChangeEvent, NativeScrollEvent, NativeSyntheti
 import { useEffect, useRef, useState } from "react";
 
 import { Country } from "../types/content";
+import { useMobileExperience } from "../config/discoveryMode";
 import { colors } from "../theme/colors";
 import { typefaces } from "../theme/typography";
 import { CountryCard } from "./CountryCard";
@@ -48,7 +49,8 @@ export function DiscoverySidebarPanels({
   onNearListEnd,
 }: Props) {
   const { width } = useWindowDimensions();
-  const isWeb = Platform.OS === "web";
+  const isMobileExperience = useMobileExperience();
+  const isWeb = Platform.OS === "web" && !isMobileExperience;
   const isNarrowHeader = width < 520;
   const countriesKey = countries.map((country) => country.id).join("|");
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>("list");

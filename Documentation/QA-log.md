@@ -3,6 +3,46 @@
 
 ---
 
+## 2026-05-25 - Production Smoke Test Mobile-Web Mode Selection
+
+**Tester:** mp3li / Codex-assisted production smoke testing
+**Fix owner:** mp3li
+**Branch:** `55-production-smoke-test`
+**Scope:** Temporary desktop/mobile experience selection for production mobile-browser usability
+
+### What was handled
+
+Production smoke testing found that opening the deployed web app in a phone browser still used several web-runtime paths, even though the intended experience on that device should match the app's mobile behavior. The most visible problems were oversized Welcome/access presentation, web-style Discovery Map behavior, and mobile-browser screens not consistently using the mobile navigation/layout decisions already built for Expo/native testing.
+
+This branch adds an initial **Choose your Discovery Mode** prompt before the access-code step. The prompt asks whether the user is on desktop or mobile and stores that choice locally. Selecting Mobile routes the web build through the mobile experience decisions needed for the current production release.
+
+### Implementation notes
+
+- Added a shared discovery-mode config/hook at `hidden-gem-music-app/src/config/discoveryMode.ts`.
+- Preserved the production access code as `COMMENCEMENT`.
+- Updated the app shell so mobile mode uses the mobile Welcome/access presentation instead of the wide web modal.
+- Hid app chrome on the mobile-mode Welcome route so the first access flow has the full phone-browser viewport.
+- Updated the header and bottom navigation so mobile mode uses the mobile brand/nav structure even in a browser.
+- Updated Discovery Map behavior so mobile mode uses tap-first preview behavior, mobile controls, and mobile map styling instead of hover-first web behavior.
+- Updated Hidden Gems layout checks so mobile mode can use the mobile layout path in phone browsers.
+- Updated Country and Comparison language-summary copy punctuation.
+- Updated Hidden Gems helper copy to describe hidden gems as songs loved in many other countries that have not yet spread to the selected country/year.
+
+### Temporary nature
+
+This is a production-readiness workaround, not the intended final discovery-mode UX. It keeps the deployed app functional and visually usable on mobile browsers for capstone testing and review. A future iteration should remove the manual question and replace it with a more automatic, reliable device/input/layout strategy that can choose the correct experience without asking the user.
+
+### Known follow-up
+
+- Mobile browser Discovery still has extra vertical space between the map section and the Pre-Selected Filters section. This is being left as a future mobile polish bug instead of blocking the initial smoke-test fix.
+
+### Verification
+
+- Tested the mobile-browser flow locally through the Expo web LAN URL.
+- Ran `npm run typecheck`; passed.
+
+---
+
 ## 2026-05-25 - Issue 55 Final Documentation Audit Completion
 
 **Tester:** mp3li / Codex-assisted documentation audit

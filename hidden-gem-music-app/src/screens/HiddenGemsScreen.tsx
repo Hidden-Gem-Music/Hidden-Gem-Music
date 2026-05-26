@@ -25,6 +25,7 @@ import { Panel } from "../components/Panel";
 import { ScreenScaffold } from "../components/ScreenScaffold";
 import { SecondarySurfaceFill } from "../components/SecondarySurfaceFill";
 import { YearDataDisclaimer } from "../components/YearDataDisclaimer";
+import { useMobileExperience } from "../config/discoveryMode";
 import { getCachedHiddenGemsPage, loadCountryProfile, loadHiddenGemsPage } from "../data/countryApi";
 import { isCountryWithHiddenGems } from "../data/countryDisplay";
 import { hasKnownSongTitle, mapApiCountryProfile, mapApiHiddenGemPage } from "../data/apiMappers";
@@ -833,7 +834,7 @@ function PlayingSidePanel({
   onNextSong: () => void;
 }) {
   const { width } = useWindowDimensions();
-  const isNativePlatform = Platform.OS !== "web";
+  const isNativePlatform = useMobileExperience();
   const mainCdSize = isNativePlatform || width < 980 ? 325 : 450;
   const scrollbar = useCustomScrollbar();
   const loadingText = useLoadingText(isLoading);
@@ -1049,7 +1050,7 @@ export function HiddenGemsScreen({
   onFocusSelectionHandled,
 }: Props) {
   const { width } = useWindowDimensions();
-  const isNativePlatform = Platform.OS !== "web";
+  const isNativePlatform = useMobileExperience();
   const isStacked = isNativePlatform;
   const isBlurbStacked = isNativePlatform || width < 1380;
   const [apiProfile, setApiProfile] = useState<ReturnType<typeof mapApiCountryProfile> | null>(null);
@@ -1607,11 +1608,10 @@ export function HiddenGemsScreen({
                 <GemIcon size={16} style={styles.blurbIcon} />
               </View>
               <Text style={styles.blurbBody}>
-                Hidden gems are songs that are loved in this country, but have not spread as widely
-                {isBlurbStacked ? " " : "\n"}across other countries as of your selected year. Select optional
-                filter(s), a country, and a year to view that country&apos;s Hidden Gems. Use Previous and Next
-                buttons under the selected song&apos;s CD and the List View to navigate and discover Hidden Gems.
-                Click Play to listen to a 30-second preview of the song.
+                Hidden gems are songs that are loved in many other countries, but have not yet spread to the selected
+                country in the selected year. Select optional filter(s), a country, and a year to view that
+                country&apos;s Hidden Gems. Use Previous and Next buttons under the selected song&apos;s CD and the List
+                View to navigate and discover Hidden Gems. Click Play to listen to a 30-second preview of the song.
               </Text>
             </View>
             <View style={[styles.blurbRightRail, isBlurbStacked ? styles.blurbRightRailStacked : null]}>
