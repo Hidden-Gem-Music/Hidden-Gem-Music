@@ -26,9 +26,14 @@ Shared repository-level documentation lives in:
 Current scope here includes:
 
 - repository documentation map
+- deployment guide for capstone review and verification
 - accepted deployment decision record
 - deployment platform selection and setup plan
 - shared QA/regression log used by project contributors
+
+The deployment guide is:
+
+- `Documentation/deployment-guide.md`
 
 The accepted deployment decision record is:
 
