@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="94" viewBox="0 0 540 94" role="img" aria-labelledby="title desc">
+  <title id="title">Hidden Gem Music</title>
+  <desc id="desc">Gradient title art for the Hidden Gem Music README.</desc>
+  <defs>
+    <linearGradient id="titleGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#75526B" />
+      <stop offset="14%" stop-color="#75526B" />
+      <stop offset="36%" stop-color="#6C778E" />
+      <stop offset="100%" stop-color="#6C778E" />
+    </linearGradient>
+  </defs>
+  <rect width="540" height="94" fill="none" />
+  <text
+    x="270"
+    y="67"
+    text-anchor="middle"
+    font-family="'NyghtSerif-MediumItalic', 'Nyght Serif', Georgia, serif"
+    font-size="64"
+    font-style="italic"
+    font-weight="400"
+    letter-spacing="0"
+    fill="url(#titleGradient)"
+  >Hidden Gem Music</text>
+</svg>
