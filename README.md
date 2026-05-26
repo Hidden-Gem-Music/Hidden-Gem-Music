@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="Documentation/Images/readme-title.svg" alt="Hidden Gem Music" width="500" style="vertical-align: middle;" /><img src="hidden-gem-music-app/src/assets/images/gemicon.png" alt="gem icon" width="28" style="vertical-align: middle;" />
+  <img src="hidden-gem-music-app/src/assets/images/gemicon.png" alt="Hidden Gem Music gem icon" width="42" />
+</p>
+
+<p align="center">
+  <img src="Documentation/Images/readme-title.svg" alt="Hidden Gem Music" width="500" />
 </p>
 
 <p align="center">
