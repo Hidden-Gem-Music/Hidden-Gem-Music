@@ -546,7 +546,7 @@ Hidden Gem Music uses a hybrid Cloudflare deployment:
 - Cloudflare Tunnel routes frontend API traffic to the iMac-hosted .NET API without exposing SQL Server.
 - SQL Server stays private on the iMac/local Docker setup.
 
-The final intended production source branch is `main` after team approval and after `main` contains the final deployable project state. Initial deployment validation used the dedicated `deployment` branch so the deployment path could be tested before the final cutover.
+The production frontend source branch is now `main`. Initial deployment validation used the dedicated `deployment` branch so the deployment path could be tested before the final cutover.
 
 Deployment docs:
 

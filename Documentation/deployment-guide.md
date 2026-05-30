@@ -10,7 +10,7 @@
 
 ## Purpose
 
-This guide documents how the Hidden Gem Music capstone deployment is configured, why the deployment architecture was chosen, how the deployed app should be verified, and how the final production branch source will move to `main`.
+This guide documents how the Hidden Gem Music capstone deployment is configured, why the deployment architecture was chosen, how the deployed app should be verified, and how the final production branch source was moved to `main`.
 
 This guide is written as deployment evidence for capstone review and grading, with enough technical detail to show the frontend, backend API, Cloudflare routing, private SQL Server position, smoke-test process, and final branch-source plan without exposing secrets or private machine-specific configuration.
 
@@ -31,9 +31,9 @@ API:      configured through Cloudflare Tunnel; exact endpoint checks are kept i
 
 The public README intentionally does not publish copy-paste API endpoint examples. API-specific smoke tests should use the Cloudflare dashboard, backend docs, or private project deployment notes.
 
-## Branch Source Plan
+## Branch Source
 
-The deployment branch strategy has two phases.
+The deployment branch strategy had two phases.
 
 ### Phase 1: Validation from `deployment`
 
@@ -52,18 +52,18 @@ This allowed the team to verify:
 
 ### Phase 2: Final Production Source from `main`
 
-The intended final production frontend source branch is `main`.
+The production frontend source branch is now `main`.
 
-Move the Cloudflare Pages production source to `main` after:
+Cloudflare Pages production source was moved to `main` after:
 
-- the team approves the cutover
-- `main` contains the final deployable project state
-- the README/deployment documentation branch has landed
-- required deployment files exist on `main`
-- the backend/API/tunnel stack is available for smoke testing
-- the team is ready to verify the final production build
+- the team approved the cutover
+- `main` contained the final deployable project state
+- the README/deployment documentation branch landed
+- required deployment files existed on `main`
+- the backend/API/tunnel stack was available for smoke testing
+- the team was ready to verify the final production build
 
-This wording is intentional: validation from `deployment` was a risk-reduction step, while `main` is the intended final production source after team approval.
+This branch flow was intentional: validation from `deployment` was a risk-reduction step, while `main` is now the production source after team approval.
 
 ## Frontend Deployment Configuration
 
@@ -138,7 +138,7 @@ This keeps the database private while allowing the app to load screen-ready data
 
 ## Final Cutover Checklist to `main`
 
-Before moving Cloudflare Pages production source to `main`, confirm:
+The final Cloudflare Pages production source move to `main` was completed after confirming:
 
 - `main` includes the final frontend app source.
 - `main` includes `hidden-gem-music-app/public/_redirects`.
@@ -152,7 +152,7 @@ Before moving Cloudflare Pages production source to `main`, confirm:
 - CORS allows the production frontend origin.
 - The app access-code flow works.
 
-After switching the production source to `main`, trigger or wait for a Cloudflare Pages production deployment, then run the smoke tests below.
+After switching the production source to `main`, a new Cloudflare Pages production deployment should be triggered by the next `main` commit or merge, then the smoke tests below should be run.
 
 ## Smoke Test Checklist
 

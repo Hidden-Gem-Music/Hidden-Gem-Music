@@ -11,9 +11,9 @@ Final Documentation Audit Completion (May 25, 2026)
 - Final audit completed:
   - Updated `Documentation/final-documentation-audit.md` from in progress to complete.
   - Confirmed the completed root `README.md` covers app overview, live app access, usage guide, architecture, deployment, documentation map, project tracking, screenshots/GIFs, dataset/provider credits, team credits, and challenges/solutions.
-  - Confirmed `Documentation/deployment-guide.md` covers capstone deployment evidence, Cloudflare Pages, Cloudflare Tunnel, private SQL Server, final `main` cutover plan, smoke tests, troubleshooting, and safety notes.
+  - Confirmed `Documentation/deployment-guide.md` covers capstone deployment evidence, Cloudflare Pages, Cloudflare Tunnel, private SQL Server, final `main` cutover state, smoke tests, troubleshooting, and safety notes.
   - Confirmed backend ADRs, deployment ADR/plan, database/data docs, frontend docs, provider/API docs, tooling docs, business/data deliverables, QA log, and shared documentation map are discoverable.
-  - Preserved follow-up notes for Leena's preferred database wording, optional frontend ADR labeling, and final Cloudflare Pages source move to `main` after team approval.
+  - Preserved follow-up notes for Leena's preferred database wording and optional frontend ADR labeling, and updated the Cloudflare Pages source wording after the final move to `main`.
 
 - Professional documentation updated:
   - Added the Issue 55 completion entry to `Documentation/QA-log.md`.
