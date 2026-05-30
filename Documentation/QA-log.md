@@ -19,7 +19,7 @@ This branch adds an initial **Choose your Discovery Mode** prompt before the acc
 ### Implementation notes
 
 - Added a shared discovery-mode config/hook at `hidden-gem-music-app/src/config/discoveryMode.ts`.
-- Preserved the production access code as `COMMENCEMENT`.
+- Preserved the production access-code flow while moving the code value into local/deployment environment configuration.
 - Updated the app shell so mobile mode uses the mobile Welcome/access presentation instead of the wide web modal.
 - Hid app chrome on the mobile-mode Welcome route so the first access flow has the full phone-browser viewport.
 - Updated the header and bottom navigation so mobile mode uses the mobile brand/nav structure even in a browser.
@@ -211,7 +211,7 @@ This branch added a limited early-access code layer to the existing Welcome popu
 ### Access code behavior
 
 - Added a frontend access-code config module at `hidden-gem-music-app/src/config/accessGate.ts`.
-- Set the current deployment prep code to `COMMENCEMENT`.
+- Configured the current deployment prep code through local/deployment environment settings instead of committing the code value.
 - Stored the accepted code value in local storage instead of a generic boolean so changing the code automatically locks out users who entered an older code.
 - Kept invalid attempts inside the popup with reserved error space so the input/button layout does not jump when the error appears.
 - Updated the invalid-code message to `Access code invalid.`

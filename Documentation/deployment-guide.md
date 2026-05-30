@@ -81,6 +81,7 @@ Required production environment variable:
 
 ```text
 EXPO_PUBLIC_API_BASE_URL=<production API base URL from Cloudflare Tunnel>
+EXPO_PUBLIC_ACCESS_CODE=<provided access code>
 ```
 
 The frontend includes a single-page app redirect file:
@@ -144,6 +145,7 @@ Before moving Cloudflare Pages production source to `main`, confirm:
 - `main` includes the current README/deployment documentation.
 - Cloudflare Pages production settings still match the expected root/build/output values.
 - `EXPO_PUBLIC_API_BASE_URL` is set in Cloudflare Pages production environment variables.
+- `EXPO_PUBLIC_ACCESS_CODE` is set in Cloudflare Pages production environment variables.
 - Cloudflare Tunnel is running.
 - The backend API is running on the deployment machine.
 - SQL Server is running and reachable by the backend.
@@ -205,6 +207,7 @@ Check:
 - backend API process is running
 - SQL Server is running
 - `EXPO_PUBLIC_API_BASE_URL` points to the production API route
+- `EXPO_PUBLIC_ACCESS_CODE` is present in the frontend deployment environment
 - backend CORS allows `https://hiddengemmusicapp.mp3li.online`
 - browser console/network tab for failed API requests
 

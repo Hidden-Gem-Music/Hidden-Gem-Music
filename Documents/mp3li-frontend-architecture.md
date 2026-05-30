@@ -10,7 +10,7 @@ Current behavior:
 
 - Desktop mode keeps the wide web presentation and hover-first map behavior.
 - Mobile mode routes phone-browser users through mobile experience decisions for Welcome/access presentation, app chrome, Discovery Map interaction, mobile controls, and selected mobile layout paths.
-- The production access code remains `COMMENCEMENT`.
+- The production access code is supplied through the `EXPO_PUBLIC_ACCESS_CODE` deployment/local environment variable and should not be committed.
 
 Future direction:
 

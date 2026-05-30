@@ -114,7 +114,7 @@ Deployment Prep Access Code Entry Gate (May 24, 2026)
 
 - Access-code gate completed:
   - Added `hidden-gem-music-app/src/config/accessGate.ts`.
-  - Set the current deployment prep access code to `COMMENCEMENT`.
+  - Moved the deployment prep access code into local/deployment environment configuration so the code value is not committed.
   - Stored the accepted code value in local storage instead of storing a simple accepted/not-accepted flag.
   - Made code changes automatically invalidate older accepted codes, so users who entered a previous code are locked out again when the code changes.
   - Added the access layer inside the existing Welcome popup flow before the normal Welcome view appears.
@@ -3841,7 +3841,7 @@ Production Smoke Test Mobile-Web Mode Selection (May 25, 2026)
 - Added an initial "Choose your Discovery Mode" step before the access-code flow so users can select Desktop or Mobile.
 - Mobile mode is a temporary production-readiness fix that makes the current deployed web app functional and visually usable on phone browsers for capstone testing/review.
 - Mobile mode now drives the shared mobile experience decisions for the Welcome/access flow, app chrome, Discovery Map interaction, mobile controls, and Hidden Gems layout checks.
-- Preserved the production access code as `COMMENCEMENT`.
+- Preserved the production access-code flow while moving the code value into local/deployment environment configuration.
 - Updated Country/Comparison language-summary punctuation and corrected the Hidden Gems helper definition.
 - Known follow-up: phone-browser mobile mode still has extra vertical space between the Discovery Map section and the Pre-Selected Filters section. This is documented as a future mobile polish bug rather than a blocker for the initial production smoke-test fix.
 - Future iteration: remove the manual Desktop/Mobile question and replace it with a more reliable automatic strategy for device, viewport, pointer, and touch capability detection.

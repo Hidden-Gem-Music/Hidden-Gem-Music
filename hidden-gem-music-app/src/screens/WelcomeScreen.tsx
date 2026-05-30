@@ -13,7 +13,7 @@ import {
 
 import { ActionButton } from "../components/ActionButton";
 import { Panel } from "../components/Panel";
-import { ACCESS_CODE, writeAccessGranted } from "../config/accessGate";
+import { ACCESS_CODE, isAccessCodeConfigured, writeAccessGranted } from "../config/accessGate";
 import { DiscoveryMode, useDiscoveryMode, useMobileExperience, writeDiscoveryMode } from "../config/discoveryMode";
 import { ScreenRoute } from "../types/navigation";
 import { colors } from "../theme/colors";
@@ -124,6 +124,11 @@ export function WelcomeScreen({ accessGranted, onAccessGranted, onDismiss, onSel
   };
 
   const handleAccessSubmit = () => {
+    if (!isAccessCodeConfigured()) {
+      setAccessError("Access code unavailable.");
+      return;
+    }
+
     if (accessCodeInput.trim().toUpperCase() !== ACCESS_CODE) {
       setAccessError("Access code invalid.");
       return;
