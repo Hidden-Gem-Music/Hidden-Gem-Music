@@ -3,6 +3,160 @@
 
 ---
 
+## 2026-05-25 - Issue 55 Final Documentation Audit Completion
+
+**Tester:** mp3li / Codex-assisted documentation audit
+**Fix owner:** mp3li
+**Branch:** `55-final-documentation-audit`
+**Scope:** Final documentation audit after Issue 54 README/deployment guide landed
+
+### What was handled
+
+This branch completed Issue 55 by updating the final documentation audit after the README and deployment guide work from Issue 54 landed into `development`. The final audit now marks the repository documentation set complete for final review while preserving follow-up notes for Leena's preferred database wording, optional frontend ADR labeling, and the final production source move to `main`.
+
+### Documentation updated
+
+- Updated `Documentation/final-documentation-audit.md` from in progress to complete.
+- Confirmed major backend, deployment, database/data, frontend, provider, tooling, business/data, and repository documentation is discoverable.
+- Confirmed the completed root `README.md` now covers app overview, usage, architecture, deployment, documentation map, project tracking, screenshots/GIFs, credits, and challenges/solutions.
+- Confirmed `Documentation/deployment-guide.md` is linked and covers capstone deployment evidence, Cloudflare Pages, Cloudflare Tunnel, private SQL Server, final `main` cutover plan, smoke tests, troubleshooting, and safety notes.
+- Preserved the README `About the Database` section as explicit placeholder content pending Leena's preferred wording.
+
+### Not included
+
+- No frontend, backend, database, Cloudflare, or deployment runtime behavior changed.
+- No production source branch was changed in Cloudflare.
+- No optional frontend ADR wrapper was added.
+
+### Verification
+
+- Re-read the completed README and shared documentation map.
+- Confirmed Issue 54 no longer blocks Issue 55.
+- Ran documentation link and conflict-marker checks.
+- Ran `git diff --check`; passed.
+
+---
+
+## 2026-05-25 - Issue 55 Initial Documentation Audit
+
+**Tester:** mp3li / Codex-assisted documentation audit
+**Fix owner:** mp3li
+**Branch:** `55-final-documentation-audit`
+**Scope:** Initial final documentation audit only
+
+### What was handled
+
+This branch started Issue 55 by auditing the current documentation set without marking the issue complete. The audit records which major decisions and components are already documented and clearly identifies the root `README.md` as the remaining blocker for final completion through Issue 54.
+
+### Documentation added
+
+- Added `Documentation/final-documentation-audit.md`.
+- Documented current ADR/decision-record coverage.
+- Documented current component documentation coverage.
+- Documented the root README gaps that Issue 54 must address.
+- Added final Issue 55 completion criteria for the post-Issue-54 audit pass.
+- Updated `Documentation/README.md` so the audit tracker appears in the shared documentation map.
+
+### Not included
+
+- Issue 55 was not marked complete.
+- The root `README.md` was not rewritten.
+- The deployment guide was not completed.
+- No frontend, backend, database, Cloudflare, or deployment runtime behavior changed.
+
+### Verification
+
+- Confirmed the initial audit intentionally blocks final completion on Issue 54.
+
+---
+
+## 2026-05-25 - Issue 54 README and Deployment Guide
+
+**Tester:** mp3li / Codex-assisted documentation update
+**Fix owner:** mp3li
+**Branch:** `54-docs-readme-deployment-guide`
+**Scope:** Root README, deployment guide, API/documentation links, public app guide, and README media polish
+
+### What was handled
+
+This branch rewrote the root `README.md` as the main project entrypoint for Hidden Gem Music. The README now leads with centered brand presentation, the Welcome/about copy, app-specific badges, a slower header GIF, the public live app link, screenshot/GIF-based usage guide, implementation architecture, custom Discovery Map documentation, public-safe API/provider architecture documentation, deployment architecture, collapsed developer reference material, documentation map, project tracker, and credits.
+
+### Documentation added or updated
+
+- Replaced the placeholder root `README.md`.
+- Added `Documentation/GIFs/header-app-flow-slow.gif` for a slower README preview GIF.
+- Added five slower README guide GIFs for Discovery, Country Profile, Hidden Gems, Comparison, and Dashboard walkthrough sections.
+- Added `Documentation/Images/readme-title.svg` for centered gradient title treatment in GitHub README rendering.
+- Changed the README title/gem layout to a centered table so the gem sits beside the title instead of below it.
+- Switched the README title/gem treatment back to the real app gem asset beside the title instead of a drawn SVG gem.
+- Raised the inline gem treatment again so the real app gem sits closer to the title baseline in README preview.
+- Updated the README badges to describe the app more specifically: unique songs, countries, 30 second preview playback, frontend, backend, database, and deployment.
+- Updated Team Roles to use the exact role titles and summaries from the app Credits screen.
+- Changed Leena's README role title from Team Lead to Project Manager where requested.
+- Linked the active Capstone Progress Tracker project board at `https://github.com/users/lkomenski/projects/6`.
+- Added GitHub project tracking context, including current issue/PR counts, labels, milestones, and Leena's project-board ownership.
+- Changed the backend API table from copy-paste endpoint paths to public-safe internal route groups.
+- Removed production API endpoint examples from the public README while keeping deployment references abstract.
+- Split Data, API, and Provider Architecture into clearer dropdown sections for app database/internal API architecture, Deezer/Genius provider architecture, and language/genre getter tooling.
+- Added a custom Discovery Map section documenting the generated SVG map asset, shared renderer, map interactions, and no live map-provider dependency.
+- Added a language and genre tooling section for mp3li Additional Data Getter v2 and related Genius/Deezer workflows.
+- Expanded the language/genre tooling section to include presentation warming/readiness tooling.
+- Expanded the language/genre/presentation warming section to explain why warming is needed and how it prepares known demo paths.
+- Expanded the frontend/integration work section into its own open dropdown with more detailed frontend, integration, map, metadata, deployment, QA, and documentation ownership notes.
+- Moved frontend/integration documentation links under the frontend/integration section instead of leaving backend/provider links there.
+- Added visible spacing after every dropdown summary.
+- Expanded Project Tracking into an open dropdown with issue/PR counts, labels, and milestones.
+- Added an app usage guide covering Welcome, Discovery, Country Profile, Hidden Gems, Comparison, and Dashboard, with visible guide GIFs and expandable screenshot sets where multiple screenshots exist.
+- Added readable `Screenshots shown:` captions under each guide GIF explaining the screen states shown in order.
+- Added live app, source code, technical architecture, deployment, developer reference, verification, documentation index, project tracking, dataset/provider credits, and team credits sections.
+- Added `Documentation/deployment-guide.md` as standalone capstone deployment documentation.
+- Linked the deployment guide from the root README and shared documentation map.
+- Documented the deployment branch-source plan in the guide: validation from `deployment`, with final intended production source moving to `main` after team approval and once `main` contains the deployable project state.
+
+### Not included
+
+- No frontend, backend, database, Cloudflare, or deployment runtime behavior changed.
+- No generated frontend `dist` output was committed.
+- No local secret values or private machine-specific config were added.
+
+### Verification
+
+- Confirmed the README uses existing screenshot/GIF/logo paths.
+- Confirmed the slower GIF is approximately 42.5 seconds.
+- Ran `git diff --check`; passed.
+
+---
+
+## 2026-05-25 - Issue 53 Deployment ADR
+
+**Tester:** mp3li / Codex-assisted documentation update
+**Fix owner:** mp3li
+**Branch:** `144-deployment`
+**Scope:** Deployment decision ADR for platform choice, configuration, consequences, and lessons learned
+
+### What was handled
+
+This branch added the accepted deployment ADR for the final hybrid Cloudflare deployment. The ADR records the final deployment decision separately from the earlier platform selection plan so the repo has both the planning document and the final decision record. It also documents the branch-source plan clearly: deployment validation used the dedicated `deployment` branch, while the intended final frontend production source is `main` after team approval and once `main` contains the final deployable state.
+
+### Documentation added
+
+- Added `Documentation/ADR-DEPLOYMENT-001-Deployment-Decisions.md`.
+- Documented the selected frontend, API, database, validation branch, and intended final production branch deployment decisions.
+- Documented frontend build settings, production API base URL, backend public API origin, production CORS origin, database privacy decision, alternatives considered, consequences, lessons learned, and smoke-test expectations.
+- Updated `Documentation/README.md` so the accepted deployment ADR appears in the shared documentation map.
+
+### Not included
+
+- No frontend, backend, database, Cloudflare, or deployment runtime behavior changed.
+- No README/deployment guide rewrite was completed as part of this issue.
+- No final documentation audit was completed as part of this issue.
+
+### Verification
+
+- Confirmed the branch only changes shared documentation files.
+
+---
+
 ## 2026-05-24 — Deployment Prep Access Code Entry Gate
 
 **Tester:** mp3li / Codex-assisted deployment prep

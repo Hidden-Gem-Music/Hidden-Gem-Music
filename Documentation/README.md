@@ -4,7 +4,7 @@
 **Author:** mp3li
 **Contributors:** Leena Komenski
 **Date:** 2026-05-15
-**Last updated:** 2026-05-19
+**Last updated:** 2026-05-25
 **Status:** Active
 
 ---
@@ -26,12 +26,27 @@ Shared repository-level documentation lives in:
 Current scope here includes:
 
 - repository documentation map
+- deployment guide for capstone review and verification
+- accepted deployment decision record
 - deployment platform selection and setup plan
+- final documentation audit tracker
 - shared QA/regression log used by project contributors
 
-The deployment platform decision record is:
+The deployment guide is:
+
+- `Documentation/deployment-guide.md`
+
+The accepted deployment decision record is:
+
+- `Documentation/ADR-DEPLOYMENT-001-Deployment-Decisions.md`
+
+The deployment platform selection and setup plan is:
 
 - `Documentation/deployment-platform-selection-plan.md`
+
+The final documentation audit tracker is:
+
+- `Documentation/final-documentation-audit.md`
 
 The shared QA log is:
 
