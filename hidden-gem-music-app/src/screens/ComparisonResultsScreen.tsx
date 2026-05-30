@@ -1746,10 +1746,10 @@ function ComparisonCountryPane({
     const genreSummary = formatGenreSummary(sampleGenres);
     const languageSummary = languageSampleText || sectionLoadingText;
     if (!genreSummary) {
-      return `Some of ${country.name}'s loved genres include ${sectionLoadingText}. Some languages featured in ${country.name}'s loved songs include ${languageSummary}`;
+      return `Some of ${country.name}'s loved genres include ${sectionLoadingText}. Some languages featured in ${country.name}'s loved songs include ${languageSummary}.`;
     }
 
-    return `Some of ${country.name}'s loved genres include ${genreSummary}. Some languages featured in ${country.name}'s loved songs include ${languageSummary}`;
+    return `Some of ${country.name}'s loved genres include ${genreSummary}. Some languages featured in ${country.name}'s loved songs include ${languageSummary}.`;
   }, [country.name, languageSampleText, sampleGenres, sectionLoadingText]);
   const lovedGenresSectionText = useMemo(() => {
     if (sampleGenres.length > 0) {
@@ -1851,7 +1851,7 @@ function ComparisonCountryPane({
           <GenreSection title={`${country.name}'s Loved Genres`} bodyText={lovedGenresSectionText} />
           <LanguageSection
             title={`${country.name}'s Language(s) in Music`}
-            bodyText={languageSampleText ? `Languages in songs loved in ${country.name} include ${languageSampleText}` : "Loading..."}
+            bodyText={languageSampleText ? `Languages in songs loved in ${country.name} include ${languageSampleText}.` : "Loading..."}
           />
           <SectionLoadingVeil visible={areInsightSectionsLoading} />
         </View>

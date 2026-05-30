@@ -1,5 +1,25 @@
 # Frontend Architecture
 
+## Production Mobile-Web Mode Selection Update (May 25, 2026)
+
+Production smoke testing showed that the web build could be opened from a phone browser while still using several web-runtime interface paths. That created a mismatch with the mobile experience tested through Expo/native, especially around the Welcome/access flow and Discovery Map interaction.
+
+The current production-readiness fix adds a first-step Desktop/Mobile question before the access-code screen. This is intentionally temporary: it gives reviewers and testers a functional, visually usable mobile-browser path for the deployed capstone app, while preserving the desktop web experience for desktop users.
+
+Current behavior:
+
+- Desktop mode keeps the wide web presentation and hover-first map behavior.
+- Mobile mode routes phone-browser users through mobile experience decisions for Welcome/access presentation, app chrome, Discovery Map interaction, mobile controls, and selected mobile layout paths.
+- The production access code is supplied through the `EXPO_PUBLIC_ACCESS_CODE` deployment/local environment variable and should not be committed.
+
+Future direction:
+
+- Remove the manual Desktop/Mobile question.
+- Replace it with a more reliable automatic strategy that accounts for viewport size, pointer behavior, touch capability, and production browser behavior.
+- Resolve the remaining mobile-browser spacing bug between the Discovery Map section and the Pre-Selected Filters section.
+
+---
+
 This document covers the frontend scaffold deliverables for issue #5:
 
 - navigation structure

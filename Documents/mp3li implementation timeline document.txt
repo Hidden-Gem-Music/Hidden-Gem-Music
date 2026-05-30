@@ -114,7 +114,7 @@ Deployment Prep Access Code Entry Gate (May 24, 2026)
 
 - Access-code gate completed:
   - Added `hidden-gem-music-app/src/config/accessGate.ts`.
-  - Set the current deployment prep access code to `COMMENCEMENT`.
+  - Moved the deployment prep access code into local/deployment environment configuration so the code value is not committed.
   - Stored the accepted code value in local storage instead of storing a simple accepted/not-accepted flag.
   - Made code changes automatically invalidate older accepted codes, so users who entered a previous code are locked out again when the code changes.
   - Added the access layer inside the existing Welcome popup flow before the normal Welcome view appears.
@@ -3836,6 +3836,18 @@ Discovery Screen and Globe / List Behavior (April 20, 2026)
   - The list no longer auto-scrolls during normal list hovering
   - Auto-jump behavior is limited to globe-driven focus changes
   - A persistent custom scrollbar treatment was added for the list panel
+Production Smoke Test Mobile-Web Mode Selection (May 25, 2026)
+- During production smoke testing, the live web app opened in a phone browser but still followed several web-runtime UI paths instead of the mobile experience that had been tested through Expo/native.
+- Added an initial "Choose your Discovery Mode" step before the access-code flow so users can select Desktop or Mobile.
+- Mobile mode is a temporary production-readiness fix that makes the current deployed web app functional and visually usable on phone browsers for capstone testing/review.
+- Mobile mode now drives the shared mobile experience decisions for the Welcome/access flow, app chrome, Discovery Map interaction, mobile controls, and Hidden Gems layout checks.
+- Preserved the production access-code flow while moving the code value into local/deployment environment configuration.
+- Updated Country/Comparison language-summary punctuation and corrected the Hidden Gems helper definition.
+- Known follow-up: phone-browser mobile mode still has extra vertical space between the Discovery Map section and the Pre-Selected Filters section. This is documented as a future mobile polish bug rather than a blocker for the initial production smoke-test fix.
+- Future iteration: remove the manual Desktop/Mobile question and replace it with a more reliable automatic strategy for device, viewport, pointer, and touch capability detection.
+
+---
+
 - Globe interaction behavior was refined so hover cards, gem markers, connector styling, and hit areas better support the intended exploration flow.
 - The globe remains a styled placeholder illustration on web and native, not a real map rendering yet.
 

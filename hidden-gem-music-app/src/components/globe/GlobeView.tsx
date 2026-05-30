@@ -8,6 +8,7 @@ import {
   worldMapCountries,
   worldMapProjection,
 } from "../../assets/maps/worldMap50m";
+import { useMobileExperience } from "../../config/discoveryMode";
 import { colors } from "../../theme/colors";
 import { typefaces } from "../../theme/typography";
 import { Country } from "../../types/content";
@@ -174,8 +175,9 @@ export function GlobeView({
   isActive = true,
 }: Props) {
   const { width } = useWindowDimensions();
-  const isNativeMobile = Platform.OS !== "web";
-  const useMobilePanelLayout = isNativeMobile || width < 980;
+  const isWebRuntime = Platform.OS === "web";
+  const useMobileInteraction = useMobileExperience();
+  const useMobilePanelLayout = useMobileInteraction || width < 980;
   const [hoveredControl, setHoveredControl] = useState<MapControl | null>(null);
   const [pressedControl, setPressedControl] = useState<MapControl | null>(null);
   const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
@@ -259,7 +261,7 @@ export function GlobeView({
       return ["rgba(117,82,107,0.68)", "rgba(108,119,142,0.44)", "rgba(44,46,75,0.58)"] as const;
     }
 
-    if (Platform.OS === "web" && (control === "zoomIn" || control === "zoomOut")) {
+    if (!useMobileInteraction && (control === "zoomIn" || control === "zoomOut")) {
       if (pressedControl === control) {
         return ["rgba(78,51,74,0.9)", "rgba(69,80,106,0.72)", "rgba(27,28,47,0.86)"] as const;
       }
@@ -275,7 +277,7 @@ export function GlobeView({
     if (hoveredControl === control) {
       return ["rgba(117,82,107,0.68)", "rgba(108,119,142,0.44)", "rgba(44,46,75,0.58)"] as const;
     }
-    if (isNativeMobile) {
+    if (useMobileInteraction) {
       return ["rgba(117,82,107,0.24)", "rgba(108,119,142,0.12)", "rgba(44,46,75,0.28)"] as const;
     }
     return null;
@@ -309,7 +311,7 @@ export function GlobeView({
   }, [isActive]);
 
   useEffect(() => {
-    if (Platform.OS !== "web" || !externalHoveredCountryId) {
+    if (Platform.OS !== "web" || useMobileInteraction || !externalHoveredCountryId) {
       return;
     }
 
@@ -391,7 +393,7 @@ export function GlobeView({
       }),
     [sceneScale]
   );
-  const panHandlers = Platform.OS === "web" ? panResponder.panHandlers : {};
+  const panHandlers = isWebRuntime ? panResponder.panHandlers : {};
 
   const clearHoverLater = (countryId: string) => {
     if (hoverSelectTimeoutRef.current) {
@@ -465,7 +467,7 @@ export function GlobeView({
 
     setIsYearMenuOpen(false);
 
-    if (Platform.OS === "web") {
+    if (!useMobileInteraction) {
       triggerPrimaryAction(country.id);
       return;
     }
@@ -538,7 +540,7 @@ export function GlobeView({
   const viewBoxX = BASE_CENTER_X - viewBoxWidth / 2 - offset.x / zoom;
   const viewBoxY = BASE_CENTER_Y - viewBoxHeight / 2 - offset.y / zoom;
   const svgViewBox = `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`;
-  const baseStrokeWidth = isNativeMobile ? 0.42 : zoom <= 1.2 ? 0.28 : zoom <= 1.8 ? 0.34 : zoom <= 2.6 ? 0.42 : 0.5;
+  const baseStrokeWidth = useMobileInteraction ? 0.42 : zoom <= 1.2 ? 0.28 : zoom <= 1.8 ? 0.34 : zoom <= 2.6 ? 0.42 : 0.5;
   const canZoomOut = zoom > MIN_ZOOM + 0.01;
   const canZoomIn = zoom < MAX_ZOOM - 0.01;
   const hasAlbumData = cardCountry
@@ -578,7 +580,7 @@ export function GlobeView({
               useMobilePanelLayout ? { height: MAP_VIEWPORT_HEIGHT + mobileInfoPanelHeight } : null,
             ]}
             {...panHandlers}
-            {...(Platform.OS === "web"
+            {...(isWebRuntime && !useMobileInteraction
               ? ({
                   onMouseLeave: () => {
                     if (hoverTimeoutRef.current) {
@@ -729,7 +731,7 @@ export function GlobeView({
                   const glowColor = comparisonColor ?? (isHovered ? HOVER_COUNTRY_GLOW : ACTIVE_COUNTRY_GLOW);
                   const fill = comparisonColor
                     ? `${comparisonColor}DD`
-                    : isNativeMobile
+                    : useMobileInteraction
                       ? isHovered || isFocusedCountry
                         ? MOBILE_ACTIVE_COUNTRY_FILL
                         : hasMapData
@@ -749,7 +751,7 @@ export function GlobeView({
 
                   return (
                     <Fragment key={`country-shape-group-${shapeKey}`}>
-                      {showGlow && !isNativeMobile ? (
+                      {showGlow && !useMobileInteraction ? (
                         <>
                           <Path
                             key={`country-shape-glow-outer-${shapeKey}`}
@@ -784,9 +786,9 @@ export function GlobeView({
                         strokeLinejoin="round"
                         strokeLinecap="round"
                         vectorEffect="non-scaling-stroke"
-                        onPress={Platform.OS === "web" ? pressHandler : undefined}
+                        onPress={isWebRuntime ? pressHandler : undefined}
                         onPressIn={undefined}
-                        {...(Platform.OS === "web" && linkedCountry
+                        {...(isWebRuntime && !useMobileInteraction && linkedCountry
                           ? ({
                               onMouseEnter: () => handleCountryPreview(linkedCountry),
                               onMouseLeave: () => clearHoverLater(linkedCountry.id),
@@ -794,7 +796,7 @@ export function GlobeView({
                             } as any)
                           : null)}
                       />
-                      {isNativeMobile && canInteract && pressHandler ? (
+                      {useMobileInteraction && !isWebRuntime && canInteract && pressHandler ? (
                         <Path
                           key={`country-shape-hit-${shapeKey}`}
                           d={shape.path}
@@ -812,7 +814,7 @@ export function GlobeView({
                   );
                 })}
 
-                {isNativeMobile
+                {useMobileInteraction
                   ? null
                   : worldMapContinentOutlines.map((outline, outlineIndex) => (
                       <Path
@@ -830,7 +832,7 @@ export function GlobeView({
             </View>
 
             <View style={styles.mapControlStack}>
-              {isNativeMobile ? (
+              {useMobileInteraction ? (
                 <View style={styles.directionPad}>
                   <View style={styles.directionPadRow}>
                     <Pressable
@@ -916,26 +918,26 @@ export function GlobeView({
               ) : null}
               <View style={styles.zoomControls}>
                 <Pressable
-                  onPress={Platform.OS === "web" ? () => applyZoom(clamp(zoom + ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)) : undefined}
+                  onPress={!useMobileInteraction && isWebRuntime ? () => applyZoom(clamp(zoom + ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)) : undefined}
                   onHoverIn={() => setHoveredControl("zoomIn")}
                   onHoverOut={() => setHoveredControl((current) => (current === "zoomIn" ? null : current))}
                   onPressIn={() => {
-                    if (isNativeMobile) {
+                    if (useMobileInteraction) {
                       runMobileControlAction("zoomIn", () => applyZoom(clamp(zoomRef.current + ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)));
                     } else {
                       setPressedControl("zoomIn");
                     }
                   }}
                   onPressOut={() => {
-                    if (isNativeMobile) {
+                    if (useMobileInteraction) {
                       clearMobileControlPressLater("zoomIn");
                     } else {
                       setPressedControl((current) => (current === "zoomIn" ? null : current));
                     }
                   }}
                   style={[
-                    isNativeMobile ? styles.zoomButton : styles.zoomButtonShell,
-                    isNativeMobile ? styles.mobileControlButton : null,
+                    useMobileInteraction ? styles.zoomButton : styles.zoomButtonShell,
+                    useMobileInteraction ? styles.mobileControlButton : null,
                     !canZoomIn ? styles.zoomButtonDisabled : null,
                   ]}
                   disabled={!canZoomIn}
@@ -947,10 +949,10 @@ export function GlobeView({
                       locations={[0, 0.34, 1]}
                       start={{ x: 0, y: 0.5 }}
                       end={{ x: 1, y: 0.5 }}
-                      style={isNativeMobile ? styles.controlFill : styles.zoomButtonGradient}
+                      style={useMobileInteraction ? styles.controlFill : styles.zoomButtonGradient}
                     />
                   ) : null}
-                  {isNativeMobile ? null : (
+                  {useMobileInteraction ? null : (
                     <View style={[styles.zoomButtonInner, getControlGradient("zoomIn") ? styles.zoomButtonInnerActive : null]}>
                       <Text
                         style={[
@@ -963,7 +965,7 @@ export function GlobeView({
                       </Text>
                     </View>
                   )}
-                  {isNativeMobile ? (
+                  {useMobileInteraction ? (
                     <Text
                       style={[
                         styles.zoomButtonText,
@@ -976,26 +978,26 @@ export function GlobeView({
                   ) : null}
                 </Pressable>
                 <Pressable
-                  onPress={Platform.OS === "web" ? () => applyZoom(clamp(zoom - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)) : undefined}
+                  onPress={!useMobileInteraction && isWebRuntime ? () => applyZoom(clamp(zoom - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)) : undefined}
                   onHoverIn={() => setHoveredControl("zoomOut")}
                   onHoverOut={() => setHoveredControl((current) => (current === "zoomOut" ? null : current))}
                   onPressIn={() => {
-                    if (isNativeMobile) {
+                    if (useMobileInteraction) {
                       runMobileControlAction("zoomOut", () => applyZoom(clamp(zoomRef.current - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM)));
                     } else {
                       setPressedControl("zoomOut");
                     }
                   }}
                   onPressOut={() => {
-                    if (isNativeMobile) {
+                    if (useMobileInteraction) {
                       clearMobileControlPressLater("zoomOut");
                     } else {
                       setPressedControl((current) => (current === "zoomOut" ? null : current));
                     }
                   }}
                   style={[
-                    isNativeMobile ? styles.zoomButton : styles.zoomButtonShell,
-                    isNativeMobile ? styles.mobileControlButton : null,
+                    useMobileInteraction ? styles.zoomButton : styles.zoomButtonShell,
+                    useMobileInteraction ? styles.mobileControlButton : null,
                     !canZoomOut ? styles.zoomButtonDisabled : null,
                   ]}
                   disabled={!canZoomOut}
@@ -1007,10 +1009,10 @@ export function GlobeView({
                       locations={[0, 0.34, 1]}
                       start={{ x: 0, y: 0.5 }}
                       end={{ x: 1, y: 0.5 }}
-                      style={isNativeMobile ? styles.controlFill : styles.zoomButtonGradient}
+                      style={useMobileInteraction ? styles.controlFill : styles.zoomButtonGradient}
                     />
                   ) : null}
-                  {isNativeMobile ? null : (
+                  {useMobileInteraction ? null : (
                     <View style={[styles.zoomButtonInner, getControlGradient("zoomOut") ? styles.zoomButtonInnerActive : null]}>
                       <Text
                         style={[
@@ -1023,7 +1025,7 @@ export function GlobeView({
                       </Text>
                     </View>
                   )}
-                  {isNativeMobile ? (
+                  {useMobileInteraction ? (
                     <Text
                       style={[
                         styles.zoomButtonText,
@@ -1036,7 +1038,7 @@ export function GlobeView({
                   ) : null}
                 </Pressable>
               </View>
-              {isNativeMobile && yearOptions.length > 0 && onChangeYear ? (
+              {useMobileInteraction && yearOptions.length > 0 && onChangeYear ? (
                 <View style={styles.mobileYearControlWrap}>
                   <Pressable
                     onPress={() => setIsYearMenuOpen((current) => !current)}
@@ -1109,7 +1111,7 @@ export function GlobeView({
                   onHoverOut={() => setHoveredControl((current) => (current === "filters" ? null : current))}
                   onPressIn={() => setPressedControl("filters")}
                   onPressOut={() => setPressedControl((current) => (current === "filters" ? null : current))}
-                  style={[styles.mapActionButtonShell, isNativeMobile ? styles.mobileWideButtonShell : null]}
+                  style={[styles.mapActionButtonShell, useMobileInteraction ? styles.mobileWideButtonShell : null]}
                   {...webPressableProps}
                 >
                   {getControlGradient("filters") ? (
@@ -1121,11 +1123,11 @@ export function GlobeView({
                       style={styles.mapActionButtonGradient}
                     />
                   ) : null}
-                  <View style={[styles.mapActionButton, isNativeMobile ? styles.mobileSolidActionButton : null, getControlGradient("filters") ? styles.mapActionButtonActive : null]}>
+                  <View style={[styles.mapActionButton, useMobileInteraction ? styles.mobileSolidActionButton : null, getControlGradient("filters") ? styles.mapActionButtonActive : null]}>
                       <Text
                         style={[
                           styles.mapActionButtonText,
-                          isNativeMobile ? styles.mobileWideButtonText : null,
+                          useMobileInteraction ? styles.mobileWideButtonText : null,
                           getControlGradient("filters") ? styles.mapActionButtonTextActive : null,
                         ]}
                       >
@@ -1136,14 +1138,14 @@ export function GlobeView({
               ) : null}
             </View>
 
-            {(isNativeMobile || !isViewportAtDefault) ? (
+            {(useMobileInteraction || !isViewportAtDefault) ? (
               <Pressable
-                onPress={Platform.OS === "web" ? () => {
+                onPress={!useMobileInteraction && isWebRuntime ? () => {
                   setOffset(DEFAULT_OFFSET);
                   setZoom(DEFAULT_ZOOM);
                 } : undefined}
                 onPressIn={() => {
-                  if (isNativeMobile) {
+                  if (useMobileInteraction) {
                     runMobileControlAction("reset", () => {
                       setOffset(DEFAULT_OFFSET);
                       setZoom(DEFAULT_ZOOM);
@@ -1151,7 +1153,7 @@ export function GlobeView({
                   }
                 }}
                 onPressOut={() => {
-                  if (isNativeMobile) {
+                  if (useMobileInteraction) {
                     clearMobileControlPressLater("reset");
                   }
                 }}

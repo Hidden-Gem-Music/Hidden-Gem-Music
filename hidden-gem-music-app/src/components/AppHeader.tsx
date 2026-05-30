@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { Country } from "../types/content";
+import { useMobileExperience } from "../config/discoveryMode";
 import { GemIcon } from "./GemIcon";
 import { SearchOverlay } from "./SearchOverlay";
 import { ScreenRoute } from "../types/navigation";
@@ -136,9 +137,10 @@ export function AppHeader({
   onOpenCountry,
 }: Props) {
   const { width } = useWindowDimensions();
-  const isCompact = width < 980;
+  const isMobileExperience = useMobileExperience();
+  const isCompact = isMobileExperience || width < 980;
   const isTight = width < 680;
-  const brandVariant: BrandVariant = Platform.OS !== "web" ? "mobile" : width < 1280 ? "webSmall" : "webLarge";
+  const brandVariant: BrandVariant = isMobileExperience ? "mobile" : width < 1280 ? "webSmall" : "webLarge";
   const [hoveredRoute, setHoveredRoute] = useState<ScreenRoute | null>(null);
   const [hoveringSearch, setHoveringSearch] = useState(false);
   const [pressedBreadcrumbIndex, setPressedBreadcrumbIndex] = useState<number | null>(null);

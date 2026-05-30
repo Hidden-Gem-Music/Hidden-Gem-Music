@@ -34,6 +34,7 @@ Primary app shell file:
 - route bootstrapping
 - `NavigationContainer`
 - screen registration
+- desktop/mobile discovery-mode handling for the current web production build
 - selected year
 - selected country
 - comparison selection state
@@ -222,8 +223,16 @@ Current naming/order rule:
 Current Welcome presentation rule:
 
 - Wide web keeps the Welcome screen as a translucent modal over the Discovery Globe.
-- Native/mobile and compact widths use an in-screen Welcome presentation so the header, breadcrumb trail, and mobile bottom nav remain visible and usable.
+- The current production web build asks users to choose Desktop or Mobile before the access-code step.
+- Desktop mode keeps the wide web Welcome/access presentation.
+- Mobile mode intentionally routes the phone-browser web build through the mobile experience decisions so the app remains usable for capstone testing/review.
+- Native/mobile and compact-width behavior should continue to prioritize mobile-safe Welcome/access sizing and routing.
 - Welcome route buttons should reset directly to the chosen route instead of briefly returning through Discovery first.
+
+Current limitation:
+
+- The Desktop/Mobile question is a temporary production-readiness workaround. A future iteration should replace the manual question with a more reliable automatic strategy for device, viewport, pointer, and touch capability detection.
+- Phone-browser mobile mode still has a known spacing bug between the Discovery Map section and the Pre-Selected Filters section.
 
 ## Data layer ownership
 

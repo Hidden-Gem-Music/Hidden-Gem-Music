@@ -18,6 +18,7 @@ import { HiddenGemsScreen } from "./src/screens/HiddenGemsScreen";
 import { WelcomeScreen } from "./src/screens/WelcomeScreen";
 import { worldMapCountries } from "./src/assets/maps/worldMap50m";
 import { readAccessGranted } from "./src/config/accessGate";
+import { useMobileExperience } from "./src/config/discoveryMode";
 import { loadDiscoveryCountries } from "./src/data/discoveryApi";
 import { loadAvailableYears } from "./src/data/countryApi";
 import { isCountryWithAppData } from "./src/data/countryDisplay";
@@ -241,7 +242,8 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 
 export default function App() {
   const { width } = useWindowDimensions();
-  const shouldUseWelcomeModalPresentation = Platform.OS === "web" && width >= 980;
+  const isMobileExperience = useMobileExperience();
+  const shouldUseWelcomeModalPresentation = Platform.OS === "web" && !isMobileExperience && width >= 980;
   const [fontsLoaded] = useFonts({
     "NyghtSerif-MediumItalic": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-MediumItalic.ttf"),
     "NyghtSerif-Regular": require("./src/assets/fonts/nyght-serif-main/fonts/TTF/NyghtSerif-Regular.ttf"),
@@ -289,6 +291,7 @@ export default function App() {
   const [accessGranted, setAccessGranted] = useState(readAccessGranted);
   const [navigationReady, setNavigationReady] = useState(false);
   const [currentRoute, setCurrentRoute] = useState<ScreenRoute>(initialNavigationSeed.route);
+  const shouldShowAppChrome = !(isMobileExperience && currentRoute === "welcome");
   const [selectedYear, setSelectedYear] = useState(initialYear);
   const [selectedCountryId, setSelectedCountryId] = useState(initialSelectedCountryId);
   const [comparisonIds, setComparisonIds] = useState<string[]>(
@@ -542,7 +545,7 @@ export default function App() {
 
     switch (route) {
       case "discovery":
-        if (Platform.OS !== "web") {
+        if (isMobileExperience) {
           setIsWelcomeOpeningDiscovery(true);
         }
         navigationRef.dispatch(
@@ -1164,16 +1167,18 @@ export default function App() {
       >
         <View style={styles.appShell}>
           <StatusBar style="light" />
-          <AppHeader
-            currentRoute={currentRoute}
-            onNavigate={navigateToRoute}
-            breadcrumbs={breadcrumbs}
-            searchOpen={searchOpen}
-            onToggleSearch={() => setSearchOpen((open) => !open)}
-            onCloseSearch={() => setSearchOpen(false)}
-            countries={searchCountryPool}
-            onOpenCountry={openCountry}
-          />
+          {shouldShowAppChrome ? (
+            <AppHeader
+              currentRoute={currentRoute}
+              onNavigate={navigateToRoute}
+              breadcrumbs={breadcrumbs}
+              searchOpen={searchOpen}
+              onToggleSearch={() => setSearchOpen((open) => !open)}
+              onCloseSearch={() => setSearchOpen(false)}
+              countries={searchCountryPool}
+              onOpenCountry={openCountry}
+            />
+          ) : null}
           <View style={styles.screenArea}>
             <Stack.Navigator
               initialRouteName={initialStackRoute}
@@ -1331,7 +1336,7 @@ export default function App() {
 
               <Stack.Screen name="credits" component={CreditsScreen} options={{ title: "Credits" }} />
             </Stack.Navigator>
-            {Platform.OS !== "web" && isWelcomeOpeningDiscovery ? (
+            {isMobileExperience && isWelcomeOpeningDiscovery ? (
               <View style={styles.mobileScreenLoadingFallback} pointerEvents="none">
                 <Text style={styles.mobileScreenLoadingText}>Loading...</Text>
               </View>
@@ -1341,13 +1346,15 @@ export default function App() {
               message={loadingMessage ?? undefined}
             />
           </View>
-          <MobileBottomNav
-            currentRoute={currentRoute}
-            searchOpen={searchOpen}
-            onNavigate={navigateToRoute}
-            onToggleSearch={() => setSearchOpen((open) => !open)}
-            onCloseSearch={() => setSearchOpen(false)}
-          />
+          {shouldShowAppChrome ? (
+            <MobileBottomNav
+              currentRoute={currentRoute}
+              searchOpen={searchOpen}
+              onNavigate={navigateToRoute}
+              onToggleSearch={() => setSearchOpen((open) => !open)}
+              onCloseSearch={() => setSearchOpen(false)}
+            />
+          ) : null}
         </View>
       </NavigationContainer>
     </AppErrorBoundary>
