@@ -683,6 +683,15 @@ Shared documentation:
 
 - [Repository documentation map](Documentation/README.md)
 - [QA log](Documentation/QA-log.md)
+- [Capstone planning and review documents](Documents/README.md)
+
+Capstone planning and grading-support documents:
+
+- [Capstone project outline](Documents/capstone-project-outline.md)
+- [mp3li Software Development track requirements evidence](Documents/mp3li-grading-software-development-track-requirements.md)
+- [mp3li UI plan](Documents/mp3li-capstone-project-ui-plan.md)
+- [mp3li UI research notes](Documents/mp3li-ui-research-notes.md)
+- [mp3li web UI mockups](Documents/mp3li-web-ui-mockups.md)
 
 Frontend documentation:
 
