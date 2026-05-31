@@ -548,7 +548,7 @@ Hidden Gem Music uses a hybrid Cloudflare deployment:
 - Cloudflare Tunnel routes frontend API traffic to the iMac-hosted .NET API without exposing SQL Server.
 - SQL Server stays private on the iMac/local Docker setup.
 
-The final intended production source branch is `main` after team approval and after `main` contains the final deployable project state. Initial deployment validation used the dedicated `deployment` branch so the deployment path could be tested before the final cutover.
+The production frontend source branch is now `main`. Initial deployment validation used the dedicated `deployment` branch so the deployment path could be tested before the final cutover.
 
 Deployment docs:
 
@@ -569,6 +569,7 @@ Build command: npm run export:web
 Build output directory: dist
 Production environment variable:
   EXPO_PUBLIC_API_BASE_URL=<production API base URL>
+  EXPO_PUBLIC_ACCESS_CODE=<provided access code>
 Custom domain:
   hiddengemmusicapp.mp3li.online
 ```
@@ -664,6 +665,7 @@ git diff --check
 | Name/file | Used by | Purpose |
 | --- | --- | --- |
 | `EXPO_PUBLIC_API_BASE_URL` | Frontend | Overrides the API base URL. Keep production/runtime values in deployment settings, not in committed docs. |
+| `EXPO_PUBLIC_ACCESS_CODE` | Frontend | Access-code value for the temporary limited-access gate. Keep the real value in local/deployment settings, not in committed docs. |
 | `backend/Capstone.API/appsettings.Local.json` | Backend | Local SQL Server configuration. Copy from `appsettings.Local.example.json`. |
 | `ConnectionStrings:DefaultConnection` | Backend | SQL Server connection string. Keep real credentials local. |
 | `GENIUS_ACCESS_TOKEN` | Provider/tooling workflows | Genius API token. Keep local. |

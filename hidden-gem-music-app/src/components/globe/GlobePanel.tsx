@@ -1,5 +1,6 @@
 import { ActivityIndicator, Platform, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { Country } from "../../types/content";
+import { useMobileExperience } from "../../config/discoveryMode";
 import { colors } from "../../theme/colors";
 import { typefaces } from "../../theme/typography";
 import { Panel } from "../Panel";
@@ -48,6 +49,8 @@ export function GlobePanel({
   onEnsureLanguageSample,
   isActive,
 }: Props) {
+  const useMobileFrame = useMobileExperience();
+
   return (
     <View style={styles.wrapper}>
       {showHeader ? (
@@ -57,9 +60,9 @@ export function GlobePanel({
         </View>
       ) : null}
 
-      <Panel style={[styles.frame, frameStyle]}>
+      <Panel style={[styles.frame, useMobileFrame ? styles.frameMobile : null, frameStyle]}>
         {isLoading ? (
-          <View style={styles.loadingState}>
+          <View style={[styles.loadingState, useMobileFrame ? styles.loadingStateMobile : null]}>
             <ActivityIndicator size="large" color={colors.accent} />
           </View>
         ) : (
@@ -120,10 +123,16 @@ const styles = StyleSheet.create({
     padding: 0,
     backgroundColor: colors.background,
   },
+  frameMobile: {
+    minHeight: 0,
+  },
   loadingState: {
     flex: 1,
     minHeight: Platform.OS === "web" ? 520 : 360,
     alignItems: "center",
     justifyContent: "center",
+  },
+  loadingStateMobile: {
+    minHeight: 360,
   },
 });

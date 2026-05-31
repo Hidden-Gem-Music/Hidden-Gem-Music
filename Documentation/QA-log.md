@@ -3,6 +3,46 @@
 
 ---
 
+## 2026-05-25 - Production Smoke Test Mobile-Web Mode Selection
+
+**Tester:** mp3li / Codex-assisted production smoke testing
+**Fix owner:** mp3li
+**Branch:** `55-production-smoke-test`
+**Scope:** Temporary desktop/mobile experience selection for production mobile-browser usability
+
+### What was handled
+
+Production smoke testing found that opening the deployed web app in a phone browser still used several web-runtime paths, even though the intended experience on that device should match the app's mobile behavior. The most visible problems were oversized Welcome/access presentation, web-style Discovery Map behavior, and mobile-browser screens not consistently using the mobile navigation/layout decisions already built for Expo/native testing.
+
+This branch adds an initial **Choose your Discovery Mode** prompt before the access-code step. The prompt asks whether the user is on desktop or mobile and stores that choice locally. Selecting Mobile routes the web build through the mobile experience decisions needed for the current production release.
+
+### Implementation notes
+
+- Added a shared discovery-mode config/hook at `hidden-gem-music-app/src/config/discoveryMode.ts`.
+- Preserved the production access-code flow while moving the code value into local/deployment environment configuration.
+- Updated the app shell so mobile mode uses the mobile Welcome/access presentation instead of the wide web modal.
+- Hid app chrome on the mobile-mode Welcome route so the first access flow has the full phone-browser viewport.
+- Updated the header and bottom navigation so mobile mode uses the mobile brand/nav structure even in a browser.
+- Updated Discovery Map behavior so mobile mode uses tap-first preview behavior, mobile controls, and mobile map styling instead of hover-first web behavior.
+- Updated Hidden Gems layout checks so mobile mode can use the mobile layout path in phone browsers.
+- Updated Country and Comparison language-summary copy punctuation.
+- Updated Hidden Gems helper copy to describe hidden gems as songs loved in many other countries that have not yet spread to the selected country/year.
+
+### Temporary nature
+
+This is a production-readiness workaround, not the intended final discovery-mode UX. It keeps the deployed app functional and visually usable on mobile browsers for capstone testing and review. A future iteration should remove the manual question and replace it with a more automatic, reliable device/input/layout strategy that can choose the correct experience without asking the user.
+
+### Known follow-up
+
+- Mobile browser Discovery still has extra vertical space between the map section and the Pre-Selected Filters section. This is being left as a future mobile polish bug instead of blocking the initial smoke-test fix.
+
+### Verification
+
+- Tested the mobile-browser flow locally through the Expo web LAN URL.
+- Ran `npm run typecheck`; passed.
+
+---
+
 ## 2026-05-25 - Issue 55 Final Documentation Audit Completion
 
 **Tester:** mp3li / Codex-assisted documentation audit
@@ -12,20 +52,20 @@
 
 ### What was handled
 
-This branch completed Issue 55 by updating the final documentation audit after the README and deployment guide work from Issue 54 landed into `development`. The final audit now marks the repository documentation set complete for final review while preserving follow-up notes for Leena's preferred database wording, optional frontend ADR labeling, and the final production source move to `main`.
+This branch completed Issue 55 by updating the final documentation audit after the README and deployment guide work from Issue 54 landed into `development`. The final audit now marks the repository documentation set complete for final review while preserving follow-up notes for Leena's preferred database wording and optional frontend ADR labeling. The final production source move to `main` has since been completed.
 
 ### Documentation updated
 
 - Updated `Documentation/final-documentation-audit.md` from in progress to complete.
 - Confirmed major backend, deployment, database/data, frontend, provider, tooling, business/data, and repository documentation is discoverable.
 - Confirmed the completed root `README.md` now covers app overview, usage, architecture, deployment, documentation map, project tracking, screenshots/GIFs, credits, and challenges/solutions.
-- Confirmed `Documentation/deployment-guide.md` is linked and covers capstone deployment evidence, Cloudflare Pages, Cloudflare Tunnel, private SQL Server, final `main` cutover plan, smoke tests, troubleshooting, and safety notes.
+- Confirmed `Documentation/deployment-guide.md` is linked and covers capstone deployment evidence, Cloudflare Pages, Cloudflare Tunnel, private SQL Server, final `main` cutover state, smoke tests, troubleshooting, and safety notes.
 - Preserved the README `About the Database` section as explicit placeholder content pending Leena's preferred wording.
 
 ### Not included
 
 - No frontend, backend, database, Cloudflare, or deployment runtime behavior changed.
-- No production source branch was changed in Cloudflare.
+- At the time of this documentation audit, no production source branch was changed in Cloudflare. The production source branch has since been moved to `main`.
 - No optional frontend ADR wrapper was added.
 
 ### Verification
@@ -111,7 +151,7 @@ This branch rewrote the root `README.md` as the main project entrypoint for Hidd
 - Added live app, source code, technical architecture, deployment, developer reference, verification, documentation index, project tracking, dataset/provider credits, and team credits sections.
 - Added `Documentation/deployment-guide.md` as standalone capstone deployment documentation.
 - Linked the deployment guide from the root README and shared documentation map.
-- Documented the deployment branch-source plan in the guide: validation from `deployment`, with final intended production source moving to `main` after team approval and once `main` contains the deployable project state.
+- Documented the deployment branch-source plan in the guide: validation from `deployment`, with final production source moving to `main` after team approval and once `main` contains the deployable project state. That final source move has since been completed.
 
 ### Not included
 
@@ -136,12 +176,12 @@ This branch rewrote the root `README.md` as the main project entrypoint for Hidd
 
 ### What was handled
 
-This branch added the accepted deployment ADR for the final hybrid Cloudflare deployment. The ADR records the final deployment decision separately from the earlier platform selection plan so the repo has both the planning document and the final decision record. It also documents the branch-source plan clearly: deployment validation used the dedicated `deployment` branch, while the intended final frontend production source is `main` after team approval and once `main` contains the final deployable state.
+This branch added the accepted deployment ADR for the final hybrid Cloudflare deployment. The ADR records the final deployment decision separately from the earlier platform selection plan so the repo has both the planning document and the final decision record. It also documents the branch-source flow clearly: deployment validation used the dedicated `deployment` branch, while the final frontend production source is `main` after team approval and once `main` contains the final deployable state.
 
 ### Documentation added
 
 - Added `Documentation/ADR-DEPLOYMENT-001-Deployment-Decisions.md`.
-- Documented the selected frontend, API, database, validation branch, and intended final production branch deployment decisions.
+- Documented the selected frontend, API, database, validation branch, and final production branch deployment decisions.
 - Documented frontend build settings, production API base URL, backend public API origin, production CORS origin, database privacy decision, alternatives considered, consequences, lessons learned, and smoke-test expectations.
 - Updated `Documentation/README.md` so the accepted deployment ADR appears in the shared documentation map.
 
@@ -171,7 +211,7 @@ This branch added a limited early-access code layer to the existing Welcome popu
 ### Access code behavior
 
 - Added a frontend access-code config module at `hidden-gem-music-app/src/config/accessGate.ts`.
-- Set the current deployment prep code to `COMMENCEMENT`.
+- Configured the current deployment prep code through local/deployment environment settings instead of committing the code value.
 - Stored the accepted code value in local storage instead of a generic boolean so changing the code automatically locks out users who entered an older code.
 - Kept invalid attempts inside the popup with reserved error space so the input/button layout does not jump when the error appears.
 - Updated the invalid-code message to `Access code invalid.`

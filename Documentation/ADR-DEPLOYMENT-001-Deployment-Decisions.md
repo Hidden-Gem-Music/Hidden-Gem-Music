@@ -27,7 +27,7 @@ The project uses a hybrid Cloudflare deployment:
 - **Frontend:** Cloudflare Pages hosts the Expo web build at `https://hiddengemmusicapp.mp3li.online`.
 - **Backend API:** The .NET 9 API runs on the iMac and is exposed through Cloudflare Tunnel at `https://api-hiddengemmusicapp.mp3li.online`.
 - **Database:** SQL Server remains private on the iMac/local Docker setup and is only reached by the backend API.
-- **Repository branch:** The final intended production source branch is `main`. Initial deployment validation was completed from the dedicated `deployment` branch so the deployment path could be tested before the final team-approved `main` deployment cutover.
+- **Repository branch:** The production source branch is now `main`. Initial deployment validation was completed from the dedicated `deployment` branch so the deployment path could be tested before the final team-approved `main` deployment cutover.
 
 This ADR records the final deployment decision. The earlier deployment platform selection plan remains the detailed planning and setup record.
 
@@ -38,7 +38,7 @@ This ADR records the final deployment decision. The earlier deployment platform 
 The deployment branch strategy has two phases:
 
 - **Validation phase:** use the dedicated `deployment` branch to confirm Cloudflare Pages, custom domain routing, API configuration, Cloudflare Tunnel routing, and production smoke tests before the deadline.
-- **Final production phase:** move the frontend deployment source to `main` after team approval and after `main` contains the final deployable project state.
+- **Final production phase:** move the frontend deployment source to `main` after team approval and after `main` contains the final deployable project state. This phase is now complete.
 
 This branch flow was chosen to reduce deadline risk while respecting the team preference that the final production deployment should come from `main`.
 

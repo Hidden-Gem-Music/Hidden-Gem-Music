@@ -29,7 +29,7 @@ The remaining notes in this file are follow-up review notes, not blockers for Is
 
 - The README `About the Database` section is intentionally marked as placeholder content until Leena provides preferred wording.
 - Frontend decisions are documented in the frontend documentation set rather than in a file named as a frontend ADR.
-- Production frontend branch source is documented as moving to `main` after team approval and once `main` contains the final deployable project state.
+- Production frontend branch source is documented as moved to `main` after team approval and once `main` contained the final deployable project state.
 
 ## ADR and Decision Record Coverage
 
@@ -37,7 +37,7 @@ The remaining notes in this file are follow-up review notes, not blockers for Is
 | --- | --- | --- | --- |
 | Backend API architecture | `backend/Capstone.API/Documentation/ADR-BACKEND-001-API-Architecture.md` | Covered | Documents .NET 9, SQL Server, Dapper/repository pattern, DTO layer, CORS, data-gap handling, and request-time query constraints. |
 | Backend routes/controllers/DTOs | `backend/Capstone.API/Documentation/ADR-BACKEND-002-Routes-Controllers-DTOs.md` | Covered | Historical ADR for the implemented backend surface at time of writing. Current live surface is supplemented by `backend/Capstone.API/Documentation/apis/current-backend-api-surface.md`. |
-| Deployment platform and runtime decisions | `Documentation/ADR-DEPLOYMENT-001-Deployment-Decisions.md`, `Documentation/deployment-platform-selection-plan.md`, `Documentation/deployment-guide.md` | Covered | Documents Cloudflare Pages, Cloudflare Tunnel, private SQL Server, deployment validation branch, intended final `main` source branch, configuration, alternatives, consequences, cutover checklist, and smoke-test expectations. |
+| Deployment platform and runtime decisions | `Documentation/ADR-DEPLOYMENT-001-Deployment-Decisions.md`, `Documentation/deployment-platform-selection-plan.md`, `Documentation/deployment-guide.md` | Covered | Documents Cloudflare Pages, Cloudflare Tunnel, private SQL Server, deployment validation branch, current `main` production source branch, configuration, alternatives, consequences, cutover checklist, and smoke-test expectations. |
 | Database/data architecture and findings | `backend/Capstone.API/database/`, `backend/Capstone.API/database/Documentation/`, `backend/Capstone.API/database/Documentation/Data Findings and Updates/`, and `business-report/BDA Reference/` | Covered | Database docs include stored procedure references, build notes, data findings, BDA records, dashboard methodology, and data quality investigation records. |
 | Frontend architecture decisions | `hidden-gem-music-app/Documentation/` | Covered through frontend docs | Frontend architecture, routing/state, screen data flow, interaction rules, local environment, and styling rules are documented in the frontend documentation set. |
 | External provider/additional-data decisions | `backend/Capstone.API/Documentation/apis/` and `tools/` docs | Covered | Deezer, Genius, additional-data research, integration endpoints, and tool workflows are documented. |
@@ -109,7 +109,7 @@ Confirmed deployment coverage:
 - Cloudflare Pages frontend configuration
 - Cloudflare Tunnel/API routing explanation
 - private SQL Server position
-- production frontend source branch plan
+- production frontend source branch state
 - final cutover checklist for moving production source to `main`
 - smoke-test checklist
 - troubleshooting notes
@@ -137,4 +137,4 @@ These items may still be reviewed by the team, but they do not block Issue 55 co
 
 - Leena should replace or approve the README `About the Database` placeholder content.
 - If the rubric strictly requires every major decision to be in an ADR-named file, the team can add a small frontend ADR wrapper that points to the existing frontend documentation set.
-- After team approval and final `main` readiness, Cloudflare Pages production source should be moved from the deployment validation branch to `main` as documented in the deployment guide.
+- After team approval and final `main` readiness, Cloudflare Pages production source was moved from the deployment validation branch to `main` as documented in the deployment guide.
