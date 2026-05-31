@@ -19,6 +19,7 @@ node_modules/
 
 # Local personal drafting files
 my txts/
+Documents/mp3li implementation timeline document.txt
 
 # Python cache
 __pycache__/
