@@ -41,7 +41,7 @@ All SQL scripts target the `HiddenGemMusic` database. Run order matters; see scr
 | `dataset2_top_songs_73_countries.csv` | Raw DS2 — Kaggle Top Spotify Songs in 73 Countries (2023–2025) — **stored externally, see Google Drive link below** |
 | `CountryDataset.csv` | Supplemental country reference data (ISO codes and regions) used to populate the Country dimension |
 
-> **Note:** The two raw Kaggle dataset CSVs and the DS1 Power BI workbook exceed GitHub's file size limit and are not tracked in this repository. They are available in the shared Google Drive folder: *(link to be added)*
+> **Note:** The two raw Kaggle dataset CSVs and both Power BI workbooks exceed GitHub's file size limit and are not tracked in this repository. They are stored externally.
 
 #### Power BI EDA workbooks
 
