@@ -517,6 +517,12 @@ $RECYCLE.BIN/
 # Local Setup Files
 appsettings.Local.json
 
+# Large BDA source files — stored externally (Google Drive), too large for GitHub
+"business-report/BDA Reference/Data Ingestion + Scripts/dataset1_top200_viral50.csv"
+"business-report/BDA Reference/Data Ingestion + Scripts/dataset2_top_songs_73_countries.csv"
+"business-report/BDA Reference/Data Ingestion + Scripts/dataset1_top200_viral50_EDA.pbix"
+"business-report/BDA Reference/Data Ingestion + Scripts/dataset2_top_songs_73_countries.pbix"
+
 # Generated enrichment output
 tools/song_data_enrichment/output/
 
