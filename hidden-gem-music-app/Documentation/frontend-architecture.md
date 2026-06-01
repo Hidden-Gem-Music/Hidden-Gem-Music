@@ -226,6 +226,7 @@ Current Welcome presentation rule:
 - The current production web build asks users to choose Desktop or Mobile before the access-code step.
 - Desktop mode keeps the wide web Welcome/access presentation.
 - Mobile mode intentionally routes the phone-browser web build through the mobile experience decisions so the app remains usable for capstone testing/review.
+- The access-code value is supplied through the `EXPO_PUBLIC_ACCESS_CODE` deployment/local environment variable and should not be committed.
 - Native/mobile and compact-width behavior should continue to prioritize mobile-safe Welcome/access sizing and routing.
 - Welcome route buttons should reset directly to the chosen route instead of briefly returning through Discovery first.
 
