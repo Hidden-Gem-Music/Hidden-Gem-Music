@@ -4,7 +4,7 @@
 **Author:** mp3li
 **Contributors:** Leena Komenski
 **Date:** 2026-05-15
-**Last updated:** 2026-05-25
+**Last updated:** 2026-05-31
 **Status:** Active
 
 ---
@@ -58,6 +58,23 @@ Shared visual documentation assets live in:
 
 - `Documentation/Screenshots/` for app screenshots
 - `Documentation/GIFs/` for app flow GIFs
+
+### Capstone planning and review documents
+
+Capstone planning, proposal, mockup, and grading-support documents live in:
+
+- `Documents/`
+- `Documents/README.md`
+
+Current scope there includes:
+
+- project outline and track deliverables
+- mp3li Software Development track requirements evidence
+- mp3li UI planning and research notes
+- original web UI mockup index
+- historical proposal/reference PDFs
+
+Current implementation architecture docs should still live near the code they describe.
 
 ### Frontend documentation
 
@@ -154,4 +171,5 @@ When adding documentation:
 - put tool usage docs in the relevant tool folder
 - put business deliverables in `business-report/`
 - put data findings, dashboard methodology, and BDA decision records in `backend/Capstone.API/database/Documentation/Data Findings and Updates/`
+- put capstone planning, proposal, mockup, and grading-support documents in `Documents/`
 - use this shared folder only for cross-stack or repository-wide orientation

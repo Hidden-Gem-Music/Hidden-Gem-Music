@@ -52,20 +52,20 @@ This is a production-readiness workaround, not the intended final discovery-mode
 
 ### What was handled
 
-This branch completed Issue 55 by updating the final documentation audit after the README and deployment guide work from Issue 54 landed into `development`. The final audit now marks the repository documentation set complete for final review while preserving follow-up notes for Leena's preferred database wording, optional frontend ADR labeling, and the final production source move to `main`.
+This branch completed Issue 55 by updating the final documentation audit after the README and deployment guide work from Issue 54 landed into `development`. The final audit now marks the repository documentation set complete for final review while preserving follow-up notes for Leena's preferred database wording and optional frontend ADR labeling. The final production source move to `main` has since been completed.
 
 ### Documentation updated
 
 - Updated `Documentation/final-documentation-audit.md` from in progress to complete.
 - Confirmed major backend, deployment, database/data, frontend, provider, tooling, business/data, and repository documentation is discoverable.
 - Confirmed the completed root `README.md` now covers app overview, usage, architecture, deployment, documentation map, project tracking, screenshots/GIFs, credits, and challenges/solutions.
-- Confirmed `Documentation/deployment-guide.md` is linked and covers capstone deployment evidence, Cloudflare Pages, Cloudflare Tunnel, private SQL Server, final `main` cutover plan, smoke tests, troubleshooting, and safety notes.
+- Confirmed `Documentation/deployment-guide.md` is linked and covers capstone deployment evidence, Cloudflare Pages, Cloudflare Tunnel, private SQL Server, final `main` cutover state, smoke tests, troubleshooting, and safety notes.
 - Preserved the README `About the Database` section as explicit placeholder content pending Leena's preferred wording.
 
 ### Not included
 
 - No frontend, backend, database, Cloudflare, or deployment runtime behavior changed.
-- No production source branch was changed in Cloudflare.
+- At the time of this documentation audit, no production source branch was changed in Cloudflare. The production source branch has since been moved to `main`.
 - No optional frontend ADR wrapper was added.
 
 ### Verification
@@ -151,7 +151,7 @@ This branch rewrote the root `README.md` as the main project entrypoint for Hidd
 - Added live app, source code, technical architecture, deployment, developer reference, verification, documentation index, project tracking, dataset/provider credits, and team credits sections.
 - Added `Documentation/deployment-guide.md` as standalone capstone deployment documentation.
 - Linked the deployment guide from the root README and shared documentation map.
-- Documented the deployment branch-source plan in the guide: validation from `deployment`, with final intended production source moving to `main` after team approval and once `main` contains the deployable project state.
+- Documented the deployment branch-source plan in the guide: validation from `deployment`, with final production source moving to `main` after team approval and once `main` contains the deployable project state. That final source move has since been completed.
 
 ### Not included
 
@@ -176,12 +176,12 @@ This branch rewrote the root `README.md` as the main project entrypoint for Hidd
 
 ### What was handled
 
-This branch added the accepted deployment ADR for the final hybrid Cloudflare deployment. The ADR records the final deployment decision separately from the earlier platform selection plan so the repo has both the planning document and the final decision record. It also documents the branch-source plan clearly: deployment validation used the dedicated `deployment` branch, while the intended final frontend production source is `main` after team approval and once `main` contains the final deployable state.
+This branch added the accepted deployment ADR for the final hybrid Cloudflare deployment. The ADR records the final deployment decision separately from the earlier platform selection plan so the repo has both the planning document and the final decision record. It also documents the branch-source flow clearly: deployment validation used the dedicated `deployment` branch, while the final frontend production source is `main` after team approval and once `main` contains the final deployable state.
 
 ### Documentation added
 
 - Added `Documentation/ADR-DEPLOYMENT-001-Deployment-Decisions.md`.
-- Documented the selected frontend, API, database, validation branch, and intended final production branch deployment decisions.
+- Documented the selected frontend, API, database, validation branch, and final production branch deployment decisions.
 - Documented frontend build settings, production API base URL, backend public API origin, production CORS origin, database privacy decision, alternatives considered, consequences, lessons learned, and smoke-test expectations.
 - Updated `Documentation/README.md` so the accepted deployment ADR appears in the shared documentation map.
 
