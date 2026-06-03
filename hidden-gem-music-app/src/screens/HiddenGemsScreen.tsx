@@ -128,8 +128,9 @@ function safePausePreview(player: { pause: () => void }) {
   }
 }
 
-function safeReplacePreview(player: { replace: (source: string) => void }, source: string) {
+function safeReplacePreview(player: { pause: () => void; replace: (source: string) => void }, source: string) {
   try {
+    player.pause();
     player.replace((Platform.OS === "web" ? source : ({ uri: source } as any)) as any);
   } catch {
     // Fail soft if the player rejects the new source during a fast screen transition.
@@ -1522,7 +1523,13 @@ export function HiddenGemsScreen({
   const hasNextSong = selectedSongIndex >= 0 && (selectedSongIndex < hiddenGemSongs.length - 1 || hasNextPage);
 
   const setSongSelection = (songId: string) => {
+    const shouldKeepPlaying = shouldPreviewPlay && previewSongId === selectedSong.id;
+    if (previewSongId !== songId) {
+      safePausePreview(previewPlayer);
+    }
     setActiveSongId(songId);
+    setPreviewSongId(songId);
+    setShouldPreviewPlay(shouldKeepPlaying);
   };
 
   const beginPageTransition = (nextPage: number, pendingStep?: { direction: -1 | 1; keepPlaying: boolean }) => {
@@ -1534,6 +1541,9 @@ export function HiddenGemsScreen({
   };
 
   const selectSongAndAutoPlay = (songId: string) => {
+    if (previewSongId !== songId) {
+      safePausePreview(previewPlayer);
+    }
     setSongSelection(songId);
     setPreviewSongId(songId);
     setShouldPreviewPlay(true);
@@ -1557,6 +1567,9 @@ export function HiddenGemsScreen({
     if (!nextSong) {
       return;
     }
+    if (previewSongId !== nextSong.id) {
+      safePausePreview(previewPlayer);
+    }
     setSongSelection(nextSong.id);
     setPreviewSongId(nextSong.id);
     setShouldPreviewPlay(shouldKeepPlaying);
@@ -1564,6 +1577,7 @@ export function HiddenGemsScreen({
 
   const toggleSelectedSongPreview = () => {
     if (previewSongId !== selectedSong.id) {
+      safePausePreview(previewPlayer);
       setPreviewSongId(selectedSong.id);
       setShouldPreviewPlay(true);
       return;
